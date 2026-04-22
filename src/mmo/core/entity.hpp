@@ -10,6 +10,7 @@
 #include <vector>
 
 #include "id.hpp"
+#include "action.hpp"
 #include "stat.hpp"
 #include "status.hpp"
 #include "time.hpp"
@@ -39,6 +40,58 @@ namespace mmo
                 std::string_view display_name{};
                 stat::Primary base_primary{};
             };
+
+            struct Identity
+            {
+                id::EntityId entity_id{ id::invalid_entity_id };
+                id::EntityTemplateId template_id{ id::invalid_entity_template_id };
+                id::SpeciesId species_id{ id::invalid_species_id };
+                Type type{ Type::unknown };
+            };
+
+            struct Placement
+            {
+                id::ZoneId zone_id{ id::invalid_zone_id };
+            };
+
+            struct Stats
+            {
+                stat::Primary base_primary{};
+                stat::Primary current_primary{};
+                stat::Derived current_derived{};
+            };
+
+            struct Resources
+            {
+                std::int32_t health_current{ 0 };
+                std::int32_t mana_current{ 0 };
+            };
+
+            struct Combat
+            {
+                status::Table status_effects{};
+                action::State action_state{};
+                std::optional<time::TimePoint> action_ready_at{};
+            };
+
+            struct Lifecycle
+            {
+                time::TimePoint spawned_at{};
+                std::optional<time::TimePoint> last_damage_at{};
+                bool alive{ true };
+            };
+
+            struct Contract
+            {
+                Identity identity{};
+                Placement placement{};
+                Stats stats{};
+                Resources resources{};
+                Combat combat{};
+                Lifecycle lifecycle{};
+            };
+
+            using Record = Contract;
 
             class Catalog
             {
@@ -151,55 +204,37 @@ namespace mmo
                 }
             };
 
-            struct Record
-            {
-                id::EntityId entity_id{ id::invalid_entity_id };
-                id::EntityTemplateId template_id{ id::invalid_entity_template_id };
-                id::SpeciesId species_id{ id::invalid_species_id };
-                id::ZoneId zone_id{ id::invalid_zone_id };
-                Type type{ Type::unknown };
-                stat::Primary base_primary{};
-                stat::Primary current_primary{};
-                stat::Derived current_derived{};
-                std::int32_t health_current{ 0 };
-                std::int32_t mana_current{ 0 };
-                status::Table status_effects{};
-                time::TimePoint spawned_at{};
-                std::optional<time::TimePoint> last_damage_at{};
-                bool alive{ true };
-            };
-
             class Table
             {
             public:
                 auto spawn(id::EntityId entity_id, const Blueprint& blueprint, id::ZoneId zone_id, time::TimePoint now) -> bool
                 {
                     Record record{};
-                    record.entity_id = entity_id;
-                    record.template_id = blueprint.template_id;
-                    record.species_id = blueprint.species_id;
-                    record.zone_id = zone_id;
-                    record.type = blueprint.type;
-                    record.base_primary = blueprint.base_primary;
-                    record.current_primary = blueprint.base_primary;
-                    record.current_derived = stat::derive(record.current_primary);
-                    record.health_current = record.current_derived.max_hp;
-                    record.mana_current = record.current_derived.max_mana;
-                    record.spawned_at = now;
-                    record.alive = true;
+                    record.identity.entity_id = entity_id;
+                    record.identity.template_id = blueprint.template_id;
+                    record.identity.species_id = blueprint.species_id;
+                    record.identity.type = blueprint.type;
+                    record.placement.zone_id = zone_id;
+                    record.stats.base_primary = blueprint.base_primary;
+                    record.stats.current_primary = blueprint.base_primary;
+                    record.stats.current_derived = stat::derive(record.stats.current_primary);
+                    record.resources.health_current = record.stats.current_derived.max_hp;
+                    record.resources.mana_current = record.stats.current_derived.max_mana;
+                    record.lifecycle.spawned_at = now;
+                    record.lifecycle.alive = true;
                     return insert(record);
                 }
 
                 auto insert(const Record& record) -> bool
                 {
-                    auto [it, inserted] = records_.emplace(record.entity_id, record);
+                    auto [it, inserted] = records_.emplace(record.identity.entity_id, record);
                     if (!inserted)
                     {
                         return false;
                     }
 
                     refresh_record(it->second);
-                    zone_index_[record.zone_id].insert(record.entity_id);
+                    zone_index_[record.placement.zone_id].insert(record.identity.entity_id);
                     return true;
                 }
 
@@ -211,7 +246,7 @@ namespace mmo
                         return false;
                     }
 
-                    unlink_from_zone(record_it->second.zone_id, entity_id);
+                    unlink_from_zone(record_it->second.placement.zone_id, entity_id);
                     records_.erase(record_it);
                     return true;
                 }
@@ -246,14 +281,14 @@ namespace mmo
                         return false;
                     }
 
-                    if (record_it->second.zone_id == zone_id)
+                    if (record_it->second.placement.zone_id == zone_id)
                     {
                         zone_index_[zone_id].insert(entity_id);
                         return true;
                     }
 
-                    unlink_from_zone(record_it->second.zone_id, entity_id);
-                    record_it->second.zone_id = zone_id;
+                    unlink_from_zone(record_it->second.placement.zone_id, entity_id);
+                    record_it->second.placement.zone_id = zone_id;
                     zone_index_[zone_id].insert(entity_id);
                     return true;
                 }
@@ -266,7 +301,7 @@ namespace mmo
                         return false;
                     }
 
-                    record_it->second.last_damage_at = when;
+                    record_it->second.lifecycle.last_damage_at = when;
                     return true;
                 }
 
@@ -278,7 +313,7 @@ namespace mmo
                         return false;
                     }
 
-                    record_it->second.base_primary = base_primary;
+                    record_it->second.stats.base_primary = base_primary;
                     refresh_record(record_it->second);
                     return true;
                 }
@@ -303,8 +338,34 @@ namespace mmo
                         return false;
                     }
 
-                    record_it->second.status_effects.apply(instance);
+                    record_it->second.combat.status_effects.apply(instance);
                     refresh_record(record_it->second);
+                    return true;
+                }
+
+                auto set_action_state(id::EntityId entity_id, const action::State& action_state, time::TimePoint ready_at) -> bool
+                {
+                    auto record_it = records_.find(entity_id);
+                    if (record_it == records_.end())
+                    {
+                        return false;
+                    }
+
+                    record_it->second.combat.action_state = action_state;
+                    record_it->second.combat.action_ready_at = ready_at;
+                    return true;
+                }
+
+                auto clear_action_state(id::EntityId entity_id) -> bool
+                {
+                    auto record_it = records_.find(entity_id);
+                    if (record_it == records_.end())
+                    {
+                        return false;
+                    }
+
+                    record_it->second.combat.action_state = action::State{};
+                    record_it->second.combat.action_ready_at.reset();
                     return true;
                 }
 
@@ -323,7 +384,7 @@ namespace mmo
                         return std::nullopt;
                     }
 
-                    auto instance = record_it->second.status_effects.accumulate(
+                    auto instance = record_it->second.combat.status_effects.accumulate(
                         definition,
                         amount,
                         now,
@@ -347,7 +408,7 @@ namespace mmo
                         return false;
                     }
 
-                    const auto changed = record_it->second.status_effects.sweep(now);
+                    const auto changed = record_it->second.combat.status_effects.sweep(now);
                     if (changed)
                     {
                         refresh_record(record_it->second);
@@ -364,7 +425,7 @@ namespace mmo
                         return false;
                     }
 
-                    auto removed = record_it->second.status_effects.remove(kind);
+                    auto removed = record_it->second.combat.status_effects.remove(kind);
                     if (removed)
                     {
                         refresh_record(record_it->second);
@@ -382,7 +443,7 @@ namespace mmo
                         return removed_statuses;
                     }
 
-                    removed_statuses = record_it->second.status_effects.remove_expired(now);
+                    removed_statuses = record_it->second.combat.status_effects.remove_expired(now);
                     if (!removed_statuses.empty())
                     {
                         refresh_record(record_it->second);
@@ -399,10 +460,10 @@ namespace mmo
                         return false;
                     }
 
-                    record_it->second.health_current = std::clamp(record_it->second.health_current + delta, 0, record_it->second.current_derived.max_hp);
-                    if (record_it->second.health_current <= 0)
+                    record_it->second.resources.health_current = std::clamp(record_it->second.resources.health_current + delta, 0, record_it->second.stats.current_derived.max_hp);
+                    if (record_it->second.resources.health_current <= 0)
                     {
-                        record_it->second.alive = false;
+                        record_it->second.lifecycle.alive = false;
                     }
 
                     return true;
@@ -416,7 +477,7 @@ namespace mmo
                         return false;
                     }
 
-                    record_it->second.mana_current = std::clamp(record_it->second.mana_current + delta, 0, record_it->second.current_derived.max_mana);
+                    record_it->second.resources.mana_current = std::clamp(record_it->second.resources.mana_current + delta, 0, record_it->second.stats.current_derived.max_mana);
                     return true;
                 }
 
@@ -476,19 +537,19 @@ namespace mmo
 
                 auto refresh_record(Record& record) -> void
                 {
-                    const auto totals = record.status_effects.aggregate();
-                    record.current_primary = stat::add(record.base_primary, totals.primary_delta);
-                    stat::clamp_non_negative(record.current_primary);
+                    const auto totals = record.combat.status_effects.aggregate();
+                    record.stats.current_primary = stat::add(record.stats.base_primary, totals.primary_delta);
+                    stat::clamp_non_negative(record.stats.current_primary);
 
-                    record.current_derived = stat::add(stat::derive(record.current_primary), totals.derived_delta);
-                    stat::clamp_non_negative(record.current_derived);
+                    record.stats.current_derived = stat::add(stat::derive(record.stats.current_primary), totals.derived_delta);
+                    stat::clamp_non_negative(record.stats.current_derived);
 
-                    record.health_current = std::clamp(record.health_current, 0, record.current_derived.max_hp);
-                    record.mana_current = std::clamp(record.mana_current, 0, record.current_derived.max_mana);
+                    record.resources.health_current = std::clamp(record.resources.health_current, 0, record.stats.current_derived.max_hp);
+                    record.resources.mana_current = std::clamp(record.resources.mana_current, 0, record.stats.current_derived.max_mana);
 
-                    if (record.health_current <= 0)
+                    if (record.resources.health_current <= 0)
                     {
-                        record.alive = false;
+                        record.lifecycle.alive = false;
                     }
                 }
 

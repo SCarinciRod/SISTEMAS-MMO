@@ -1,12 +1,14 @@
 #pragma once
 
 #include "config.hpp"
+#include "action.hpp"
 #include "entity.hpp"
 #include "event.hpp"
 #include "evolution.hpp"
 #include "evolution_profile.hpp"
 #include "error.hpp"
 #include "id.hpp"
+#include "recovery.hpp"
 #include "stat.hpp"
 #include "status.hpp"
 #include "runtime.hpp"

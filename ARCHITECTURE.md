@@ -12,10 +12,12 @@ This file is the working agreement for the project. Read it before making archit
 ## Current Core Boundaries
 
 - `core/species.hpp`: static species catalog.
+- `core/action.hpp`: live action contract and profile catalog.
 - `core/trigger.hpp`: generic trigger vocabulary.
 - `core/evolution_profile.hpp`: species progression profiles.
 - `core/evolution.hpp`: low-level rule evaluator.
 - `core/stat.hpp`: primary and derived stat calculations.
+- `core/recovery.hpp`: action recovery timing calculations.
 - `core/status.hpp`: status definitions and active status tables.
 - `core/entity.hpp`: live entity state table.
 - `core/zone.hpp`: zone state and activity.
@@ -44,6 +46,7 @@ For now these stay in `core` because there is no persistence layer or external c
 ## What We Should Build Next
 
 1. Shared entity definition and state model.
-2. Status and stat calculation layer.
+2. Status, stat, action, and recovery calculation layer.
 3. Simple lifecycle and combat hooks.
 4. Then let evolution profiles consume those signals.
+5. Keep `CHANGELOG.md` updated whenever a code change lands.

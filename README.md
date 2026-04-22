@@ -24,6 +24,8 @@ O `core` deve ser a camada mais neutra do servidor. Ele não deve depender de re
 
 - `core/species.hpp` -> taxonomy and catalog of species.
 - `core/stat.hpp` -> primary and derived stat calculations.
+- `core/action.hpp` -> live action contract and action catalog.
+- `core/recovery.hpp` -> action timing and recovery calculations.
 - `core/status.hpp` -> status definitions and active status tables.
 - `core/trigger.hpp` -> generic trigger vocabulary.
 - `core/evolution_profile.hpp` -> evolution profiles per species.
@@ -150,12 +152,16 @@ Agrupa tabela de entidades, zonas e agenda de eventos. É o ponto que depois vai
 2. `time.hpp` para entender o relógio monotônico.
 3. `species.hpp` para ver o catálogo estático.
 4. `stat.hpp` para ver os atributos e cálculos base.
-5. `status.hpp` para ver os efeitos ativos.
-6. `trigger.hpp` para ver os gatilhos base.
-7. `evolution_profile.hpp` para ver como os gatilhos se juntam por espécie.
-8. `entity.hpp` para ver o registro global.
-9. `zone.hpp` para ver o particionamento.
-10. `event.hpp` para ver o agendamento fora do tick ativo.
-11. `evolution.hpp` para ver as regras de evolução.
-12. `runtime.hpp` para ver como tudo se conecta.
+5. `action.hpp` para ver o contrato da ação viva.
+6. `recovery.hpp` para ver os tempos de recuperacao e animação.
+7. `status.hpp` para ver os efeitos ativos.
+8. `trigger.hpp` para ver os gatilhos base.
+9. `evolution_profile.hpp` para ver como os gatilhos se juntam por espécie.
+10. `entity.hpp` para ver o registro global.
+11. `zone.hpp` para ver o particionamento.
+12. `event.hpp` para ver o agendamento fora do tick ativo.
+13. `evolution.hpp` para ver as regras de evolução.
+14. `runtime.hpp` para ver como tudo se conecta.
+
+The running changelog lives in [CHANGELOG.md](CHANGELOG.md).
 

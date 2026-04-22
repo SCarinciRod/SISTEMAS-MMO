@@ -42,12 +42,12 @@ namespace mmo
                     return std::nullopt;
                 }
 
-                if (!context.record->last_damage_at.has_value())
+                if (!context.record->lifecycle.last_damage_at.has_value())
                 {
                     return std::nullopt;
                 }
 
-                return context.record->last_damage_at.value() + rule.no_damage_for.value();
+                return context.record->lifecycle.last_damage_at.value() + rule.no_damage_for.value();
             }
 
             [[nodiscard]] inline auto ready(const Rule& rule, const Context& context) -> bool
@@ -57,30 +57,30 @@ namespace mmo
                     return false;
                 }
 
-                if (rule.species_id != id::invalid_species_id && context.record->species_id != rule.species_id)
+                if (rule.species_id != id::invalid_species_id && context.record->identity.species_id != rule.species_id)
                 {
                     return false;
                 }
 
-                if (!context.record->alive)
+                if (!context.record->lifecycle.alive)
                 {
                     return false;
                 }
 
                 if (rule.no_damage_for.has_value())
                 {
-                    if (!context.record->last_damage_at.has_value())
+                    if (!context.record->lifecycle.last_damage_at.has_value())
                     {
                         return false;
                     }
 
-                    if (context.now < context.record->last_damage_at.value() + rule.no_damage_for.value())
+                    if (context.now < context.record->lifecycle.last_damage_at.value() + rule.no_damage_for.value())
                     {
                         return false;
                     }
                 }
 
-                if (rule.required_zone_id.has_value() && context.record->zone_id != rule.required_zone_id.value())
+                if (rule.required_zone_id.has_value() && context.record->placement.zone_id != rule.required_zone_id.value())
                 {
                     return false;
                 }
