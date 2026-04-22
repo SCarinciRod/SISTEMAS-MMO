@@ -1,0 +1,18 @@
+#pragma once
+
+#include "config.hpp"
+#include "entity.hpp"
+#include "event.hpp"
+#include "evolution.hpp"
+#include "evolution_profile.hpp"
+#include "error.hpp"
+#include "id.hpp"
+#include "stat.hpp"
+#include "status.hpp"
+#include "runtime.hpp"
+#include "species.hpp"
+#include "trigger.hpp"
+#include "zone.hpp"
+#include "time.hpp"
+#include "types.hpp"
+
