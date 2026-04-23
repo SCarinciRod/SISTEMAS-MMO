@@ -18,8 +18,7 @@ namespace mmo
             enum class Kind : std::uint8_t
             {
                 idle = 0,
-                light_attack,
-                heavy_attack,
+                auto_attack,
                 skill,
                 cast,
                 dodge,
@@ -154,6 +153,65 @@ namespace mmo
             private:
                 std::unordered_map<Kind, Profile> profiles_;
             };
+
+            [[nodiscard]] inline auto make_auto_attack_profile() -> Profile
+            {
+                Profile profile{};
+                profile.kind = Kind::auto_attack;
+                profile.name = "Auto Attack";
+                profile.weight = 100;
+                profile.timing.animation_base = time::Milliseconds{ 220 };
+                profile.timing.recovery_hit_base = time::Milliseconds{ 140 };
+                profile.timing.recovery_block_base = time::Milliseconds{ 180 };
+                profile.timing.recovery_whiff_base = time::Milliseconds{ 240 };
+                profile.timing.recovery_interrupt_base = time::Milliseconds{ 280 };
+                profile.tempo_percent = 100;
+                profile.animation_floor_percent = 30;
+                profile.recovery_floor_percent = 20;
+                profile.chain_step_percent = 6;
+                profile.moving_penalty_percent = 10;
+                profile.stationary_bonus_percent = 4;
+                profile.animation_bias.attack_speed = 7;
+                profile.animation_bias.move_speed = 2;
+                profile.animation_bias.accuracy = 1;
+                profile.recovery_bias.attack_speed = 9;
+                profile.recovery_bias.accuracy = 2;
+                profile.recovery_bias.crit_chance = 1;
+                return profile;
+            }
+
+            [[nodiscard]] inline auto make_dodge_profile() -> Profile
+            {
+                Profile profile{};
+                profile.kind = Kind::dodge;
+                profile.name = "Dodge";
+                profile.weight = 80;
+                profile.timing.animation_base = time::Milliseconds{ 140 };
+                profile.timing.recovery_hit_base = time::Milliseconds{ 110 };
+                profile.timing.recovery_block_base = time::Milliseconds{ 120 };
+                profile.timing.recovery_whiff_base = time::Milliseconds{ 170 };
+                profile.timing.recovery_interrupt_base = time::Milliseconds{ 220 };
+                profile.tempo_percent = 100;
+                profile.animation_floor_percent = 35;
+                profile.recovery_floor_percent = 25;
+                profile.chain_step_percent = 0;
+                profile.moving_penalty_percent = 6;
+                profile.stationary_bonus_percent = 8;
+                profile.animation_bias.move_speed = 8;
+                profile.animation_bias.evasion = 4;
+                profile.recovery_bias.move_speed = 10;
+                profile.recovery_bias.evasion = 6;
+                profile.recovery_bias.crit_resist = 1;
+                return profile;
+            }
+
+            [[nodiscard]] inline auto make_skill_focused_catalog() -> Catalog
+            {
+                Catalog catalog{};
+                catalog.insert(make_auto_attack_profile());
+                catalog.insert(make_dodge_profile());
+                return catalog;
+            }
         }
     }
 }

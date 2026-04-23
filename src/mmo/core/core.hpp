@@ -2,6 +2,7 @@
 
 #include "config.hpp"
 #include "action.hpp"
+#include "combat.hpp"
 #include "entity.hpp"
 #include "event.hpp"
 #include "evolution.hpp"

@@ -25,6 +25,7 @@ O `core` deve ser a camada mais neutra do servidor. Ele não deve depender de re
 - `core/species.hpp` -> taxonomy and catalog of species.
 - `core/stat.hpp` -> primary and derived stat calculations.
 - `core/action.hpp` -> live action contract and action catalog.
+- `core/combat.hpp` -> combat intent, target validation, cost, and aggro contract.
 - `core/recovery.hpp` -> action timing and recovery calculations.
 - `core/status.hpp` -> status definitions and active status tables.
 - `core/trigger.hpp` -> generic trigger vocabulary.
@@ -36,6 +37,16 @@ O `core` deve ser a camada mais neutra do servidor. Ele não deve depender de re
 - `core/runtime.hpp` -> aggregate world state.
 
 For now these stay in `core` because there is no persistence layer or external content pipeline yet. When that appears, species and evolution profiles are the first candidates to move into a content/data layer, while runtime stays in `core`.
+
+Current combat baseline: the default action catalog is intentionally minimal and ships only `auto_attack` and `dodge` profiles.
+
+The combat contract is kept separate from recovery so target validation, cost payment, and aggro can evolve without forcing a bootstrap rewrite.
+
+Combat resolution now returns the final target explicitly, which makes forced-target cases like taunt easier to reason about.
+
+Final target priority is: player intent first, then forced-target status such as `taunt`, then monster aggro threat selection.
+
+`taunt` is modeled as a build-up control ailment, not as direct mind control.
 
 ### 1. `types`
 
@@ -91,6 +102,19 @@ Calcula os atributos base e derivados que alimentam a construção da entidade. 
 ### 8. `status`
 
 Guarda o catálogo de status e as instâncias ativas por entidade. Aqui ficam os efeitos temporários, modificadores e estados que alteram o comportamento da criatura.
+
+O contrato já separa dois grupos:
+
+- Negativos com build-up: `poison`, `burn`, `bleed`, `freeze`, `daze`, `silence`, `root`, `curse` e `taunt`.
+- Buffs instantâneos: `shield`, `haste`, `regeneration`, `bless` e `resistant`.
+
+Regras principais já alinhadas:
+
+- `shield` vira buffer de vida, pode empilhar até 30% da vida máxima e bloqueia build-up enquanto estiver ativo, exceto `curse`.
+- `haste` acelera movimento e ação, e é removido quando `daze` entra.
+- `regeneration` melhora regen natural e cura recebida, e `burn` o cancela.
+- `bless` usa 5 stacks com efeitos progressivos, culminando em imunidade e amplificação de efeitos positivos.
+- `resistant` aumenta limiares de build-up negativos e acelera decay.
 
 ### 9. `trigger`
 
@@ -153,15 +177,16 @@ Agrupa tabela de entidades, zonas e agenda de eventos. É o ponto que depois vai
 3. `species.hpp` para ver o catálogo estático.
 4. `stat.hpp` para ver os atributos e cálculos base.
 5. `action.hpp` para ver o contrato da ação viva.
-6. `recovery.hpp` para ver os tempos de recuperacao e animação.
-7. `status.hpp` para ver os efeitos ativos.
-8. `trigger.hpp` para ver os gatilhos base.
-9. `evolution_profile.hpp` para ver como os gatilhos se juntam por espécie.
-10. `entity.hpp` para ver o registro global.
-11. `zone.hpp` para ver o particionamento.
-12. `event.hpp` para ver o agendamento fora do tick ativo.
-13. `evolution.hpp` para ver as regras de evolução.
-14. `runtime.hpp` para ver como tudo se conecta.
+6. `combat.hpp` para ver o contrato de intenção, alvo, custo e aggro.
+7. `recovery.hpp` para ver os tempos de recuperacao e animação.
+8. `status.hpp` para ver os efeitos ativos, including build-up control ailments like taunt.
+9. `trigger.hpp` para ver os gatilhos base.
+10. `evolution_profile.hpp` para ver como os gatilhos se juntam por espécie.
+11. `entity.hpp` para ver o registro global.
+12. `zone.hpp` para ver o particionamento.
+13. `event.hpp` para ver o agendamento fora do tick ativo.
+14. `evolution.hpp` para ver as regras de evolução.
+15. `runtime.hpp` para ver como tudo se conecta.
 
 The running changelog lives in [CHANGELOG.md](CHANGELOG.md).
 

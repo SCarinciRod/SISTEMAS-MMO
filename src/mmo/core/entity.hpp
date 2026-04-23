@@ -11,6 +11,7 @@
 
 #include "id.hpp"
 #include "action.hpp"
+#include "combat.hpp"
 #include "stat.hpp"
 #include "status.hpp"
 #include "time.hpp"
@@ -65,6 +66,7 @@ namespace mmo
             {
                 std::int32_t health_current{ 0 };
                 std::int32_t mana_current{ 0 };
+                std::int32_t shield_current{ 0 };
             };
 
             struct Combat
@@ -72,6 +74,9 @@ namespace mmo
                 status::Table status_effects{};
                 action::State action_state{};
                 std::optional<time::TimePoint> action_ready_at{};
+                combat::AggroState aggro{};
+                bool guaranteed_critical_hit{ false };
+                bool negative_status_immunity{ false };
             };
 
             struct Lifecycle
@@ -338,7 +343,17 @@ namespace mmo
                         return false;
                     }
 
+                    const auto active_totals = record_it->second.combat.status_effects.aggregate();
+                    const auto active_modifiers = amplify_positive_effects(active_totals.modifiers);
+                    if (status::is_negative_kind(instance.kind) && active_modifiers.negative_status_immunity)
+                    {
+                        return false;
+                    }
+
                     record_it->second.combat.status_effects.apply(instance);
+
+                    apply_status_side_effects(record_it->second, instance);
+
                     refresh_record(record_it->second);
                     return true;
                 }
@@ -369,6 +384,61 @@ namespace mmo
                     return true;
                 }
 
+                auto add_threat(
+                    id::EntityId entity_id,
+                    id::EntityId source_entity_id,
+                    std::uint32_t amount,
+                    time::TimePoint now) -> bool
+                {
+                    auto record_it = records_.find(entity_id);
+                    if (record_it == records_.end())
+                    {
+                        return false;
+                    }
+
+                    record_it->second.combat.aggro.add_threat(source_entity_id, amount, now);
+                    return true;
+                }
+
+                auto force_target(
+                    id::EntityId entity_id,
+                    id::EntityId target_entity_id,
+                    time::Milliseconds duration,
+                    time::TimePoint now) -> bool
+                {
+                    auto record_it = records_.find(entity_id);
+                    if (record_it == records_.end())
+                    {
+                        return false;
+                    }
+
+                    record_it->second.combat.aggro.force_target(target_entity_id, duration, now);
+                    return true;
+                }
+
+                auto clear_forced_target(id::EntityId entity_id) -> bool
+                {
+                    auto record_it = records_.find(entity_id);
+                    if (record_it == records_.end())
+                    {
+                        return false;
+                    }
+
+                    record_it->second.combat.aggro.clear_forced_target();
+                    return true;
+                }
+
+                [[nodiscard]] auto select_target(id::EntityId entity_id, time::TimePoint now) const -> std::optional<id::EntityId>
+                {
+                    auto record_it = records_.find(entity_id);
+                    if (record_it == records_.end())
+                    {
+                        return std::nullopt;
+                    }
+
+                    return record_it->second.combat.aggro.select_target(now);
+                }
+
                 auto accumulate_status(
                     id::EntityId entity_id,
                     const status::Definition& definition,
@@ -384,16 +454,31 @@ namespace mmo
                         return std::nullopt;
                     }
 
+                    const auto active_totals = record_it->second.combat.status_effects.aggregate();
+                    const auto active_modifiers = amplify_positive_effects(active_totals.modifiers);
+                    if (status::is_negative_kind(definition.kind) && active_modifiers.negative_status_immunity)
+                    {
+                        return std::nullopt;
+                    }
+
+                    if (definition.delivery == status::Delivery::build_up && definition.kind != status::Kind::curse && record_it->second.combat.status_effects.contains(status::Kind::shield))
+                    {
+                        return std::nullopt;
+                    }
+
                     auto instance = record_it->second.combat.status_effects.accumulate(
                         definition,
                         amount,
                         now,
+                        active_modifiers.build_up_threshold_percent_delta,
+                        active_modifiers.build_up_decay_per_second_percent_delta,
                         source_entity_id,
                         source_species_id,
                         source_template_id);
 
                     if (instance.has_value())
                     {
+                        apply_status_side_effects(record_it->second, instance.value());
                         refresh_record(record_it->second);
                     }
 
@@ -408,7 +493,9 @@ namespace mmo
                         return false;
                     }
 
-                    const auto changed = record_it->second.combat.status_effects.sweep(now);
+                    const auto active_totals = record_it->second.combat.status_effects.aggregate();
+                    const auto active_modifiers = amplify_positive_effects(active_totals.modifiers);
+                    const auto changed = record_it->second.combat.status_effects.sweep(now, active_modifiers.build_up_decay_per_second_percent_delta);
                     if (changed)
                     {
                         refresh_record(record_it->second);
@@ -428,6 +515,16 @@ namespace mmo
                     auto removed = record_it->second.combat.status_effects.remove(kind);
                     if (removed)
                     {
+                        if (kind == status::Kind::taunt)
+                        {
+                            record_it->second.combat.aggro.clear_forced_target();
+                        }
+
+                        if (kind == status::Kind::shield)
+                        {
+                            record_it->second.resources.shield_current = 0;
+                        }
+
                         refresh_record(record_it->second);
                     }
 
@@ -446,6 +543,24 @@ namespace mmo
                     removed_statuses = record_it->second.combat.status_effects.remove_expired(now);
                     if (!removed_statuses.empty())
                     {
+                        const auto taunt_expired = std::any_of(removed_statuses.begin(), removed_statuses.end(), [](const status::Instance& removed_status) {
+                            return removed_status.kind == status::Kind::taunt;
+                        });
+
+                        const auto shield_expired = std::any_of(removed_statuses.begin(), removed_statuses.end(), [](const status::Instance& removed_status) {
+                            return removed_status.kind == status::Kind::shield;
+                        });
+
+                        if (taunt_expired)
+                        {
+                            record_it->second.combat.aggro.clear_forced_target();
+                        }
+
+                        if (shield_expired)
+                        {
+                            record_it->second.resources.shield_current = 0;
+                        }
+
                         refresh_record(record_it->second);
                     }
 
@@ -460,10 +575,46 @@ namespace mmo
                         return false;
                     }
 
+                    bool shield_broken = false;
+
+                    if (delta < 0)
+                    {
+                        auto damage = -delta;
+                        const auto absorbed = std::min(record_it->second.resources.shield_current, damage);
+                        if (absorbed > 0)
+                        {
+                            record_it->second.resources.shield_current -= absorbed;
+                            damage -= absorbed;
+                        }
+
+                        if (record_it->second.resources.shield_current <= 0 && record_it->second.combat.status_effects.contains(status::Kind::shield))
+                        {
+                            shield_broken = record_it->second.combat.status_effects.remove(status::Kind::shield);
+                            record_it->second.resources.shield_current = 0;
+                        }
+
+                        if (damage == 0)
+                        {
+                            if (shield_broken)
+                            {
+                                refresh_record(record_it->second);
+                            }
+
+                            return true;
+                        }
+
+                        delta = -damage;
+                    }
+
                     record_it->second.resources.health_current = std::clamp(record_it->second.resources.health_current + delta, 0, record_it->second.stats.current_derived.max_hp);
                     if (record_it->second.resources.health_current <= 0)
                     {
                         record_it->second.lifecycle.alive = false;
+                    }
+
+                    if (shield_broken)
+                    {
+                        refresh_record(record_it->second);
                     }
 
                     return true;
@@ -538,11 +689,46 @@ namespace mmo
                 auto refresh_record(Record& record) -> void
                 {
                     const auto totals = record.combat.status_effects.aggregate();
-                    record.stats.current_primary = stat::add(record.stats.base_primary, totals.primary_delta);
+                    const auto modifiers = amplify_positive_effects(totals.modifiers);
+
+                    record.combat.guaranteed_critical_hit = modifiers.guaranteed_critical_hit;
+                    record.combat.negative_status_immunity = modifiers.negative_status_immunity;
+
+                    record.stats.current_primary = stat::add(record.stats.base_primary, modifiers.primary_delta);
                     stat::clamp_non_negative(record.stats.current_primary);
 
-                    record.stats.current_derived = stat::add(stat::derive(record.stats.current_primary), totals.derived_delta);
+                    record.stats.current_derived = stat::add(stat::derive(record.stats.current_primary), modifiers.derived_delta);
+
+                    const auto apply_percent = [](std::int32_t value, std::int32_t percent_delta) -> std::int32_t {
+                        return stat::scale(value, std::max<std::int32_t>(0, 100 + percent_delta), 100);
+                    };
+
+                    record.stats.current_derived.max_hp = apply_percent(record.stats.current_derived.max_hp, modifiers.max_hp_percent_delta);
+                    record.stats.current_derived.max_mana = apply_percent(record.stats.current_derived.max_mana, modifiers.max_mana_percent_delta);
+                    record.stats.current_derived.attack = apply_percent(record.stats.current_derived.attack, modifiers.attack_percent_delta);
+                    record.stats.current_derived.attack_speed = apply_percent(record.stats.current_derived.attack_speed, modifiers.attack_speed_percent_delta);
+                    record.stats.current_derived.magic_attack = apply_percent(record.stats.current_derived.magic_attack, modifiers.magic_attack_percent_delta);
+                    record.stats.current_derived.cast_speed = apply_percent(record.stats.current_derived.cast_speed, modifiers.cast_speed_percent_delta);
+                    record.stats.current_derived.defense = apply_percent(record.stats.current_derived.defense, modifiers.defense_percent_delta);
+                    record.stats.current_derived.magic_defense = apply_percent(record.stats.current_derived.magic_defense, modifiers.magic_defense_percent_delta);
+                    record.stats.current_derived.accuracy = apply_percent(record.stats.current_derived.accuracy, modifiers.accuracy_percent_delta);
+                    record.stats.current_derived.crit_chance = apply_percent(record.stats.current_derived.crit_chance, modifiers.crit_chance_percent_delta);
+                    record.stats.current_derived.evasion = apply_percent(record.stats.current_derived.evasion, modifiers.evasion_percent_delta);
+                    record.stats.current_derived.crit_resist = apply_percent(record.stats.current_derived.crit_resist, modifiers.crit_resist_percent_delta);
+                    record.stats.current_derived.magic_crit = apply_percent(record.stats.current_derived.magic_crit, modifiers.magic_crit_percent_delta);
+                    record.stats.current_derived.magic_crit_res = apply_percent(record.stats.current_derived.magic_crit_res, modifiers.magic_crit_res_percent_delta);
+                    record.stats.current_derived.move_speed = apply_percent(record.stats.current_derived.move_speed, modifiers.move_speed_percent_delta);
                     stat::clamp_non_negative(record.stats.current_derived);
+
+                    if (totals.shield_absorb_percent_of_max_hp == 0 || !record.combat.status_effects.contains(status::Kind::shield))
+                    {
+                        record.resources.shield_current = 0;
+                    }
+                    else
+                    {
+                        const auto shield_cap = stat::scale(record.stats.current_derived.max_hp, static_cast<std::int32_t>(totals.shield_absorb_percent_of_max_hp), 100);
+                        record.resources.shield_current = std::clamp(record.resources.shield_current, 0, shield_cap);
+                    }
 
                     record.resources.health_current = std::clamp(record.resources.health_current, 0, record.stats.current_derived.max_hp);
                     record.resources.mana_current = std::clamp(record.resources.mana_current, 0, record.stats.current_derived.max_mana);
@@ -551,6 +737,98 @@ namespace mmo
                     {
                         record.lifecycle.alive = false;
                     }
+                }
+
+                auto apply_status_side_effects(Record& record, const status::Instance& instance) -> void
+                {
+                    if (instance.kind == status::Kind::shield)
+                    {
+                        std::uint32_t shield_percent = 0;
+                        for (const auto& layer : instance.shield_layers)
+                        {
+                            shield_percent += layer.absorb_percent_of_max_hp;
+                        }
+
+                        if (shield_percent > 0)
+                        {
+                            const auto shield_points = stat::scale(record.stats.current_derived.max_hp, static_cast<std::int32_t>(shield_percent), 100);
+                            const auto shield_cap = stat::scale(record.stats.current_derived.max_hp, 30, 100);
+                            record.resources.shield_current = std::clamp(record.resources.shield_current + shield_points, 0, shield_cap);
+                        }
+                    }
+
+                    if (instance.kind == status::Kind::taunt && instance.source_entity_id.has_value() && instance.expires_at.has_value())
+                    {
+                        const auto duration = std::chrono::duration_cast<time::Milliseconds>(instance.expires_at.value() - instance.applied_at);
+                        if (duration.count() > 0)
+                        {
+                            record.combat.aggro.force_target(instance.source_entity_id.value(), duration, instance.applied_at);
+                        }
+                    }
+
+                    if (instance.kind == status::Kind::burn)
+                    {
+                        record.combat.status_effects.remove(status::Kind::regeneration);
+                    }
+
+                    if (instance.kind == status::Kind::daze)
+                    {
+                        record.combat.status_effects.remove(status::Kind::haste);
+                    }
+
+                    if (instance.kind == status::Kind::regeneration && record.combat.status_effects.contains(status::Kind::burn))
+                    {
+                        record.combat.status_effects.remove(status::Kind::regeneration);
+                    }
+
+                    if (instance.kind == status::Kind::haste && record.combat.status_effects.contains(status::Kind::daze))
+                    {
+                        record.combat.status_effects.remove(status::Kind::haste);
+                    }
+                }
+
+                [[nodiscard]] auto amplify_positive_effects(status::Modifiers modifiers) const -> status::Modifiers
+                {
+                    if (modifiers.positive_effect_percent_delta <= 0)
+                    {
+                        return modifiers;
+                    }
+
+                    const auto positive_multiplier = 100 + modifiers.positive_effect_percent_delta;
+                    const auto amplify_positive = [positive_multiplier](std::int32_t& value) -> void {
+                        if (value > 0)
+                        {
+                            value = static_cast<std::int32_t>((static_cast<std::int64_t>(value) * positive_multiplier) / 100);
+                        }
+                    };
+
+                    amplify_positive(modifiers.max_hp_percent_delta);
+                    amplify_positive(modifiers.max_mana_percent_delta);
+                    amplify_positive(modifiers.attack_percent_delta);
+                    amplify_positive(modifiers.attack_speed_percent_delta);
+                    amplify_positive(modifiers.magic_attack_percent_delta);
+                    amplify_positive(modifiers.cast_speed_percent_delta);
+                    amplify_positive(modifiers.defense_percent_delta);
+                    amplify_positive(modifiers.magic_defense_percent_delta);
+                    amplify_positive(modifiers.accuracy_percent_delta);
+                    amplify_positive(modifiers.crit_chance_percent_delta);
+                    amplify_positive(modifiers.evasion_percent_delta);
+                    amplify_positive(modifiers.crit_resist_percent_delta);
+                    amplify_positive(modifiers.magic_crit_percent_delta);
+                    amplify_positive(modifiers.magic_crit_res_percent_delta);
+                    amplify_positive(modifiers.move_speed_percent_delta);
+                    amplify_positive(modifiers.healing_received_percent_delta);
+                    amplify_positive(modifiers.natural_regen_percent_delta);
+                    amplify_positive(modifiers.action_speed_percent_delta);
+                    amplify_positive(modifiers.recovery_time_percent_delta);
+                    amplify_positive(modifiers.incoming_damage_percent_delta);
+                    amplify_positive(modifiers.incoming_physical_damage_percent_delta);
+                    amplify_positive(modifiers.incoming_magical_damage_percent_delta);
+                    amplify_positive(modifiers.incoming_build_up_percent_delta);
+                    amplify_positive(modifiers.build_up_threshold_percent_delta);
+                    amplify_positive(modifiers.build_up_decay_per_second_percent_delta);
+                    amplify_positive(modifiers.break_damage_bonus_percent);
+                    return modifiers;
                 }
 
                 auto unlink_from_zone(id::ZoneId zone_id, id::EntityId entity_id) -> void
