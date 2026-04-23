@@ -13,6 +13,7 @@ namespace mmo
             using SessionId = std::uint64_t;
             using AccountId = std::uint64_t;
             using PlayerId = std::uint64_t;
+            using SkillId = std::uint64_t;
             using WorldId = std::uint64_t;
             using ZoneId = std::uint64_t;
             using SpeciesId = std::uint64_t;
@@ -22,6 +23,7 @@ namespace mmo
             inline constexpr SessionId invalid_session_id = 0;
             inline constexpr AccountId invalid_account_id = 0;
             inline constexpr PlayerId invalid_player_id = 0;
+            inline constexpr SkillId invalid_skill_id = 0;
             inline constexpr WorldId invalid_world_id = 0;
             inline constexpr ZoneId invalid_zone_id = 0;
             inline constexpr SpeciesId invalid_species_id = 0;

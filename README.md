@@ -25,6 +25,7 @@ O `core` deve ser a camada mais neutra do servidor. Ele não deve depender de re
 - `core/species.hpp` -> taxonomy and catalog of species.
 - `core/stat.hpp` -> primary and derived stat calculations.
 - `core/action.hpp` -> live action contract and action catalog.
+- `core/skill.hpp` -> skill tags, gating, and skill catalog.
 - `core/combat.hpp` -> combat intent, target validation, cost, and aggro contract.
 - `core/recovery.hpp` -> action timing and recovery calculations.
 - `core/status.hpp` -> status definitions and active status tables.
@@ -177,16 +178,17 @@ Agrupa tabela de entidades, zonas e agenda de eventos. É o ponto que depois vai
 3. `species.hpp` para ver o catálogo estático.
 4. `stat.hpp` para ver os atributos e cálculos base.
 5. `action.hpp` para ver o contrato da ação viva.
-6. `combat.hpp` para ver o contrato de intenção, alvo, custo e aggro.
-7. `recovery.hpp` para ver os tempos de recuperacao e animação.
-8. `status.hpp` para ver os efeitos ativos, including build-up control ailments like taunt.
-9. `trigger.hpp` para ver os gatilhos base.
-10. `evolution_profile.hpp` para ver como os gatilhos se juntam por espécie.
-11. `entity.hpp` para ver o registro global.
-12. `zone.hpp` para ver o particionamento.
-13. `event.hpp` para ver o agendamento fora do tick ativo.
-14. `evolution.hpp` para ver as regras de evolução.
-15. `runtime.hpp` para ver como tudo se conecta.
+6. `skill.hpp` para ver os tags e o catálogo de skills.
+7. `combat.hpp` para ver o contrato de intenção, alvo, custo e aggro.
+8. `recovery.hpp` para ver os tempos de recuperacao e animação.
+9. `status.hpp` para ver os efeitos ativos, including build-up control ailments like taunt.
+10. `trigger.hpp` para ver os gatilhos base.
+11. `evolution_profile.hpp` para ver como os gatilhos se juntam por espécie.
+12. `entity.hpp` para ver o registro global.
+13. `zone.hpp` para ver o particionamento.
+14. `event.hpp` para ver o agendamento fora do tick ativo.
+15. `evolution.hpp` para ver as regras de evolução.
+16. `runtime.hpp` para ver como tudo se conecta.
 
 The running changelog lives in [CHANGELOG.md](CHANGELOG.md).
 

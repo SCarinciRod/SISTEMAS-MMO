@@ -13,6 +13,7 @@ This file is the working agreement for the project. Read it before making archit
 
 - `core/species.hpp`: static species catalog.
 - `core/action.hpp`: live action contract and profile catalog.
+- `core/skill.hpp`: skill contract, tags, and skill catalog.
 - `core/combat.hpp`: combat intent, cost, target validation, and aggro contract.
 - `core/status.hpp`: active statuses, build-up control, and instant buffs.
 - `core/trigger.hpp`: generic trigger vocabulary.
@@ -48,7 +49,7 @@ For now these stay in `core` because there is no persistence layer or external c
 ## What We Should Build Next
 
 1. Shared entity definition and state model.
-2. Status, stat, action, combat, and recovery calculation layer.
+2. Status, stat, action, skill, combat, and recovery calculation layer.
 3. Simple lifecycle and combat hooks.
 4. Then let evolution profiles consume those signals.
 5. Keep `CHANGELOG.md` updated whenever a code change lands.
@@ -56,3 +57,10 @@ For now these stay in `core` because there is no persistence layer or external c
 Combat target priority should remain explicit: player-selected target by default, forced-target status when taunt is active, and threat table selection for monsters.
 
 Status direction is now split clearly: build-up ailments for negative control and direct buffs for shield, haste, regeneration, bless, and resistant.
+
+Skill direction is split in two axes:
+
+- activation mode: active, passive, or trigger
+- sequence pattern: chain, initial, finisher, or evolve
+
+Future skill fusion should reuse the same skill catalog and relation model instead of introducing a separate one-off system.
