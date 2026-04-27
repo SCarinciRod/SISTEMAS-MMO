@@ -1,5 +1,7 @@
 #pragma once
 
+#include "compat.hpp"
+
 #include <chrono>
 #include <cstdint>
 
@@ -16,8 +18,8 @@ namespace mmo
             using Seconds = std::chrono::seconds;
             using TickCount = std::uint64_t;
 
-            inline constexpr std::uint32_t default_tick_rate = 20;
-            inline constexpr Milliseconds default_tick_duration{1000 / default_tick_rate};
+            constexpr std::uint32_t default_tick_rate = 20;
+            constexpr Milliseconds default_tick_duration{1000 / default_tick_rate};
 
             [[nodiscard]] inline auto now() noexcept -> TimePoint
             {

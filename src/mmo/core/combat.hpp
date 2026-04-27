@@ -76,8 +76,9 @@ namespace mmo
             public:
                 auto insert(const Profile& profile) -> bool
                 {
-                    auto [it, inserted] = profiles_.emplace(profile.kind, profile);
-                    (void)it;
+                    auto insert_result = profiles_.emplace(profile.kind, profile);
+                    (void)insert_result.first;
+                    const bool inserted = insert_result.second;
                     return inserted;
                 }
 

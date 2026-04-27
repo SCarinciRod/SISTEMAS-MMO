@@ -27,7 +27,9 @@ namespace mmo
             public:
                 auto ensure(id::ZoneId zone_id) -> State&
                 {
-                    auto [it, inserted] = zones_.emplace(zone_id, State{});
+                    auto insert_result = zones_.emplace(zone_id, State{});
+                    auto& it = insert_result.first;
+                    const bool inserted = insert_result.second;
                     if (inserted)
                     {
                         it->second.zone_id = zone_id;

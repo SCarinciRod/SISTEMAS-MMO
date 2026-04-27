@@ -43,9 +43,7 @@ namespace mmo
                 std::int32_t attack_speed{ 0 };
                 std::int32_t cast_speed{ 0 };
                 std::int32_t move_speed{ 0 };
-                std::int32_t accuracy{ 0 };
                 std::int32_t crit_chance{ 0 };
-                std::int32_t evasion{ 0 };
                 std::int32_t crit_resist{ 0 };
                 std::int32_t magic_crit{ 0 };
                 std::int32_t magic_crit_res{ 0 };
@@ -108,8 +106,9 @@ namespace mmo
             public:
                 auto insert(const Profile& profile) -> bool
                 {
-                    auto [it, inserted] = profiles_.emplace(profile.kind, profile);
-                    (void)it;
+                    auto insert_result = profiles_.emplace(profile.kind, profile);
+                    (void)insert_result.first;
+                    const bool inserted = insert_result.second;
                     return inserted;
                 }
 
@@ -173,9 +172,7 @@ namespace mmo
                 profile.stationary_bonus_percent = 4;
                 profile.animation_bias.attack_speed = 7;
                 profile.animation_bias.move_speed = 2;
-                profile.animation_bias.accuracy = 1;
                 profile.recovery_bias.attack_speed = 9;
-                profile.recovery_bias.accuracy = 2;
                 profile.recovery_bias.crit_chance = 1;
                 return profile;
             }
@@ -198,9 +195,7 @@ namespace mmo
                 profile.moving_penalty_percent = 6;
                 profile.stationary_bonus_percent = 8;
                 profile.animation_bias.move_speed = 8;
-                profile.animation_bias.evasion = 4;
                 profile.recovery_bias.move_speed = 10;
-                profile.recovery_bias.evasion = 6;
                 profile.recovery_bias.crit_resist = 1;
                 return profile;
             }

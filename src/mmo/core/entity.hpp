@@ -103,7 +103,9 @@ namespace mmo
             public:
                 auto insert(const Blueprint& blueprint) -> bool
                 {
-                    auto [it, inserted] = blueprints_.emplace(blueprint.template_id, blueprint);
+                    auto insert_result = blueprints_.emplace(blueprint.template_id, blueprint);
+                    auto& it = insert_result.first;
+                    const bool inserted = insert_result.second;
                     if (!inserted)
                     {
                         return false;
@@ -232,7 +234,9 @@ namespace mmo
 
                 auto insert(const Record& record) -> bool
                 {
-                    auto [it, inserted] = records_.emplace(record.identity.entity_id, record);
+                    auto insert_result = records_.emplace(record.identity.entity_id, record);
+                    auto& it = insert_result.first;
+                    const bool inserted = insert_result.second;
                     if (!inserted)
                     {
                         return false;
@@ -711,9 +715,7 @@ namespace mmo
                     record.stats.current_derived.cast_speed = apply_percent(record.stats.current_derived.cast_speed, modifiers.cast_speed_percent_delta);
                     record.stats.current_derived.defense = apply_percent(record.stats.current_derived.defense, modifiers.defense_percent_delta);
                     record.stats.current_derived.magic_defense = apply_percent(record.stats.current_derived.magic_defense, modifiers.magic_defense_percent_delta);
-                    record.stats.current_derived.accuracy = apply_percent(record.stats.current_derived.accuracy, modifiers.accuracy_percent_delta);
                     record.stats.current_derived.crit_chance = apply_percent(record.stats.current_derived.crit_chance, modifiers.crit_chance_percent_delta);
-                    record.stats.current_derived.evasion = apply_percent(record.stats.current_derived.evasion, modifiers.evasion_percent_delta);
                     record.stats.current_derived.crit_resist = apply_percent(record.stats.current_derived.crit_resist, modifiers.crit_resist_percent_delta);
                     record.stats.current_derived.magic_crit = apply_percent(record.stats.current_derived.magic_crit, modifiers.magic_crit_percent_delta);
                     record.stats.current_derived.magic_crit_res = apply_percent(record.stats.current_derived.magic_crit_res, modifiers.magic_crit_res_percent_delta);
@@ -810,9 +812,7 @@ namespace mmo
                     amplify_positive(modifiers.cast_speed_percent_delta);
                     amplify_positive(modifiers.defense_percent_delta);
                     amplify_positive(modifiers.magic_defense_percent_delta);
-                    amplify_positive(modifiers.accuracy_percent_delta);
                     amplify_positive(modifiers.crit_chance_percent_delta);
-                    amplify_positive(modifiers.evasion_percent_delta);
                     amplify_positive(modifiers.crit_resist_percent_delta);
                     amplify_positive(modifiers.magic_crit_percent_delta);
                     amplify_positive(modifiers.magic_crit_res_percent_delta);
