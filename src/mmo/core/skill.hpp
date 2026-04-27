@@ -103,8 +103,9 @@ namespace mmo
                         return false;
                     }
 
-                    auto [it, inserted] = definitions_.emplace(definition.identity.skill_id, definition);
-                    (void)it;
+                    auto insert_result = definitions_.emplace(definition.identity.skill_id, definition);
+                    (void)insert_result.first;
+                    const bool inserted = insert_result.second;
                     return inserted;
                 }
 

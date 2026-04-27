@@ -89,9 +89,7 @@ namespace mmo
                 std::int32_t cast_speed_percent_delta{ 0 };
                 std::int32_t defense_percent_delta{ 0 };
                 std::int32_t magic_defense_percent_delta{ 0 };
-                std::int32_t accuracy_percent_delta{ 0 };
                 std::int32_t crit_chance_percent_delta{ 0 };
-                std::int32_t evasion_percent_delta{ 0 };
                 std::int32_t crit_resist_percent_delta{ 0 };
                 std::int32_t magic_crit_percent_delta{ 0 };
                 std::int32_t magic_crit_res_percent_delta{ 0 };
@@ -266,8 +264,9 @@ namespace mmo
             public:
                 auto insert(const Definition& definition) -> bool
                 {
-                    auto [it, inserted] = definitions_.emplace(definition.kind, definition);
-                    (void)it;
+                    auto insert_result = definitions_.emplace(definition.kind, definition);
+                    (void)insert_result.first;
+                    const bool inserted = insert_result.second;
                     return inserted;
                 }
 
@@ -512,9 +511,7 @@ namespace mmo
                 result.cast_speed_percent_delta += rhs.cast_speed_percent_delta;
                 result.defense_percent_delta += rhs.defense_percent_delta;
                 result.magic_defense_percent_delta += rhs.magic_defense_percent_delta;
-                result.accuracy_percent_delta += rhs.accuracy_percent_delta;
                 result.crit_chance_percent_delta += rhs.crit_chance_percent_delta;
-                result.evasion_percent_delta += rhs.evasion_percent_delta;
                 result.crit_resist_percent_delta += rhs.crit_resist_percent_delta;
                 result.magic_crit_percent_delta += rhs.magic_crit_percent_delta;
                 result.magic_crit_res_percent_delta += rhs.magic_crit_res_percent_delta;
@@ -711,7 +708,6 @@ namespace mmo
                 definition.keep_build_up_after_activate = false;
                 definition.modifiers.suppress_movement = true;
                 definition.modifiers.move_speed_percent_delta = -100;
-                definition.modifiers.evasion_percent_delta = -30;
                 definition.modifiers.build_up_threshold_percent_delta = 20;
                 return definition;
             }

@@ -2,6 +2,9 @@
 
 #include "config.hpp"
 #include "action.hpp"
+#include "damage.hpp"
+#include "combat_damage.hpp"
+#include "item.hpp"
 #include "skill.hpp"
 #include "combat.hpp"
 #include "entity.hpp"
@@ -10,6 +13,7 @@
 #include "evolution_profile.hpp"
 #include "error.hpp"
 #include "id.hpp"
+#include "material.hpp"
 #include "recovery.hpp"
 #include "stat.hpp"
 #include "status.hpp"

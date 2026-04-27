@@ -15,6 +15,7 @@ Mapeamento direto entre pasta e namespace:
 O arquivo `src/mmo/mmo.hpp` apenas agrega esses headers.
 O arquivo `src/main.cpp` é o ponto de entrada mínimo.
 The working guide for future changes is [ARCHITECTURE.md](ARCHITECTURE.md).
+The living complexity/design analysis lives in [ANALYSIS.md](ANALYSIS.md).
 
 ## Core
 
@@ -191,4 +192,3 @@ Agrupa tabela de entidades, zonas e agenda de eventos. É o ponto que depois vai
 16. `runtime.hpp` para ver como tudo se conecta.
 
 The running changelog lives in [CHANGELOG.md](CHANGELOG.md).
-

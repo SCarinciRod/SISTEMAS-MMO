@@ -30,9 +30,7 @@ namespace mmo
                 std::int32_t cast_speed{ 0 };
                 std::int32_t defense{ 0 };
                 std::int32_t magic_defense{ 0 };
-                std::int32_t accuracy{ 0 };
                 std::int32_t crit_chance{ 0 };
-                std::int32_t evasion{ 0 };
                 std::int32_t crit_resist{ 0 };
                 std::int32_t magic_crit{ 0 };
                 std::int32_t magic_crit_res{ 0 };
@@ -58,9 +56,7 @@ namespace mmo
                 derived.defense = 12 + scale(base.vitality, 7, 1) + scale(base.strength, 5, 4) + scale(base.luck, 1, 4);
                 derived.magic_defense = 12 + scale(base.faith, 7, 1) + scale(base.intellect, 5, 4) + scale(base.luck, 1, 4);
 
-                derived.accuracy = 75 + scale(base.dexterity, 2, 1) + scale(base.luck, 3, 2) + scale(base.agility, 1, 5);
                 derived.crit_chance = 5 + scale(base.dexterity, 3, 2) + scale(base.luck, 2, 1) + scale(base.agility, 1, 4);
-                derived.evasion = 5 + scale(base.agility, 5, 2) + scale(base.dexterity, 1, 4) + scale(base.luck, 1, 2);
                 derived.crit_resist = scale(base.vitality, 1, 1) + scale(base.luck, 4, 5) + scale(base.faith, 1, 4);
                 derived.magic_crit = 5 + scale(base.intellect, 3, 2) + scale(base.faith, 1, 1) + scale(base.luck, 3, 2) + scale(base.dexterity, 1, 5);
                 derived.magic_crit_res = scale(base.faith, 1, 1) + scale(base.intellect, 1, 2) + scale(base.luck, 1, 1);
@@ -92,9 +88,7 @@ namespace mmo
                     lhs.cast_speed + rhs.cast_speed,
                     lhs.defense + rhs.defense,
                     lhs.magic_defense + rhs.magic_defense,
-                    lhs.accuracy + rhs.accuracy,
                     lhs.crit_chance + rhs.crit_chance,
-                    lhs.evasion + rhs.evasion,
                     lhs.crit_resist + rhs.crit_resist,
                     lhs.magic_crit + rhs.magic_crit,
                     lhs.magic_crit_res + rhs.magic_crit_res,
@@ -123,9 +117,7 @@ namespace mmo
                 block.cast_speed = std::max(block.cast_speed, 0);
                 block.defense = std::max(block.defense, 0);
                 block.magic_defense = std::max(block.magic_defense, 0);
-                block.accuracy = std::max(block.accuracy, 0);
                 block.crit_chance = std::max(block.crit_chance, 0);
-                block.evasion = std::max(block.evasion, 0);
                 block.crit_resist = std::max(block.crit_resist, 0);
                 block.magic_crit = std::max(block.magic_crit, 0);
                 block.magic_crit_res = std::max(block.magic_crit_res, 0);

@@ -30,9 +30,7 @@ namespace mmo
                 bonus_percent += (surplus(derived.attack_speed, 100) * bias.attack_speed) / 10;
                 bonus_percent += (surplus(derived.cast_speed, 100) * bias.cast_speed) / 10;
                 bonus_percent += (surplus(derived.move_speed, 100) * bias.move_speed) / 10;
-                bonus_percent += (surplus(derived.accuracy, 75) * bias.accuracy) / 10;
                 bonus_percent += (surplus(derived.crit_chance, 5) * bias.crit_chance) / 10;
-                bonus_percent += (surplus(derived.evasion, 5) * bias.evasion) / 10;
                 bonus_percent += (surplus(derived.crit_resist, 0) * bias.crit_resist) / 10;
                 bonus_percent += (surplus(derived.magic_crit, 5) * bias.magic_crit) / 10;
                 bonus_percent += (surplus(derived.magic_crit_res, 0) * bias.magic_crit_res) / 10;

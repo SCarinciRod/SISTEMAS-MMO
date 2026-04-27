@@ -5,6 +5,11 @@ All notable code and architecture updates for `SISTEMAS-MMO` are recorded here.
 ## Unreleased
 
 ### Added
+
+- `core/item.hpp` to define the item contract split into material, consumable, equipment, quest, and collectible item types.
+- `ItemId`, `ItemTemplateId`, and `ItemSetId` in `core/id.hpp` for item runtime, templates, and equipment sets.
+- `core/damage.hpp` and `core/material.hpp` to define the damage/material contracts for future map-object reactions and durability handling.
+- `core/combat_damage.hpp` to define the combat-only damage resolution contract for entity versus entity fights.
 - `core/action.hpp` to define the live action contract: action kind, outcome, state, profile, and catalog.
 - `CHANGELOG.md` as the running log for future code changes and additions.
 - Default action catalog factory with only `auto_attack` and `dodge` profiles for the skill-focused combat baseline.
@@ -18,6 +23,8 @@ All notable code and architecture updates for `SISTEMAS-MMO` are recorded here.
 - A full status catalog builder that combines the negative ailments and the new instant buffs.
 
 ### Changed
+
+- Removed `accuracy` and `evasion` from the core stat model; action recovery now relies on the remaining stat biases plus hit/whiff outcome.
 - `core/recovery.hpp` now follows the action contract and computes animation and recovery from stats, action weight, and hit/whiff outcome.
 - `core/entity.hpp` keeps the live action state on the entity contract.
 - `core/core.hpp` now aggregates `skill.hpp` alongside the rest of the core contract surface.

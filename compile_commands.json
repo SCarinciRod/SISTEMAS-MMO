@@ -1,0 +1,7 @@
+[
+  {
+    "directory": "C:/Users/RSCARINC/Downloads/projetos vba/SISTEMAS-MMO",
+    "command": "clang++.exe -std=c++17 -I src -c src/main.cpp",
+    "file": "C:/Users/RSCARINC/Downloads/projetos vba/SISTEMAS-MMO/src/main.cpp"
+  }
+]

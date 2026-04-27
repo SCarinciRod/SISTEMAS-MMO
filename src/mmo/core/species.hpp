@@ -34,7 +34,7 @@ namespace mmo
                 arcane
             };
 
-            inline constexpr std::array<Family, 5> all_families{
+            constexpr std::array<Family, 5> all_families{
                 Family::humanoid,
                 Family::beast,
                 Family::elemental,
@@ -42,7 +42,7 @@ namespace mmo
                 Family::spirit
             };
 
-            inline constexpr std::array<Origin, 7> all_origins{
+            constexpr std::array<Origin, 7> all_origins{
                 Origin::natural,
                 Origin::mutant,
                 Origin::demonic,
@@ -117,7 +117,9 @@ namespace mmo
             public:
                 auto insert(const Definition& definition) -> bool
                 {
-                    auto [it, inserted] = definitions_.emplace(definition.species_id, definition);
+                    auto insert_result = definitions_.emplace(definition.species_id, definition);
+                    auto& it = insert_result.first;
+                    const bool inserted = insert_result.second;
                     if (!inserted)
                     {
                         return false;
