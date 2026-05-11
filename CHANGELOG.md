@@ -7,6 +7,20 @@ All notable code and architecture updates for `SISTEMAS-MMO` are recorded here.
 ### Added
 
 - `core/item.hpp` to define the item contract split into material, consumable, equipment, quest, and collectible item types.
+- `core/logger.hpp` with a lightweight logger and exception helpers for stress testing and runtime diagnostics.
+- `persistence/context.hpp` as the seed for database context initialization and storage layout.
+- `server/loop.hpp` with a real tick loop that processes events, load sync, and status sweeps.
+- Stress tests in `src/mmo/tests/stress_tests.cpp` that run heavy loops and log failures.
+- `core/experience.hpp` for tiered experience curves, rewards, and gain progression.
+- `core/entity.hpp` progression state for level and experience, plus player-only gain logic.
+- `core/entity.hpp` experience reward helper for NPC/monster blueprints.
+- `core/item.hpp` equipment contracts for direct attack/defense, use requirements, weight, modification slots, affix slots, and modifier pools.
+- `core/item.hpp` equipment affix instances and tier-based scaling helpers.
+- `core/item.hpp` deterministic item and inventory weight helpers.
+- `core/stat.hpp` `max_weight` as a derived stat for load capacity plus an encumbrance helper for load-based movement and recovery effects.
+- `core/entity.hpp` load state on the live entity contract so carried weight can be tracked by the runtime.
+- `core/entity.hpp` a minimal inventory contract plus a helper to sync carried weight from live item instances.
+- `core/recovery.hpp` recovery overloads that can consume encumbrance alongside derived stats.
 - `ItemId`, `ItemTemplateId`, and `ItemSetId` in `core/id.hpp` for item runtime, templates, and equipment sets.
 - `core/damage.hpp` and `core/material.hpp` to define the damage/material contracts for future map-object reactions and durability handling.
 - `core/combat_damage.hpp` to define the combat-only damage resolution contract for entity versus entity fights.

@@ -35,6 +35,16 @@ namespace mmo
                 std::int32_t magic_crit{ 0 };
                 std::int32_t magic_crit_res{ 0 };
                 std::int32_t move_speed{ 0 };
+                std::int32_t max_weight{ 0 };
+            };
+
+            struct Encumbrance
+            {
+                std::uint32_t carried_weight{ 0 };
+                std::uint32_t max_weight{ 0 };
+                std::int32_t load_percent{ 0 };
+                std::int32_t move_speed_percent_delta{ 0 };
+                std::int32_t recovery_percent_delta{ 0 };
             };
 
             [[nodiscard]] constexpr auto scale(std::int32_t value, std::int32_t numerator, std::int32_t denominator) -> std::int32_t
@@ -61,7 +71,28 @@ namespace mmo
                 derived.magic_crit = 5 + scale(base.intellect, 3, 2) + scale(base.faith, 1, 1) + scale(base.luck, 3, 2) + scale(base.dexterity, 1, 5);
                 derived.magic_crit_res = scale(base.faith, 1, 1) + scale(base.intellect, 1, 2) + scale(base.luck, 1, 1);
                 derived.move_speed = 100 + scale(base.agility, 6, 5) + scale(base.strength, 1, 4) + scale(base.luck, 1, 5);
+                derived.max_weight = 100 + scale(base.strength, 12, 1) + scale(base.vitality, 8, 1) + scale(base.faith, 4, 1);
                 return derived;
+            }
+
+            [[nodiscard]] inline auto derive_encumbrance(std::uint32_t carried_weight, std::int32_t max_weight) -> Encumbrance
+            {
+                Encumbrance encumbrance{};
+                encumbrance.carried_weight = carried_weight;
+                encumbrance.max_weight = static_cast<std::uint32_t>(std::max<std::int32_t>(0, max_weight));
+
+                if (encumbrance.max_weight == 0)
+                {
+                    return encumbrance;
+                }
+
+                const auto load_percent = static_cast<std::int32_t>(
+                    std::min<std::int64_t>(200, (static_cast<std::int64_t>(carried_weight) * 100) / encumbrance.max_weight));
+
+                encumbrance.load_percent = load_percent;
+                encumbrance.move_speed_percent_delta = std::clamp(12 - (load_percent / 4), -40, 12);
+                encumbrance.recovery_percent_delta = std::clamp(10 - (load_percent / 5), -30, 10);
+                return encumbrance;
             }
 
             [[nodiscard]] inline auto add(const Primary& lhs, const Primary& rhs) -> Primary
@@ -92,7 +123,8 @@ namespace mmo
                     lhs.crit_resist + rhs.crit_resist,
                     lhs.magic_crit + rhs.magic_crit,
                     lhs.magic_crit_res + rhs.magic_crit_res,
-                    lhs.move_speed + rhs.move_speed
+                    lhs.move_speed + rhs.move_speed,
+                    lhs.max_weight + rhs.max_weight
                 };
             }
 
@@ -122,6 +154,7 @@ namespace mmo
                 block.magic_crit = std::max(block.magic_crit, 0);
                 block.magic_crit_res = std::max(block.magic_crit_res, 0);
                 block.move_speed = std::max(block.move_speed, 0);
+                block.max_weight = std::max(block.max_weight, 0);
             }
         }
     }

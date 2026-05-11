@@ -89,19 +89,20 @@ namespace mmo
                 return adjust_duration(profile.timing.animation_base, profile.weight, tempo_percent, profile.animation_floor_percent);
             }
 
-            [[nodiscard]] inline auto calculate_recovery(const stat::Derived& derived, const action::Profile& profile, const action::State& state) -> time::Milliseconds
+            [[nodiscard]] inline auto calculate_recovery(const stat::Derived& derived, const stat::Encumbrance& encumbrance, const action::Profile& profile, const action::State& state) -> time::Milliseconds
             {
                 const auto base_recovery = resolve_recovery_base(profile.timing, state.outcome);
 
                 auto tempo_percent = profile.tempo_percent
                     + (static_cast<std::int32_t>(state.chain_step) * profile.chain_step_percent)
-                    + bias_percent(derived, profile.recovery_bias);
+                    + bias_percent(derived, profile.recovery_bias)
+                    + encumbrance.recovery_percent_delta;
 
                 tempo_percent = std::max(tempo_percent, profile.recovery_floor_percent);
                 return adjust_duration(base_recovery, profile.weight, tempo_percent, profile.recovery_floor_percent);
             }
 
-            [[nodiscard]] inline auto calculate(const stat::Derived& derived, const action::Profile& profile, const action::State& state) -> action::Result
+            [[nodiscard]] inline auto calculate(const stat::Derived& derived, const stat::Encumbrance& encumbrance, const action::Profile& profile, const action::State& state) -> action::Result
             {
                 const auto animation_tempo_percent = profile.tempo_percent
                     + (static_cast<std::int32_t>(state.chain_step) * profile.chain_step_percent)
@@ -111,19 +112,25 @@ namespace mmo
 
                 const auto recovery_tempo_percent = profile.tempo_percent
                     + (static_cast<std::int32_t>(state.chain_step) * profile.chain_step_percent)
-                    + bias_percent(derived, profile.recovery_bias);
+                    + bias_percent(derived, profile.recovery_bias)
+                    + encumbrance.recovery_percent_delta;
 
                 return action::Result{
                     profile.kind,
                     state.outcome,
                     profile.weight,
                     calculate_animation(derived, profile, state),
-                    calculate_recovery(derived, profile, state),
+                    calculate_recovery(derived, encumbrance, profile, state),
                     std::max(animation_tempo_percent, profile.animation_floor_percent),
                     std::max(recovery_tempo_percent, profile.recovery_floor_percent),
                     bias_percent(derived, profile.animation_bias),
                     bias_percent(derived, profile.recovery_bias)
                 };
+            }
+
+            [[nodiscard]] inline auto calculate(const stat::Derived& derived, const action::Profile& profile, const action::State& state) -> action::Result
+            {
+                return calculate(derived, stat::Encumbrance{}, profile, state);
             }
 
             [[nodiscard]] inline auto calculate(const stat::Derived& derived, const action::Catalog& catalog, const action::State& state) -> std::optional<action::Result>

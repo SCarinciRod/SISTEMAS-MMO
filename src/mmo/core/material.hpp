@@ -14,6 +14,7 @@ namespace mmo
     {
         namespace material
         {
+            // Material contract: definitions, runtime state, and resistance profiles.
             enum class Kind : std::uint8_t
             {
                 wood = 0,
@@ -88,6 +89,7 @@ namespace mmo
                 }
             }
 
+            // Resistance-based damage calculation for map objects.
             [[nodiscard]] inline auto resolve_damage(const Definition& definition, const damage::Packet& packet) -> std::int32_t
             {
                 if (packet.amount <= 0)

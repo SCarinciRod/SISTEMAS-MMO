@@ -7,3 +7,4 @@ out/
 bin/
 cmake-build-*/
 .vs/
+.cache/

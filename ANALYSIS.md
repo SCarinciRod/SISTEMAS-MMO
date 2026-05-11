@@ -39,6 +39,24 @@ Atualize este documento quando uma mudança estrutural entrar no core.
   - índices por zona, família, origem e espécie;
   - eventos pendentes no scheduler.
 
+## Leitura mais funda do stat
+
+- O pipeline atual tem duas fases claras: `stat::derive` converte o base primário em derivados e `entity::refresh_record` sobrepõe os modificadores ativos antes de recompor os recursos.
+- `stat::Derived::max_weight` agora representa a capacidade de carga base para futuros cálculos de encumbrance.
+- `stat::derive_encumbrance` transforma a carga atual e a capacidade máxima em bônus/penalidades de movimento e recovery, sem misturar essa regra com o resto da fórmula base.
+- `entity::Inventory` guarda as instâncias vivas de item, e `entity::sync_load` já consegue transformar isso em carga atual.
+- `entity::Load` guarda o peso atual da entidade para que o runtime possa compor equipamento, inventário e outras fontes de carga depois.
+- Essa divisão funciona enquanto o único conjunto de modificadores vem de status, mas começa a ficar frágil quando equipamentos, passivos e bônus de conjunto entram na equação.
+- O contrato de equipamento passou a separar ataque/defesa base, requisitos de uso, peso, slots de modificação, pool de affixes e instâncias vivas de affix.
+- `item::calculate_inventory_weight` já oferece uma soma determinística dos pesos das instâncias para evitar lógica duplicada em camadas acima.
+- `item::make_equipment_affix_instance` já formaliza o salto de regra para instância e escala o efeito com base no tier rolado.
+- Hoje `item::EffectProfile` é menor do que `status::Modifiers`, então o contrato de item ainda não consegue expressar todo o espaço de bônus que o runtime já sabe consumir, mas a nova camada de affix fecha a maior lacuna.
+- `experience::required_for_level` e `experience::gain` usam uma curva em degraus (patamares com saltos entre tiers) para evitar crescimento abrupto constante.
+- `entity::resolve_experience_reward` garante que NPCs/monstros tenham recompensa consistente mesmo quando o blueprint não define valor explícito.
+- As contas são inteiras e truncadas, então qualquer mudança de coeficiente precisa vir com exemplos de referência para evitar drift de balanceamento escondido.
+- `stat::scale` zera valores não positivos; isso é aceitável para a fórmula base atual, mas não deve ser reutilizado cegamente para qualquer novo tipo de modificador negativo.
+- A reformulação mais segura é separar fonte, agregação e avaliação: cada sistema gera um bloco de modificadores e o runtime só compõe e aplica o resultado final.
+
 ## Mudanças de design
 
 ### 1. Precisão e evasão removidas do núcleo

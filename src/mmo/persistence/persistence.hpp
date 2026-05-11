@@ -1,8 +1,4 @@
 #pragma once
 
-namespace mmo
-{
-    namespace persistence
-    {
-    }
-}
+#include "persistence/context.hpp"
+#include "persistence/lua_loader.hpp"

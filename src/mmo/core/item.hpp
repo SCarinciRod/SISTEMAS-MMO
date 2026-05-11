@@ -4,6 +4,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <optional>
+#include <limits>
 #include <string_view>
 #include <unordered_map>
 #include <vector>
@@ -82,6 +83,126 @@ namespace mmo
                 std::vector<status::Kind> granted_statuses{};
             };
 
+            struct EquipmentRequirements
+            {
+                stat::Primary minimum_primary{};
+                std::int32_t under_requirement_penalty_percent{ 0 };
+            };
+
+            struct EquipmentModifierRule
+            {
+                std::string_view effect_key{};
+                std::uint32_t min_tier{ 1 };
+                std::uint32_t max_tier{ 1 };
+                status::Modifiers modifiers{};
+            };
+
+            struct EquipmentAffixInstance
+            {
+                std::string_view effect_key{};
+                std::uint32_t tier{ 1 };
+                status::Modifiers modifiers{};
+            };
+
+            [[nodiscard]] inline auto scale_signed(std::int32_t value, std::uint32_t tier, std::uint32_t max_tier) -> std::int32_t
+            {
+                if (value == 0 || tier == 0 || max_tier == 0)
+                {
+                    return 0;
+                }
+
+                const auto safe_tier = std::min(tier, max_tier);
+                return static_cast<std::int32_t>((static_cast<std::int64_t>(value) * safe_tier) / max_tier);
+            }
+
+            [[nodiscard]] inline auto scale_primary(const stat::Primary& value, std::uint32_t tier, std::uint32_t max_tier) -> stat::Primary
+            {
+                return stat::Primary{
+                    scale_signed(value.vitality, tier, max_tier),
+                    scale_signed(value.strength, tier, max_tier),
+                    scale_signed(value.agility, tier, max_tier),
+                    scale_signed(value.intellect, tier, max_tier),
+                    scale_signed(value.faith, tier, max_tier),
+                    scale_signed(value.dexterity, tier, max_tier),
+                    scale_signed(value.luck, tier, max_tier)
+                };
+            }
+
+            [[nodiscard]] inline auto scale_derived(const stat::Derived& value, std::uint32_t tier, std::uint32_t max_tier) -> stat::Derived
+            {
+                return stat::Derived{
+                    scale_signed(value.max_hp, tier, max_tier),
+                    scale_signed(value.max_mana, tier, max_tier),
+                    scale_signed(value.attack, tier, max_tier),
+                    scale_signed(value.attack_speed, tier, max_tier),
+                    scale_signed(value.magic_attack, tier, max_tier),
+                    scale_signed(value.cast_speed, tier, max_tier),
+                    scale_signed(value.defense, tier, max_tier),
+                    scale_signed(value.magic_defense, tier, max_tier),
+                    scale_signed(value.crit_chance, tier, max_tier),
+                    scale_signed(value.crit_resist, tier, max_tier),
+                    scale_signed(value.magic_crit, tier, max_tier),
+                    scale_signed(value.magic_crit_res, tier, max_tier),
+                    scale_signed(value.move_speed, tier, max_tier),
+                    scale_signed(value.max_weight, tier, max_tier)
+                };
+            }
+
+            [[nodiscard]] inline auto scale_modifiers(const status::Modifiers& value, std::uint32_t tier, std::uint32_t max_tier) -> status::Modifiers
+            {
+                status::Modifiers scaled = value;
+                scaled.primary_delta = scale_primary(value.primary_delta, tier, max_tier);
+                scaled.derived_delta = scale_derived(value.derived_delta, tier, max_tier);
+                scaled.health_delta_per_tick = scale_signed(value.health_delta_per_tick, tier, max_tier);
+                scaled.mana_delta_per_tick = scale_signed(value.mana_delta_per_tick, tier, max_tier);
+                scaled.max_hp_percent_delta = scale_signed(value.max_hp_percent_delta, tier, max_tier);
+                scaled.max_mana_percent_delta = scale_signed(value.max_mana_percent_delta, tier, max_tier);
+                scaled.attack_percent_delta = scale_signed(value.attack_percent_delta, tier, max_tier);
+                scaled.attack_speed_percent_delta = scale_signed(value.attack_speed_percent_delta, tier, max_tier);
+                scaled.magic_attack_percent_delta = scale_signed(value.magic_attack_percent_delta, tier, max_tier);
+                scaled.cast_speed_percent_delta = scale_signed(value.cast_speed_percent_delta, tier, max_tier);
+                scaled.defense_percent_delta = scale_signed(value.defense_percent_delta, tier, max_tier);
+                scaled.magic_defense_percent_delta = scale_signed(value.magic_defense_percent_delta, tier, max_tier);
+                scaled.crit_chance_percent_delta = scale_signed(value.crit_chance_percent_delta, tier, max_tier);
+                scaled.crit_resist_percent_delta = scale_signed(value.crit_resist_percent_delta, tier, max_tier);
+                scaled.magic_crit_percent_delta = scale_signed(value.magic_crit_percent_delta, tier, max_tier);
+                scaled.magic_crit_res_percent_delta = scale_signed(value.magic_crit_res_percent_delta, tier, max_tier);
+                scaled.move_speed_percent_delta = scale_signed(value.move_speed_percent_delta, tier, max_tier);
+                scaled.healing_received_percent_delta = scale_signed(value.healing_received_percent_delta, tier, max_tier);
+                scaled.natural_regen_percent_delta = scale_signed(value.natural_regen_percent_delta, tier, max_tier);
+                scaled.action_speed_percent_delta = scale_signed(value.action_speed_percent_delta, tier, max_tier);
+                scaled.recovery_time_percent_delta = scale_signed(value.recovery_time_percent_delta, tier, max_tier);
+                scaled.incoming_damage_percent_delta = scale_signed(value.incoming_damage_percent_delta, tier, max_tier);
+                scaled.incoming_physical_damage_percent_delta = scale_signed(value.incoming_physical_damage_percent_delta, tier, max_tier);
+                scaled.incoming_magical_damage_percent_delta = scale_signed(value.incoming_magical_damage_percent_delta, tier, max_tier);
+                scaled.incoming_build_up_percent_delta = scale_signed(value.incoming_build_up_percent_delta, tier, max_tier);
+                scaled.build_up_threshold_percent_delta = scale_signed(value.build_up_threshold_percent_delta, tier, max_tier);
+                scaled.build_up_decay_per_second_percent_delta = scale_signed(value.build_up_decay_per_second_percent_delta, tier, max_tier);
+                scaled.positive_effect_percent_delta = scale_signed(value.positive_effect_percent_delta, tier, max_tier);
+                scaled.break_damage_bonus_percent = scale_signed(value.break_damage_bonus_percent, tier, max_tier);
+                return scaled;
+            }
+
+            [[nodiscard]] inline auto make_equipment_affix_instance(const EquipmentModifierRule& rule, std::uint32_t tier) -> EquipmentAffixInstance
+            {
+                EquipmentAffixInstance instance{};
+                instance.effect_key = rule.effect_key;
+                instance.tier = std::clamp(tier, rule.min_tier, rule.max_tier);
+                instance.modifiers = scale_modifiers(rule.modifiers, instance.tier, rule.max_tier);
+                return instance;
+            }
+
+            [[nodiscard]] inline auto aggregate_equipment_affixes(const std::vector<EquipmentAffixInstance>& affixes) -> status::Modifiers
+            {
+                status::Modifiers modifiers{};
+                for (const auto& affix : affixes)
+                {
+                    modifiers = status::add_modifiers(modifiers, affix.modifiers);
+                }
+
+                return modifiers;
+            }
+
             struct MaterialDefinition
             {
                 bool craft_only{ true };
@@ -105,9 +226,16 @@ namespace mmo
             {
                 EquipmentClass equipment_class{ EquipmentClass::armor };
                 EquipmentSlot slot{ EquipmentSlot::none };
+                std::int32_t attack{ 0 };
+                std::int32_t defense{ 0 };
+                EquipmentRequirements requirements{};
+                std::uint32_t weight{ 0 };
                 std::uint32_t max_durability{ 0 };
                 bool two_handed{ false };
                 EffectProfile effect{};
+                std::uint32_t modification_slots{ 0 };
+                std::uint32_t affix_slots{ 0 };
+                std::vector<EquipmentModifierRule> modifier_pool{};
                 std::vector<SetBonus> set_bonuses{};
             };
 
@@ -145,6 +273,7 @@ namespace mmo
                 id::ItemTemplateId item_template_id{ id::invalid_item_template_id };
                 std::uint32_t quantity{ 1 };
                 std::uint32_t durability{ 0 };
+                std::vector<EquipmentAffixInstance> affixes{};
                 bool equipped{ false };
                 bool bound{ false };
                 bool quest_locked{ false };
@@ -316,9 +445,40 @@ namespace mmo
                     return false;
                 }
 
+                switch (equipment.equipment_class)
+                {
+                    case EquipmentClass::weapon:
+                        if (equipment.attack <= 0)
+                        {
+                            return false;
+                        }
+                        break;
+                    case EquipmentClass::armor:
+                        if (equipment.defense <= 0)
+                        {
+                            return false;
+                        }
+                        break;
+                    default:
+                        break;
+                }
+
+                if (equipment.affix_slots > 3)
+                {
+                    return false;
+                }
+
                 for (const auto& set_bonus : equipment.set_bonuses)
                 {
                     if (!is_valid_set_bonus(set_bonus))
+                    {
+                        return false;
+                    }
+                }
+
+                for (const auto& modifier_rule : equipment.modifier_pool)
+                {
+                    if (modifier_rule.effect_key.empty() || modifier_rule.min_tier == 0 || modifier_rule.max_tier < modifier_rule.min_tier)
                     {
                         return false;
                     }
@@ -439,6 +599,7 @@ namespace mmo
                 if (definition.equipment.has_value())
                 {
                     instance.durability = definition.equipment->max_durability;
+                    instance.affixes.reserve(definition.equipment->affix_slots);
                 }
 
                 if (definition.quest.has_value())
@@ -448,6 +609,34 @@ namespace mmo
                 }
 
                 return instance;
+            }
+
+            [[nodiscard]] inline auto calculate_item_weight(const Catalog& catalog, const Instance& instance) -> std::uint32_t
+            {
+                if (instance.quantity == 0)
+                {
+                    return 0;
+                }
+
+                const auto* definition = catalog.find(instance.item_template_id);
+                if (definition == nullptr || !definition->equipment.has_value())
+                {
+                    return 0;
+                }
+
+                const auto total_weight = static_cast<std::uint64_t>(definition->equipment->weight) * instance.quantity;
+                return static_cast<std::uint32_t>(std::min<std::uint64_t>(total_weight, static_cast<std::uint64_t>(std::numeric_limits<std::uint32_t>::max())));
+            }
+
+            [[nodiscard]] inline auto calculate_inventory_weight(const Catalog& catalog, const std::vector<Instance>& items) -> std::uint32_t
+            {
+                std::uint64_t total_weight = 0;
+                for (const auto& item_instance : items)
+                {
+                    total_weight += calculate_item_weight(catalog, item_instance);
+                }
+
+                return static_cast<std::uint32_t>(std::min<std::uint64_t>(total_weight, static_cast<std::uint64_t>(std::numeric_limits<std::uint32_t>::max())));
             }
         }
     }

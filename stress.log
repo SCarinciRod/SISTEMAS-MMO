@@ -1,0 +1,372 @@
+[5ms][#1][info][tid=22836][stress] selected_level=smoke
+[7ms][#2][info][tid=22836][stress.inventory_weight_exact] start
+[8ms][#3][info][tid=22836][stress.inventory_weight_exact] end duration_ms=1 expected_once=162 actual_once=162 iterations=200 total_weight_sum=32400
+[10ms][#4][info][tid=22836][stress.inventory_empty] start
+[11ms][#5][info][tid=22836][stress.inventory_empty] end duration_ms=1 weight=0
+[13ms][#6][info][tid=22836][stress.inventory_missing_templates] start
+[14ms][#7][info][tid=22836][stress.inventory_missing_templates] end duration_ms=1 expected_partial_weight=82 actual_partial_weight=82
+[16ms][#8][info][tid=22836][stress.inventory_equipment_quantity_rule] start
+[17ms][#9][info][tid=22836][stress.inventory_equipment_quantity_rule] end duration_ms=1 equipment_quantity=1
+[19ms][#10][info][tid=22836][stress.inventory_duplicate_equipment_instances] start
+[21ms][#11][info][tid=22836][stress.inventory_duplicate_equipment_instances] end duration_ms=2 equipment_instances=10 same_template=true unique_ids=true
+[23ms][#12][info][tid=22836][stress.inventory_material_stack_rule] start
+[24ms][#13][info][tid=22836][stress.inventory_material_stack_rule] end duration_ms=1 slots=1 quantity=350
+[26ms][#14][info][tid=22836][stress.inventory_slot_limit] start
+[27ms][#15][info][tid=22836][stress.inventory_slot_limit] end duration_ms=1 max_slots=3 rejected_status=full
+[29ms][#16][info][tid=22836][stress.inventory_remove_item] start
+[30ms][#17][info][tid=22836][stress.inventory_remove_item] end duration_ms=1 before=10 after=9 missing_status=not_found
+[32ms][#18][info][tid=22836][stress.damage_kind_classification] start
+[33ms][#19][info][tid=22836][stress.damage_kind_classification] end duration_ms=1 physical=4 non_physical=2
+[34ms][#20][info][tid=22836][stress.material_damage_resolution] start
+[36ms][#21][info][tid=22836][stress.material_damage_resolution] end duration_ms=1 cases=8 total_resolved=455
+[38ms][#22][info][tid=22836][stress.material_damage_massive_map_objects] start
+[40ms][#23][info][tid=22836][stress.material_damage_massive_map_objects] end duration_ms=1 iterations=1000 total_damage=72588
+[41ms][#24][info][tid=22836][stress.event_scheduler_ordering] start
+[43ms][#25][info][tid=22836][stress.event_scheduler_ordering] end duration_ms=1 ordered_events=3
+[44ms][#26][info][tid=22836][stress.event_scheduler_massive] start
+[46ms][#27][info][tid=22836][stress.event_scheduler_massive] end duration_ms=1 scheduled=500 first_pop=500 second_pop=0
+[48ms][#28][info][tid=22836][stress.affix_scaling] start
+[50ms][#29][info][tid=22836][stress.affix_scaling] end duration_ms=1 attack_percent_delta=1360 defense_percent_delta=880 move_speed_percent_delta=-640 affix_count=200
+[51ms][#30][info][tid=22836][stress.affix_empty] start
+[53ms][#31][info][tid=22836][stress.affix_empty] end duration_ms=1 empty_affix_modifiers_ok
+[55ms][#32][info][tid=22836][stress.experience_curve] start
+[56ms][#33][info][tid=22836][stress.experience_curve] end duration_ms=1 max_level=40 total_required=36700 final_level=41 tier_resets=0
+[58ms][#34][info][tid=22836][stress.entity_spawn_massive] start
+[59ms][#35][info][tid=22836][stress.entity_spawn_massive] end duration_ms=1 spawned_entities=100
+[61ms][#36][info][tid=22836][stress.combat_damage_multiple_entities] start
+[62ms][#37][info][tid=22836][stress.combat_damage_multiple_entities] end duration_ms=1 entities=100 total_damage=12106 killed=21 lethal_hits=21
+[64ms][#38][info][tid=22836][stress.combat_damage_many_sources_single_entity] start
+[65ms][#39][info][tid=22836][stress.combat_damage_many_sources_single_entity] end duration_ms=1 sources=4 hits=12 hp_start=564 hp_end=534
+[67ms][#40][info][tid=22836][stress.combat_damage_many_sources_many_entities] start
+[69ms][#41][info][tid=22836][stress.combat_damage_many_sources_many_entities] end duration_ms=2 targets=100 sources_per_target=4 total_hits=1201 total_damage=2945 killed=1 forced_kill=true
+[71ms][#42][info][tid=22836][stress.world_loop_core] start
+[74ms][#43][info][tid=22836][stress.world_loop_core] end duration_ms=3 ticks=20 entities_processed=2000 avg_entities_per_tick=100 events_processed=0 status_sweeps=2000
+[76ms][#44][info][tid=22836][stress.world_loop_status_sweeps] start
+[79ms][#45][info][tid=22836][stress.world_loop_status_sweeps] end duration_ms=2 entities=100 ticks=20 status_sweeps=2000 events_processed=0
+[80ms][#46][info][tid=22836][stress.world_loop_empty_world] start
+[81ms][#47][info][tid=22836][stress.world_loop_empty_world] end duration_ms=1 ticks=20 entities_processed=0 events_processed=0 status_sweeps=0
+[4ms][#1][info][tid=24712][stress] selected_level=extreme
+[5ms][#2][info][tid=24712][stress.inventory_weight_exact] start
+[1338ms][#3][info][tid=24712][stress.inventory_weight_exact] end duration_ms=1332 expected_once=20352 actual_once=20352 iterations=25000 total_weight_sum=508800000
+[1340ms][#4][info][tid=24712][stress.inventory_empty] start
+[1341ms][#5][info][tid=24712][stress.inventory_empty] end duration_ms=1 weight=0
+[1343ms][#6][info][tid=24712][stress.inventory_missing_templates] start
+[2174ms][#7][info][tid=24712][stress.inventory_missing_templates] end duration_ms=830 expected_partial_weight=10048 actual_partial_weight=10048
+[2176ms][#8][info][tid=24712][stress.inventory_equipment_quantity_rule] start
+[2177ms][#9][info][tid=24712][stress.inventory_equipment_quantity_rule] end duration_ms=1 equipment_quantity=1
+[2179ms][#10][info][tid=24712][stress.inventory_duplicate_equipment_instances] start
+[2180ms][#11][info][tid=24712][stress.inventory_duplicate_equipment_instances] end duration_ms=1 equipment_instances=10 same_template=true unique_ids=true
+[2182ms][#12][info][tid=24712][stress.inventory_material_stack_rule] start
+[2183ms][#13][info][tid=24712][stress.inventory_material_stack_rule] end duration_ms=1 slots=1 quantity=350
+[2184ms][#14][info][tid=24712][stress.inventory_slot_limit] start
+[2186ms][#15][info][tid=24712][stress.inventory_slot_limit] end duration_ms=1 max_slots=3 rejected_status=full
+[2187ms][#16][info][tid=24712][stress.inventory_remove_item] start
+[2190ms][#17][info][tid=24712][stress.inventory_remove_item] end duration_ms=2 before=10 after=9 missing_status=not_found
+[2192ms][#18][info][tid=24712][stress.damage_kind_classification] start
+[2193ms][#19][info][tid=24712][stress.damage_kind_classification] end duration_ms=1 physical=4 non_physical=2
+[2195ms][#20][info][tid=24712][stress.material_damage_resolution] start
+[2196ms][#21][info][tid=24712][stress.material_damage_resolution] end duration_ms=1 cases=8 total_resolved=455
+[2198ms][#22][info][tid=24712][stress.material_damage_massive_map_objects] start
+[2201ms][#23][info][tid=24712][stress.material_damage_massive_map_objects] end duration_ms=2 iterations=200000 total_damage=14642067
+[2202ms][#24][info][tid=24712][stress.event_scheduler_ordering] start
+[2204ms][#25][info][tid=24712][stress.event_scheduler_ordering] end duration_ms=2 ordered_events=3
+[2206ms][#26][info][tid=24712][stress.event_scheduler_massive] start
+[2298ms][#27][info][tid=24712][stress.event_scheduler_massive] end duration_ms=91 scheduled=200000 first_pop=100000 second_pop=100000
+[2301ms][#28][info][tid=24712][stress.affix_scaling] start
+[2337ms][#29][info][tid=24712][stress.affix_scaling] end duration_ms=35 attack_percent_delta=680000 defense_percent_delta=440000 move_speed_percent_delta=-320000 affix_count=100000
+[2340ms][#30][info][tid=24712][stress.affix_empty] start
+[2342ms][#31][info][tid=24712][stress.affix_empty] end duration_ms=2 empty_affix_modifiers_ok
+[2343ms][#32][info][tid=24712][stress.experience_curve] start
+[2345ms][#33][info][tid=24712][stress.experience_curve] end duration_ms=1 max_level=300 total_required=5559750 final_level=301 tier_resets=0
+[2347ms][#34][info][tid=24712][stress.entity_spawn_massive] start
+[2369ms][#35][info][tid=24712][stress.entity_spawn_massive] end duration_ms=22 spawned_entities=20000
+[2371ms][#36][info][tid=24712][stress.combat_damage_multiple_entities] start
+[2403ms][#37][info][tid=24712][stress.combat_damage_multiple_entities] end duration_ms=31 entities=20000 total_damage=2308567 killed=4001 lethal_hits=4001
+[2406ms][#38][info][tid=24712][stress.combat_damage_many_sources_single_entity] start
+[2409ms][#39][info][tid=24712][stress.combat_damage_many_sources_single_entity] end duration_ms=2 sources=16 hits=128 hp_start=564 hp_end=244
+[2411ms][#40][info][tid=24712][stress.combat_damage_many_sources_many_entities] start
+[3512ms][#41][info][tid=24712][stress.combat_damage_many_sources_many_entities] end duration_ms=1101 targets=20000 sources_per_target=16 total_hits=2560001 total_damage=5120314 killed=1 forced_kill=true
+[3516ms][#42][info][tid=24712][stress.world_loop_core] start
+[27462ms][#43][info][tid=24712][stress.world_loop_core] end duration_ms=23946 ticks=500 entities_processed=10000000 avg_entities_per_tick=20000 events_processed=0 status_sweeps=10000000
+[27464ms][#44][info][tid=24712][stress.world_loop_status_sweeps] start
+[27467ms][#45][info][tid=24712][stress.world_loop_status_sweeps] end duration_ms=2 entities=100 ticks=60 status_sweeps=6000 events_processed=0
+[27468ms][#46][info][tid=24712][stress.world_loop_empty_world] start
+[27470ms][#47][info][tid=24712][stress.world_loop_empty_world] end duration_ms=1 ticks=500 entities_processed=0 events_processed=0 status_sweeps=0
+[15ms][#1][info][tid=39728][stress] selected_level=high
+[35ms][#2][info][tid=39728][stress.inventory_weight_exact] start
+[662ms][#3][info][tid=39728][stress.inventory_weight_exact] end duration_ms=627 expected_once=5088 actual_once=5088 iterations=10000 total_weight_sum=50880000
+[689ms][#4][info][tid=39728][stress.inventory_empty] start
+[700ms][#5][info][tid=39728][stress.inventory_empty] end duration_ms=11 weight=0
+[718ms][#6][info][tid=39728][stress.inventory_missing_templates] start
+[971ms][#7][info][tid=39728][stress.inventory_missing_templates] end duration_ms=252 expected_partial_weight=2512 actual_partial_weight=2512
+[980ms][#8][info][tid=39728][stress.inventory_equipment_quantity_rule] start
+[987ms][#9][info][tid=39728][stress.inventory_equipment_quantity_rule] end duration_ms=7 equipment_quantity=1
+[1009ms][#10][info][tid=39728][stress.inventory_duplicate_equipment_instances] start
+[1025ms][#11][info][tid=39728][stress.inventory_duplicate_equipment_instances] end duration_ms=16 equipment_instances=10 same_template=true unique_ids=true
+[1033ms][#12][info][tid=39728][stress.inventory_material_stack_rule] start
+[1040ms][#13][info][tid=39728][stress.inventory_material_stack_rule] end duration_ms=7 slots=1 quantity=350
+[1048ms][#14][info][tid=39728][stress.inventory_slot_limit] start
+[1050ms][#15][info][tid=39728][stress.inventory_slot_limit] end duration_ms=2 max_slots=3 rejected_status=full
+[1054ms][#16][info][tid=39728][stress.inventory_remove_item] start
+[1057ms][#17][info][tid=39728][stress.inventory_remove_item] end duration_ms=3 before=10 after=9 missing_status=not_found
+[1063ms][#18][info][tid=39728][stress.damage_kind_classification] start
+[1067ms][#19][info][tid=39728][stress.damage_kind_classification] end duration_ms=3 physical=4 non_physical=2
+[1115ms][#20][info][tid=39728][stress.material_damage_resolution] start
+[1131ms][#21][info][tid=39728][stress.material_damage_resolution] end duration_ms=16 cases=8 total_resolved=455
+[1148ms][#22][info][tid=39728][stress.material_damage_massive_map_objects] start
+[1153ms][#23][info][tid=39728][stress.material_damage_massive_map_objects] end duration_ms=4 iterations=50000 total_damage=3660067
+[1156ms][#24][info][tid=39728][stress.event_scheduler_ordering] start
+[1170ms][#25][info][tid=39728][stress.event_scheduler_ordering] end duration_ms=13 ordered_events=3
+[1180ms][#26][info][tid=39728][stress.event_scheduler_massive] start
+[1260ms][#27][info][tid=39728][stress.event_scheduler_massive] end duration_ms=79 scheduled=50000 first_pop=25000 second_pop=25000
+[1266ms][#28][info][tid=39728][stress.affix_scaling] start
+[1284ms][#29][info][tid=39728][stress.affix_scaling] end duration_ms=17 attack_percent_delta=170000 defense_percent_delta=110000 move_speed_percent_delta=-80000 affix_count=25000
+[1326ms][#30][info][tid=39728][stress.affix_empty] start
+[1342ms][#31][info][tid=39728][stress.affix_empty] end duration_ms=15 empty_affix_modifiers_ok
+[1358ms][#32][info][tid=39728][stress.experience_curve] start
+[1397ms][#33][info][tid=39728][stress.experience_curve] end duration_ms=39 max_level=200 total_required=1871500 final_level=201 tier_resets=0
+[1400ms][#34][info][tid=39728][stress.entity_spawn_massive] start
+[1415ms][#35][info][tid=39728][stress.entity_spawn_massive] end duration_ms=15 spawned_entities=5000
+[1418ms][#36][info][tid=39728][stress.combat_damage_multiple_entities] start
+[1443ms][#37][info][tid=39728][stress.combat_damage_multiple_entities] end duration_ms=25 entities=5000 total_damage=577567 killed=1001 lethal_hits=1001
+[1456ms][#38][info][tid=39728][stress.combat_damage_many_sources_single_entity] start
+[1475ms][#39][info][tid=39728][stress.combat_damage_many_sources_single_entity] end duration_ms=18 sources=12 hits=72 hp_start=564 hp_end=384
+[1578ms][#40][info][tid=39728][stress.combat_damage_many_sources_many_entities] start
+[1998ms][#41][info][tid=39728][stress.combat_damage_many_sources_many_entities] end duration_ms=420 targets=5000 sources_per_target=12 total_hits=360001 total_damage=720425 killed=1 forced_kill=true
+[2013ms][#42][info][tid=39728][stress.world_loop_core] start
+[12366ms][#43][info][tid=39728][stress.world_loop_core] end duration_ms=10352 ticks=240 entities_processed=1200000 avg_entities_per_tick=5000 events_processed=0 status_sweeps=1200000
+[12370ms][#44][info][tid=39728][stress.world_loop_status_sweeps] start
+[12382ms][#45][info][tid=39728][stress.world_loop_status_sweeps] end duration_ms=11 entities=100 ticks=60 status_sweeps=6000 events_processed=0
+[12392ms][#46][info][tid=39728][stress.world_loop_empty_world] start
+[12404ms][#47][info][tid=39728][stress.world_loop_empty_world] end duration_ms=11 ticks=240 entities_processed=0 events_processed=0 status_sweeps=0
+[11ms][#1][info][tid=16720][stress] selected_level=high
+[455ms][#2][info][tid=16720][stress.inventory_weight_exact] start
+[1205ms][#3][info][tid=16720][stress.inventory_weight_exact] end duration_ms=750 expected_once=5088 actual_once=5088 iterations=10000 total_weight_sum=50880000
+[1207ms][#4][info][tid=16720][stress.inventory_empty] start
+[1210ms][#5][info][tid=16720][stress.inventory_empty] end duration_ms=2 weight=0
+[1212ms][#6][info][tid=16720][stress.inventory_missing_templates] start
+[1500ms][#7][info][tid=16720][stress.inventory_missing_templates] end duration_ms=287 expected_partial_weight=2512 actual_partial_weight=2512
+[1503ms][#8][info][tid=16720][stress.inventory_equipment_quantity_rule] start
+[1505ms][#9][info][tid=16720][stress.inventory_equipment_quantity_rule] end duration_ms=2 equipment_quantity=1
+[1508ms][#10][info][tid=16720][stress.inventory_duplicate_equipment_instances] start
+[1510ms][#11][info][tid=16720][stress.inventory_duplicate_equipment_instances] end duration_ms=2 equipment_instances=10 same_template=true unique_ids=true
+[1513ms][#12][info][tid=16720][stress.inventory_material_stack_rule] start
+[1515ms][#13][info][tid=16720][stress.inventory_material_stack_rule] end duration_ms=2 slots=1 quantity=350
+[1519ms][#14][info][tid=16720][stress.inventory_slot_limit] start
+[1522ms][#15][info][tid=16720][stress.inventory_slot_limit] end duration_ms=2 max_slots=3 rejected_status=full
+[1523ms][#16][info][tid=16720][stress.inventory_remove_item] start
+[1525ms][#17][info][tid=16720][stress.inventory_remove_item] end duration_ms=1 before=10 after=9 missing_status=not_found
+[1528ms][#18][info][tid=16720][stress.damage_kind_classification] start
+[1530ms][#19][info][tid=16720][stress.damage_kind_classification] end duration_ms=2 physical=4 non_physical=2
+[1532ms][#20][info][tid=16720][stress.material_damage_resolution] start
+[1536ms][#21][info][tid=16720][stress.material_damage_resolution] end duration_ms=4 cases=8 total_resolved=455
+[1539ms][#22][info][tid=16720][stress.material_damage_massive_map_objects] start
+[1543ms][#23][info][tid=16720][stress.material_damage_massive_map_objects] end duration_ms=3 iterations=50000 total_damage=3660067
+[1554ms][#24][info][tid=16720][stress.event_scheduler_ordering] start
+[1563ms][#25][info][tid=16720][stress.event_scheduler_ordering] end duration_ms=9 ordered_events=3
+[1571ms][#26][info][tid=16720][stress.event_scheduler_massive] start
+[1617ms][#27][info][tid=16720][stress.event_scheduler_massive] end duration_ms=46 scheduled=50000 first_pop=25000 second_pop=25000
+[1620ms][#28][info][tid=16720][stress.affix_scaling] start
+[1644ms][#29][info][tid=16720][stress.affix_scaling] end duration_ms=24 attack_percent_delta=170000 defense_percent_delta=110000 move_speed_percent_delta=-80000 affix_count=25000
+[1647ms][#30][info][tid=16720][stress.affix_empty] start
+[1650ms][#31][info][tid=16720][stress.affix_empty] end duration_ms=3 empty_affix_modifiers_ok
+[1653ms][#32][info][tid=16720][stress.experience_curve] start
+[1655ms][#33][info][tid=16720][stress.experience_curve] end duration_ms=1 max_level=200 total_required=1871500 final_level=201 tier_resets=0
+[1656ms][#34][info][tid=16720][stress.entity_spawn_massive] start
+[1673ms][#35][info][tid=16720][stress.entity_spawn_massive] end duration_ms=16 spawned_entities=5000
+[1675ms][#36][info][tid=16720][stress.combat_damage_multiple_entities] start
+[1691ms][#37][info][tid=16720][stress.combat_damage_multiple_entities] end duration_ms=16 entities=5000 total_damage=577567 killed=1001 lethal_hits=1001
+[1693ms][#38][info][tid=16720][stress.combat_damage_many_sources_single_entity] start
+[1695ms][#39][info][tid=16720][stress.combat_damage_many_sources_single_entity] end duration_ms=2 sources=12 hits=72 hp_start=564 hp_end=384
+[1703ms][#40][info][tid=16720][stress.combat_damage_many_sources_many_entities] start
+[2062ms][#41][info][tid=16720][stress.combat_damage_many_sources_many_entities] end duration_ms=358 targets=5000 sources_per_target=12 total_hits=360001 total_damage=720425 killed=1 forced_kill=true
+[2067ms][#42][info][tid=16720][stress.world_loop_core] start
+[6743ms][#43][info][tid=16720][stress.world_loop_core] end duration_ms=4676 ticks=240 entities_processed=1200000 avg_entities_per_tick=5000 events_processed=0 status_sweeps=1200000
+[6745ms][#44][info][tid=16720][stress.world_loop_status_sweeps] start
+[6749ms][#45][info][tid=16720][stress.world_loop_status_sweeps] end duration_ms=3 entities=100 ticks=60 status_sweeps=6000 events_processed=0
+[6752ms][#46][info][tid=16720][stress.world_loop_empty_world] start
+[6754ms][#47][info][tid=16720][stress.world_loop_empty_world] end duration_ms=1 ticks=240 entities_processed=0 events_processed=0 status_sweeps=0
+[6778ms][#48][info][tid=16720][stress.summary] level=high
+[6788ms][#49][info][tid=16720][stress.summary] PASS stress.inventory_weight_exact duration_ms=750 expected_once=5088 actual_once=5088 iterations=10000 total_weight_sum=50880000
+[6790ms][#50][info][tid=16720][stress.summary] PASS stress.inventory_empty duration_ms=2 weight=0
+[6793ms][#51][info][tid=16720][stress.summary] PASS stress.inventory_missing_templates duration_ms=287 expected_partial_weight=2512 actual_partial_weight=2512
+[6795ms][#52][info][tid=16720][stress.summary] PASS stress.inventory_equipment_quantity_rule duration_ms=2 equipment_quantity=1
+[6799ms][#53][info][tid=16720][stress.summary] PASS stress.inventory_duplicate_equipment_instances duration_ms=2 equipment_instances=10 same_template=true unique_ids=true
+[6801ms][#54][info][tid=16720][stress.summary] PASS stress.inventory_material_stack_rule duration_ms=2 slots=1 quantity=350
+[6803ms][#55][info][tid=16720][stress.summary] PASS stress.inventory_slot_limit duration_ms=2 max_slots=3 rejected_status=full
+[6805ms][#56][info][tid=16720][stress.summary] PASS stress.inventory_remove_item duration_ms=1 before=10 after=9 missing_status=not_found
+[6807ms][#57][info][tid=16720][stress.summary] PASS stress.damage_kind_classification duration_ms=2 physical=4 non_physical=2
+[6809ms][#58][info][tid=16720][stress.summary] PASS stress.material_damage_resolution duration_ms=4 cases=8 total_resolved=455
+[6812ms][#59][info][tid=16720][stress.summary] PASS stress.material_damage_massive_map_objects duration_ms=3 iterations=50000 total_damage=3660067
+[6815ms][#60][info][tid=16720][stress.summary] PASS stress.event_scheduler_ordering duration_ms=9 ordered_events=3
+[6819ms][#61][info][tid=16720][stress.summary] PASS stress.event_scheduler_massive duration_ms=46 scheduled=50000 first_pop=25000 second_pop=25000
+[6822ms][#62][info][tid=16720][stress.summary] PASS stress.affix_scaling duration_ms=24 attack_percent_delta=170000 defense_percent_delta=110000 move_speed_percent_delta=-80000 affix_count=25000
+[6826ms][#63][info][tid=16720][stress.summary] PASS stress.affix_empty duration_ms=3 empty_affix_modifiers_ok
+[6830ms][#64][info][tid=16720][stress.summary] PASS stress.experience_curve duration_ms=1 max_level=200 total_required=1871500 final_level=201 tier_resets=0
+[6834ms][#65][info][tid=16720][stress.summary] PASS stress.entity_spawn_massive duration_ms=16 spawned_entities=5000
+[6837ms][#66][info][tid=16720][stress.summary] PASS stress.combat_damage_multiple_entities duration_ms=16 entities=5000 total_damage=577567 killed=1001 lethal_hits=1001
+[6839ms][#67][info][tid=16720][stress.summary] PASS stress.combat_damage_many_sources_single_entity duration_ms=2 sources=12 hits=72 hp_start=564 hp_end=384
+[6841ms][#68][info][tid=16720][stress.summary] PASS stress.combat_damage_many_sources_many_entities duration_ms=358 targets=5000 sources_per_target=12 total_hits=360001 total_damage=720425 killed=1 forced_kill=true
+[6844ms][#69][info][tid=16720][stress.summary] PASS stress.world_loop_core duration_ms=4676 ticks=240 entities_processed=1200000 avg_entities_per_tick=5000 events_processed=0 status_sweeps=1200000
+[6846ms][#70][info][tid=16720][stress.summary] PASS stress.world_loop_status_sweeps duration_ms=3 entities=100 ticks=60 status_sweeps=6000 events_processed=0
+[6848ms][#71][info][tid=16720][stress.summary] PASS stress.world_loop_empty_world duration_ms=1 ticks=240 entities_processed=0 events_processed=0 status_sweeps=0
+[6852ms][#72][info][tid=16720][stress.summary] failures=0
+[2ms][#1][info][tid=32620][stress] selected_level=high
+[4ms][#2][info][tid=32620][stress.inventory_weight_exact] start
+[127ms][#3][info][tid=32620][stress.inventory_weight_exact] end duration_ms=123 expected_once=5088 actual_once=5088 iterations=10000 total_weight_sum=50880000
+[128ms][#4][info][tid=32620][stress.inventory_empty] start
+[129ms][#5][info][tid=32620][stress.inventory_empty] end duration_ms=1 weight=0
+[130ms][#6][info][tid=32620][stress.inventory_missing_templates] start
+[189ms][#7][info][tid=32620][stress.inventory_missing_templates] end duration_ms=59 expected_partial_weight=2512 actual_partial_weight=2512
+[191ms][#8][info][tid=32620][stress.inventory_equipment_quantity_rule] start
+[192ms][#9][info][tid=32620][stress.inventory_equipment_quantity_rule] end duration_ms=1 equipment_quantity=1
+[193ms][#10][info][tid=32620][stress.inventory_duplicate_equipment_instances] start
+[194ms][#11][info][tid=32620][stress.inventory_duplicate_equipment_instances] end duration_ms=0 equipment_instances=10 same_template=true unique_ids=true
+[195ms][#12][info][tid=32620][stress.inventory_material_stack_rule] start
+[195ms][#13][info][tid=32620][stress.inventory_material_stack_rule] end duration_ms=0 slots=1 quantity=350
+[197ms][#14][info][tid=32620][stress.inventory_slot_limit] start
+[198ms][#15][info][tid=32620][stress.inventory_slot_limit] end duration_ms=1 max_slots=3 rejected_status=full
+[199ms][#16][info][tid=32620][stress.inventory_remove_item] start
+[200ms][#17][info][tid=32620][stress.inventory_remove_item] end duration_ms=1 before=10 after=9 missing_status=not_found
+[201ms][#18][info][tid=32620][stress.damage_kind_classification] start
+[202ms][#19][info][tid=32620][stress.damage_kind_classification] end duration_ms=1 physical=4 non_physical=2
+[203ms][#20][info][tid=32620][stress.material_damage_resolution] start
+[204ms][#21][info][tid=32620][stress.material_damage_resolution] end duration_ms=0 cases=8 total_resolved=455
+[204ms][#22][info][tid=32620][stress.material_damage_massive_map_objects] start
+[206ms][#23][info][tid=32620][stress.material_damage_massive_map_objects] end duration_ms=1 iterations=50000 total_damage=3660067
+[207ms][#24][info][tid=32620][stress.event_scheduler_ordering] start
+[208ms][#25][info][tid=32620][stress.event_scheduler_ordering] end duration_ms=1 ordered_events=3
+[209ms][#26][info][tid=32620][stress.event_scheduler_massive] start
+[220ms][#27][info][tid=32620][stress.event_scheduler_massive] end duration_ms=11 scheduled=50000 first_pop=25000 second_pop=25000
+[222ms][#28][info][tid=32620][stress.affix_scaling] start
+[229ms][#29][info][tid=32620][stress.affix_scaling] end duration_ms=6 attack_percent_delta=170000 defense_percent_delta=110000 move_speed_percent_delta=-80000 affix_count=25000
+[230ms][#30][info][tid=32620][stress.affix_empty] start
+[231ms][#31][info][tid=32620][stress.affix_empty] end duration_ms=0 empty_affix_modifiers_ok
+[232ms][#32][info][tid=32620][stress.experience_curve] start
+[233ms][#33][info][tid=32620][stress.experience_curve] end duration_ms=1 max_level=200 total_required=1871500 final_level=201 tier_resets=0
+[234ms][#34][info][tid=32620][stress.entity_spawn_massive] start
+[239ms][#35][info][tid=32620][stress.entity_spawn_massive] end duration_ms=5 spawned_entities=5000
+[240ms][#36][info][tid=32620][stress.combat_damage_multiple_entities] start
+[247ms][#37][info][tid=32620][stress.combat_damage_multiple_entities] end duration_ms=6 entities=5000 total_damage=577567 killed=1001 lethal_hits=1001
+[248ms][#38][info][tid=32620][stress.combat_damage_many_sources_single_entity] start
+[249ms][#39][info][tid=32620][stress.combat_damage_many_sources_single_entity] end duration_ms=1 sources=12 hits=72 hp_start=564 hp_end=384
+[251ms][#40][info][tid=32620][stress.combat_damage_many_sources_many_entities] start
+[360ms][#41][info][tid=32620][stress.combat_damage_many_sources_many_entities] end duration_ms=108 targets=5000 sources_per_target=12 total_hits=360001 total_damage=720425 killed=1 forced_kill=true
+[361ms][#42][info][tid=32620][stress.world_loop_core] start
+[2442ms][#43][info][tid=32620][stress.world_loop_core] end duration_ms=2081 ticks=240 entities_processed=1200000 avg_entities_per_tick=5000 events_processed=0 status_sweeps=1200000
+[2445ms][#44][info][tid=32620][stress.world_loop_status_sweeps] start
+[2448ms][#45][info][tid=32620][stress.world_loop_status_sweeps] end duration_ms=3 entities=100 ticks=60 status_sweeps=6000 events_processed=0
+[2451ms][#46][info][tid=32620][stress.world_loop_empty_world] start
+[2453ms][#47][info][tid=32620][stress.world_loop_empty_world] end duration_ms=2 ticks=240 entities_processed=0 events_processed=0 status_sweeps=0
+[2455ms][#48][info][tid=32620][stress.summary] level=high
+[2457ms][#49][info][tid=32620][stress.summary] PASS stress.inventory_weight_exact duration_ms=123 expected_once=5088 actual_once=5088 iterations=10000 total_weight_sum=50880000
+[2459ms][#50][info][tid=32620][stress.summary] PASS stress.inventory_empty duration_ms=1 weight=0
+[2462ms][#51][info][tid=32620][stress.summary] PASS stress.inventory_missing_templates duration_ms=59 expected_partial_weight=2512 actual_partial_weight=2512
+[2466ms][#52][info][tid=32620][stress.summary] PASS stress.inventory_equipment_quantity_rule duration_ms=1 equipment_quantity=1
+[2469ms][#53][info][tid=32620][stress.summary] PASS stress.inventory_duplicate_equipment_instances duration_ms=0 equipment_instances=10 same_template=true unique_ids=true
+[2471ms][#54][info][tid=32620][stress.summary] PASS stress.inventory_material_stack_rule duration_ms=0 slots=1 quantity=350
+[2473ms][#55][info][tid=32620][stress.summary] PASS stress.inventory_slot_limit duration_ms=1 max_slots=3 rejected_status=full
+[2475ms][#56][info][tid=32620][stress.summary] PASS stress.inventory_remove_item duration_ms=1 before=10 after=9 missing_status=not_found
+[2477ms][#57][info][tid=32620][stress.summary] PASS stress.damage_kind_classification duration_ms=1 physical=4 non_physical=2
+[2479ms][#58][info][tid=32620][stress.summary] PASS stress.material_damage_resolution duration_ms=0 cases=8 total_resolved=455
+[2480ms][#59][info][tid=32620][stress.summary] PASS stress.material_damage_massive_map_objects duration_ms=1 iterations=50000 total_damage=3660067
+[2482ms][#60][info][tid=32620][stress.summary] PASS stress.event_scheduler_ordering duration_ms=1 ordered_events=3
+[2483ms][#61][info][tid=32620][stress.summary] PASS stress.event_scheduler_massive duration_ms=11 scheduled=50000 first_pop=25000 second_pop=25000
+[2485ms][#62][info][tid=32620][stress.summary] PASS stress.affix_scaling duration_ms=6 attack_percent_delta=170000 defense_percent_delta=110000 move_speed_percent_delta=-80000 affix_count=25000
+[2487ms][#63][info][tid=32620][stress.summary] PASS stress.affix_empty duration_ms=0 empty_affix_modifiers_ok
+[2489ms][#64][info][tid=32620][stress.summary] PASS stress.experience_curve duration_ms=1 max_level=200 total_required=1871500 final_level=201 tier_resets=0
+[2491ms][#65][info][tid=32620][stress.summary] PASS stress.entity_spawn_massive duration_ms=5 spawned_entities=5000
+[2492ms][#66][info][tid=32620][stress.summary] PASS stress.combat_damage_multiple_entities duration_ms=6 entities=5000 total_damage=577567 killed=1001 lethal_hits=1001
+[2494ms][#67][info][tid=32620][stress.summary] PASS stress.combat_damage_many_sources_single_entity duration_ms=1 sources=12 hits=72 hp_start=564 hp_end=384
+[2496ms][#68][info][tid=32620][stress.summary] PASS stress.combat_damage_many_sources_many_entities duration_ms=108 targets=5000 sources_per_target=12 total_hits=360001 total_damage=720425 killed=1 forced_kill=true
+[2498ms][#69][info][tid=32620][stress.summary] PASS stress.world_loop_core duration_ms=2081 ticks=240 entities_processed=1200000 avg_entities_per_tick=5000 events_processed=0 status_sweeps=1200000
+[2500ms][#70][info][tid=32620][stress.summary] PASS stress.world_loop_status_sweeps duration_ms=3 entities=100 ticks=60 status_sweeps=6000 events_processed=0
+[2502ms][#71][info][tid=32620][stress.summary] PASS stress.world_loop_empty_world duration_ms=2 ticks=240 entities_processed=0 events_processed=0 status_sweeps=0
+[2504ms][#72][info][tid=32620][stress.summary] failures=0
+[6ms][#1][info][tid=24940][stress] selected_level=high
+[8ms][#2][info][tid=24940][stress.event_validation_rules] start
+[9ms][#3][info][tid=24940][stress.event_validation_rules] end duration_ms=1 validation_ok
+[10ms][#4][info][tid=24940][stress.event_scheduler_basic] start
+[12ms][#5][info][tid=24940][stress.event_scheduler_basic] end duration_ms=1 ordering_ok
+[13ms][#6][info][tid=24940][stress.summary] level=high
+[15ms][#7][info][tid=24940][stress.summary] PASS stress.event_validation_rules duration_ms=1 validation_ok
+[17ms][#8][info][tid=24940][stress.summary] PASS stress.event_scheduler_basic duration_ms=1 ordering_ok
+[22ms][#9][info][tid=24940][stress.summary] failures=0
+[3ms][#1][info][tid=28104][stress] selected_level=high
+[5ms][#2][info][tid=28104][stress.inventory_weight_exact] start
+[320ms][#3][info][tid=28104][stress.inventory_weight_exact] end duration_ms=314 expected_once=5088 actual_once=5088 iterations=10000 total_weight_sum=50880000
+[322ms][#4][info][tid=28104][stress.inventory_empty] start
+[329ms][#5][info][tid=28104][stress.inventory_empty] end duration_ms=7 weight=0
+[331ms][#6][info][tid=28104][stress.inventory_missing_templates] start
+[535ms][#7][info][tid=28104][stress.inventory_missing_templates] end duration_ms=204 expected_partial_weight=2512 actual_partial_weight=2512
+[539ms][#8][info][tid=28104][stress.inventory_equipment_quantity_rule] start
+[544ms][#9][info][tid=28104][stress.inventory_equipment_quantity_rule] end duration_ms=5 equipment_quantity=1
+[546ms][#10][info][tid=28104][stress.inventory_duplicate_equipment_instances] start
+[548ms][#11][info][tid=28104][stress.inventory_duplicate_equipment_instances] end duration_ms=2 equipment_instances=10 same_template=true unique_ids=true
+[550ms][#12][info][tid=28104][stress.inventory_material_stack_rule] start
+[552ms][#13][info][tid=28104][stress.inventory_material_stack_rule] end duration_ms=1 slots=1 quantity=350
+[554ms][#14][info][tid=28104][stress.inventory_slot_limit] start
+[557ms][#15][info][tid=28104][stress.inventory_slot_limit] end duration_ms=2 max_slots=3 rejected_status=full
+[559ms][#16][info][tid=28104][stress.inventory_remove_item] start
+[561ms][#17][info][tid=28104][stress.inventory_remove_item] end duration_ms=1 before=10 after=9 missing_status=not_found
+[563ms][#18][info][tid=28104][stress.damage_kind_classification] start
+[564ms][#19][info][tid=28104][stress.damage_kind_classification] end duration_ms=1 physical=4 non_physical=2
+[566ms][#20][info][tid=28104][stress.material_damage_resolution] start
+[568ms][#21][info][tid=28104][stress.material_damage_resolution] end duration_ms=1 cases=8 total_resolved=455
+[571ms][#22][info][tid=28104][stress.material_damage_massive_map_objects] start
+[574ms][#23][info][tid=28104][stress.material_damage_massive_map_objects] end duration_ms=3 iterations=50000 total_damage=3660067
+[576ms][#24][info][tid=28104][stress.event_validation_rules] start
+[578ms][#25][info][tid=28104][stress.event_validation_rules] end duration_ms=1 validation_ok
+[580ms][#26][info][tid=28104][stress.event_scheduler_basic] start
+[581ms][#27][info][tid=28104][stress.event_scheduler_basic] end duration_ms=1 ordering_ok
+[583ms][#28][info][tid=28104][stress.event_scheduler_ordering] start
+[585ms][#29][info][tid=28104][stress.event_scheduler_ordering] end duration_ms=2 ordered_events=3
+[587ms][#30][info][tid=28104][stress.event_scheduler_massive] start
+[610ms][#31][info][tid=28104][stress.event_scheduler_massive] end duration_ms=23 scheduled=50000 first_pop=25000 second_pop=25000
+[612ms][#32][info][tid=28104][stress.affix_scaling] start
+[622ms][#33][info][tid=28104][stress.affix_scaling] end duration_ms=9 attack_percent_delta=170000 defense_percent_delta=110000 move_speed_percent_delta=-80000 affix_count=25000
+[624ms][#34][info][tid=28104][stress.affix_empty] start
+[626ms][#35][info][tid=28104][stress.affix_empty] end duration_ms=1 empty_affix_modifiers_ok
+[628ms][#36][info][tid=28104][stress.experience_curve] start
+[630ms][#37][info][tid=28104][stress.experience_curve] end duration_ms=1 max_level=200 total_required=1871500 final_level=201 tier_resets=0
+[631ms][#38][info][tid=28104][stress.entity_spawn_massive] start
+[641ms][#39][info][tid=28104][stress.entity_spawn_massive] end duration_ms=10 spawned_entities=5000
+[645ms][#40][info][tid=28104][stress.combat_damage_multiple_entities] start
+[657ms][#41][info][tid=28104][stress.combat_damage_multiple_entities] end duration_ms=12 entities=5000 total_damage=577567 killed=1001 lethal_hits=1001
+[660ms][#42][info][tid=28104][stress.combat_damage_many_sources_single_entity] start
+[662ms][#43][info][tid=28104][stress.combat_damage_many_sources_single_entity] end duration_ms=2 sources=12 hits=72 hp_start=564 hp_end=384
+[664ms][#44][info][tid=28104][stress.combat_damage_many_sources_many_entities] start
+[906ms][#45][info][tid=28104][stress.combat_damage_many_sources_many_entities] end duration_ms=241 targets=5000 sources_per_target=12 total_hits=360001 total_damage=720425 killed=1 forced_kill=true
+[909ms][#46][info][tid=28104][stress.world_loop_core] start
+[4039ms][#47][info][tid=28104][stress.world_loop_core] end duration_ms=3129 ticks=240 entities_processed=1200000 avg_entities_per_tick=5000 events_processed=0 status_sweeps=1200000
+[4042ms][#48][info][tid=28104][stress.world_loop_status_sweeps] start
+[4046ms][#49][info][tid=28104][stress.world_loop_status_sweeps] end duration_ms=3 entities=100 ticks=60 status_sweeps=6000 events_processed=0
+[4048ms][#50][info][tid=28104][stress.world_loop_empty_world] start
+[4050ms][#51][info][tid=28104][stress.world_loop_empty_world] end duration_ms=2 ticks=240 entities_processed=0 events_processed=0 status_sweeps=0
+[4053ms][#52][info][tid=28104][stress.summary] level=high
+[4055ms][#53][info][tid=28104][stress.summary] PASS stress.inventory_weight_exact duration_ms=314 expected_once=5088 actual_once=5088 iterations=10000 total_weight_sum=50880000
+[4059ms][#54][info][tid=28104][stress.summary] PASS stress.inventory_empty duration_ms=7 weight=0
+[4061ms][#55][info][tid=28104][stress.summary] PASS stress.inventory_missing_templates duration_ms=204 expected_partial_weight=2512 actual_partial_weight=2512
+[4063ms][#56][info][tid=28104][stress.summary] PASS stress.inventory_equipment_quantity_rule duration_ms=5 equipment_quantity=1
+[4064ms][#57][info][tid=28104][stress.summary] PASS stress.inventory_duplicate_equipment_instances duration_ms=2 equipment_instances=10 same_template=true unique_ids=true
+[4066ms][#58][info][tid=28104][stress.summary] PASS stress.inventory_material_stack_rule duration_ms=1 slots=1 quantity=350
+[4068ms][#59][info][tid=28104][stress.summary] PASS stress.inventory_slot_limit duration_ms=2 max_slots=3 rejected_status=full
+[4069ms][#60][info][tid=28104][stress.summary] PASS stress.inventory_remove_item duration_ms=1 before=10 after=9 missing_status=not_found
+[4071ms][#61][info][tid=28104][stress.summary] PASS stress.damage_kind_classification duration_ms=1 physical=4 non_physical=2
+[4073ms][#62][info][tid=28104][stress.summary] PASS stress.material_damage_resolution duration_ms=1 cases=8 total_resolved=455
+[4075ms][#63][info][tid=28104][stress.summary] PASS stress.material_damage_massive_map_objects duration_ms=3 iterations=50000 total_damage=3660067
+[4077ms][#64][info][tid=28104][stress.summary] PASS stress.event_validation_rules duration_ms=1 validation_ok
+[4079ms][#65][info][tid=28104][stress.summary] PASS stress.event_scheduler_basic duration_ms=1 ordering_ok
+[4080ms][#66][info][tid=28104][stress.summary] PASS stress.event_scheduler_ordering duration_ms=2 ordered_events=3
+[4082ms][#67][info][tid=28104][stress.summary] PASS stress.event_scheduler_massive duration_ms=23 scheduled=50000 first_pop=25000 second_pop=25000
+[4085ms][#68][info][tid=28104][stress.summary] PASS stress.affix_scaling duration_ms=9 attack_percent_delta=170000 defense_percent_delta=110000 move_speed_percent_delta=-80000 affix_count=25000
+[4087ms][#69][info][tid=28104][stress.summary] PASS stress.affix_empty duration_ms=1 empty_affix_modifiers_ok
+[4089ms][#70][info][tid=28104][stress.summary] PASS stress.experience_curve duration_ms=1 max_level=200 total_required=1871500 final_level=201 tier_resets=0
+[4091ms][#71][info][tid=28104][stress.summary] PASS stress.entity_spawn_massive duration_ms=10 spawned_entities=5000
+[4094ms][#72][info][tid=28104][stress.summary] PASS stress.combat_damage_multiple_entities duration_ms=12 entities=5000 total_damage=577567 killed=1001 lethal_hits=1001
+[4096ms][#73][info][tid=28104][stress.summary] PASS stress.combat_damage_many_sources_single_entity duration_ms=2 sources=12 hits=72 hp_start=564 hp_end=384
+[4098ms][#74][info][tid=28104][stress.summary] PASS stress.combat_damage_many_sources_many_entities duration_ms=241 targets=5000 sources_per_target=12 total_hits=360001 total_damage=720425 killed=1 forced_kill=true
+[4100ms][#75][info][tid=28104][stress.summary] PASS stress.world_loop_core duration_ms=3129 ticks=240 entities_processed=1200000 avg_entities_per_tick=5000 events_processed=0 status_sweeps=1200000
+[4102ms][#76][info][tid=28104][stress.summary] PASS stress.world_loop_status_sweeps duration_ms=3 entities=100 ticks=60 status_sweeps=6000 events_processed=0
+[4104ms][#77][info][tid=28104][stress.summary] PASS stress.world_loop_empty_world duration_ms=2 ticks=240 entities_processed=0 events_processed=0 status_sweeps=0
+[4106ms][#78][info][tid=28104][stress.summary] failures=0
