@@ -652,62 +652,7 @@ namespace
 
     auto expected_material_damage(
         const mmo::core::material::Definition& definition,
-        static_cast<std::int32_t>(        const mmo::core::damage::Packet& packet) -> std::int32_t
-            std::max<std::int64_t>(resolved_damage, 0));
-    }
-
-    auto apply_combat_damage_to_entity(
-        mmo::core::runtime::World& world,
-        mmo::core::id::EntityId target_entity_id,
-        const mmo::core::damage::Packet& packet,
-        mmo::core::id::EntityId source_entity_id = mmo::core::id::invalid_entity_id) -> bool
-    {
-        if (packet.amount <= 0)
-        {
-            return true;
-        }
-
-        mmo::core::combat::DamageProfile profile{};
-        profile.packet = packet;
-
-        if (source_entity_id != mmo::core::id::invalid_entity_id)
-        {
-            profile.packet.source = mmo::core::damage::make_entity_source(source_entity_id);
-        }
-
-        return world.entities.apply_damage(
-            target_entity_id,
-            profile,
-            mmo::core::time::now()).has_value();
-    }
-
-    auto make_persistence_test_directory(std::string_view test_name) -> std::filesystem::path
-    {
-        const auto directory =
-            std::filesystem::current_path() /
-            "stress_tmp" /
-            "persistence" /
-            std::string(test_name);
-
-        std::filesystem::remove_all(directory);
-        std::filesystem::create_directories(directory);
-
-        return directory;
-    }
-
-    void write_text_file(
-        const std::filesystem::path& path,
-        std::string_view content)
-    {
-        std::ofstream file(path, std::ios::binary);
-
-        require(file.good(), "failed to open test file for writing");
-
-        file << content;
-
-        require(file.good(), "failed to write test file");
-    }
-}
+        const mmo::core::damage::Packet& packet) -> std::int32_t
     {
         if (packet.amount <= 0)
         {
@@ -725,7 +670,60 @@ namespace
         const auto resolved_damage =
             (static_cast<std::int64_t>(packet.amount) * effective_percent) / 100;
 
+        return static_cast<std::int32_t>(
+            std::max<std::int64_t>(resolved_damage, 0));
+    }
 
+        mmo::core::combat::DamageProfile profile{};
+        profile.packet = packet;
+
+        if (source_entity_id != mmo::core::id::invalid_entity_id)
+        {
+            profile.packet.source = mmo::core::damage::make_entity_source(source_entity_id);
+        }
+
+        return world.entities.apply_damage(
+            target_entity_id,
+            profile,
+            mmo::core::time::now()).has_value();
+    }
+
+    auto make_persistence_test_directory(std::string_view test_name) -> std::filesystem::path
+            std::filesystem::remove_all(directory);    {
+            std::filesystem::create_directories(directory);
+
+            return directory;
+        }
+
+        void write_text_file(
+            const std::filesystem::path& path,
+            std::string_view content)
+        {
+            std::ofstream file(path, std::ios::binary);
+
+            require(file.good(), "failed to open test file for writing");
+
+            file << content;
+
+            require(file.good(), "failed to write test file");
+        }
+
+            const auto directory =
+                std::filesystem::current_path() /
+                "stress_tmp" /
+                "persistence" /
+                std::string(test_name);
+
+    auto apply_combat_damage_to_entity(
+        mmo::core::runtime::World& world,
+        mmo::core::id::EntityId target_entity_id,
+        const mmo::core::damage::Packet& packet,
+        mmo::core::id::EntityId source_entity_id = mmo::core::id::invalid_entity_id) -> bool
+
+        if (packet.amount <= 0)
+        {
+            return true;
+        }
 
 int main() {
     mmo::core::log::Logger logger{};

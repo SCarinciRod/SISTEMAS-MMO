@@ -1,4 +1,4 @@
 #pragma once
 
-#include "persistence/context.hpp"
-#include "persistence/lua_loader.hpp"
+#include "mmo/persistence/context.hpp"
+#include "mmo/persistence/lua_loader.hpp"

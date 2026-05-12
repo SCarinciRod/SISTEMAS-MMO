@@ -370,3 +370,834 @@
 [4102ms][#76][info][tid=28104][stress.summary] PASS stress.world_loop_status_sweeps duration_ms=3 entities=100 ticks=60 status_sweeps=6000 events_processed=0
 [4104ms][#77][info][tid=28104][stress.summary] PASS stress.world_loop_empty_world duration_ms=2 ticks=240 entities_processed=0 events_processed=0 status_sweeps=0
 [4106ms][#78][info][tid=28104][stress.summary] failures=0
+[4ms][#1][info][tid=13996][stress] RUN | level=smoke
+[6ms][#2][info][tid=13996][stress.test] BEGIN | stress.inventory_weight_exact
+[8ms][#3][info][tid=13996][stress.test] BEGIN | stress.inventory_empty
+[8ms][#4][info][tid=13996][stress.test] BEGIN | stress.inventory_missing_templates
+[9ms][#5][info][tid=13996][stress.test] BEGIN | stress.inventory_equipment_quantity_rule
+[10ms][#6][info][tid=13996][stress.test] BEGIN | stress.inventory_duplicate_equipment_instances
+[11ms][#7][info][tid=13996][stress.test] BEGIN | stress.inventory_material_stack_rule
+[12ms][#8][info][tid=13996][stress.test] BEGIN | stress.inventory_slot_limit
+[13ms][#9][info][tid=13996][stress.test] BEGIN | stress.inventory_remove_item
+[14ms][#10][info][tid=13996][stress.test] BEGIN | stress.inventory_validation_matrix
+[15ms][#11][info][tid=13996][stress.test] BEGIN | stress.damage_kind_classification
+[16ms][#12][info][tid=13996][stress.test] BEGIN | stress.material_damage_resolution
+[18ms][#13][info][tid=13996][stress.test] BEGIN | stress.material_damage_massive_map_objects
+[19ms][#14][info][tid=13996][stress.test] BEGIN | stress.material_state_defaults
+[20ms][#15][info][tid=13996][stress.test] BEGIN | stress.event_validation_rules
+[22ms][#16][info][tid=13996][stress.test] BEGIN | stress.event_scheduler_basic
+[23ms][#17][info][tid=13996][stress.test] BEGIN | stress.event_scheduler_ordering
+[25ms][#18][info][tid=13996][stress.test] BEGIN | stress.event_scheduler_massive
+[26ms][#19][info][tid=13996][stress.test] BEGIN | stress.event_validation_and_scheduler_edges
+[27ms][#20][info][tid=13996][stress.test] BEGIN | stress.affix_scaling
+[29ms][#21][info][tid=13996][stress.test] BEGIN | stress.affix_empty
+[31ms][#22][info][tid=13996][stress.test] BEGIN | stress.experience_curve
+[32ms][#23][info][tid=13996][stress.test] BEGIN | stress.experience_edge_cases
+[32ms][#24][info][tid=13996][stress.test] BEGIN | stress.entity_spawn_massive
+[34ms][#25][info][tid=13996][stress.test] BEGIN | stress.combat_damage_multiple_entities
+[36ms][#26][info][tid=13996][stress.test] BEGIN | stress.combat_damage_many_sources_single_entity
+[37ms][#27][info][tid=13996][stress.test] BEGIN | stress.combat_damage_many_sources_many_entities
+[40ms][#28][info][tid=13996][stress.test] BEGIN | stress.combat_validation_matrix
+[41ms][#29][info][tid=13996][stress.test] BEGIN | stress.entity_contract_edges
+[42ms][#30][info][tid=13996][stress.test] BEGIN | stress.world_loop_core
+[48ms][#31][info][tid=13996][stress.test] BEGIN | stress.world_status_negative_immunity
+[48ms][#32][info][tid=13996][stress.test] BEGIN | stress.world_loop_status_sweeps
+[52ms][#33][info][tid=13996][stress.test] BEGIN | stress.world_loop_empty_world
+[54ms][#34][info][tid=13996][stress.summary] SUMMARY | level=smoke | total=32 | passed=32 | failed=0
+[54ms][#35][info][tid=13996][stress.result] 1/32 | PASS | stress.inventory_weight_exact | duration=1ms | expected_once=162 actual_once=162 iterations=200 total_weight_sum=32400
+[55ms][#36][info][tid=13996][stress.result] 2/32 | PASS | stress.inventory_empty | duration=0ms | weight=0
+[57ms][#37][info][tid=13996][stress.result] 3/32 | PASS | stress.inventory_missing_templates | duration=0ms | expected_partial_weight=82 actual_partial_weight=82
+[58ms][#38][info][tid=13996][stress.result] 4/32 | PASS | stress.inventory_equipment_quantity_rule | duration=1ms | equipment_quantity=1
+[59ms][#39][info][tid=13996][stress.result] 5/32 | PASS | stress.inventory_duplicate_equipment_instances | duration=0ms | equipment_instances=10 same_template=true unique_ids=true
+[60ms][#40][info][tid=13996][stress.result] 6/32 | PASS | stress.inventory_material_stack_rule | duration=0ms | slots=1 quantity=350
+[61ms][#41][info][tid=13996][stress.result] 7/32 | PASS | stress.inventory_slot_limit | duration=1ms | max_slots=3 rejected_status=full
+[61ms][#42][info][tid=13996][stress.result] 8/32 | PASS | stress.inventory_remove_item | duration=1ms | before=10 after=9 missing_status=not_found
+[63ms][#43][info][tid=13996][stress.result] 9/32 | PASS | stress.inventory_validation_matrix | duration=0ms | cases=9
+[64ms][#44][info][tid=13996][stress.result] 10/32 | PASS | stress.damage_kind_classification | duration=1ms | physical=4 non_physical=2
+[65ms][#45][info][tid=13996][stress.result] 11/32 | PASS | stress.material_damage_resolution | duration=1ms | cases=8 total_resolved=455
+[66ms][#46][info][tid=13996][stress.result] 12/32 | PASS | stress.material_damage_massive_map_objects | duration=1ms | iterations=1000 total_damage=72588
+[66ms][#47][info][tid=13996][stress.result] 13/32 | PASS | stress.material_state_defaults | duration=1ms | kind=1 durability=1000 broken=false
+[67ms][#48][info][tid=13996][stress.result] 14/32 | PASS | stress.event_validation_rules | duration=1ms | validation_ok
+[68ms][#49][info][tid=13996][stress.result] 15/32 | PASS | stress.event_scheduler_basic | duration=1ms | ordering_ok
+[69ms][#50][info][tid=13996][stress.result] 16/32 | PASS | stress.event_scheduler_ordering | duration=1ms | ordered_events=3
+[70ms][#51][info][tid=13996][stress.result] 17/32 | PASS | stress.event_scheduler_massive | duration=1ms | scheduled=500 first_pop=500 second_pop=0
+[71ms][#52][info][tid=13996][stress.result] 18/32 | PASS | stress.event_validation_and_scheduler_edges | duration=0ms | rejections=3 ready=1
+[72ms][#53][info][tid=13996][stress.result] 19/32 | PASS | stress.affix_scaling | duration=2ms | attack_percent_delta=1360 defense_percent_delta=880 move_speed_percent_delta=-640 affix_count=200
+[72ms][#54][info][tid=13996][stress.result] 20/32 | PASS | stress.affix_empty | duration=1ms | empty_affix_modifiers_ok
+[73ms][#55][info][tid=13996][stress.result] 21/32 | PASS | stress.experience_curve | duration=0ms | max_level=40 total_required=36700 final_level=41 tier_resets=0
+[74ms][#56][info][tid=13996][stress.result] 22/32 | PASS | stress.experience_edge_cases | duration=0ms | zero_required=100 zero_reward=15 final_level=3 leftover_exp=7
+[75ms][#57][info][tid=13996][stress.result] 23/32 | PASS | stress.entity_spawn_massive | duration=1ms | spawned_entities=100
+[76ms][#58][info][tid=13996][stress.result] 24/32 | PASS | stress.combat_damage_multiple_entities | duration=1ms | entities=100 total_damage=12106 killed=21 lethal_hits=21
+[77ms][#59][info][tid=13996][stress.result] 25/32 | PASS | stress.combat_damage_many_sources_single_entity | duration=1ms | sources=4 hits=12 hp_start=564 hp_end=534
+[78ms][#60][info][tid=13996][stress.result] 26/32 | PASS | stress.combat_damage_many_sources_many_entities | duration=2ms | targets=100 sources_per_target=4 total_hits=1201 total_damage=2945 killed=1 forced_kill=true
+[79ms][#61][info][tid=13996][stress.result] 27/32 | PASS | stress.combat_validation_matrix | duration=1ms | cases=8 valid=1
+[80ms][#62][info][tid=13996][stress.result] 28/32 | PASS | stress.entity_contract_edges | duration=1ms | duplicate_inventory=true zero_and_negative_damage=true missing_target=true
+[81ms][#63][info][tid=13996][stress.result] 29/32 | PASS | stress.world_loop_core | duration=5ms | ticks=20 entities_processed=2000 avg_entities_per_tick=100 events_processed=0 status_sweeps=2000
+[82ms][#64][info][tid=13996][stress.result] 30/32 | PASS | stress.world_status_negative_immunity | duration=0ms | bless_stacks=5 poison_blocked=true
+[83ms][#65][info][tid=13996][stress.result] 31/32 | PASS | stress.world_loop_status_sweeps | duration=3ms | entities=100 ticks=20 status_sweeps=2000 events_processed=0
+[83ms][#66][info][tid=13996][stress.result] 32/32 | PASS | stress.world_loop_empty_world | duration=1ms | ticks=20 entities_processed=0 events_processed=0 status_sweeps=0
+[85ms][#67][info][tid=13996][stress.summary] FINISH | failures=0
+[4ms][#1][info][tid=50032][stress] RUN | level=high
+[6ms][#2][info][tid=50032][stress.test] BEGIN | stress.inventory_weight_exact
+[627ms][#3][info][tid=50032][stress.test] BEGIN | stress.inventory_empty
+[629ms][#4][info][tid=50032][stress.test] BEGIN | stress.inventory_missing_templates
+[809ms][#5][info][tid=50032][stress.test] BEGIN | stress.inventory_equipment_quantity_rule
+[813ms][#6][info][tid=50032][stress.test] BEGIN | stress.inventory_duplicate_equipment_instances
+[815ms][#7][info][tid=50032][stress.test] BEGIN | stress.inventory_material_stack_rule
+[817ms][#8][info][tid=50032][stress.test] BEGIN | stress.inventory_slot_limit
+[818ms][#9][info][tid=50032][stress.test] BEGIN | stress.inventory_remove_item
+[820ms][#10][info][tid=50032][stress.test] BEGIN | stress.inventory_validation_matrix
+[821ms][#11][info][tid=50032][stress.test] BEGIN | stress.damage_kind_classification
+[822ms][#12][info][tid=50032][stress.test] BEGIN | stress.material_damage_resolution
+[823ms][#13][info][tid=50032][stress.test] BEGIN | stress.material_damage_massive_map_objects
+[825ms][#14][info][tid=50032][stress.test] BEGIN | stress.material_state_defaults
+[826ms][#15][info][tid=50032][stress.test] BEGIN | stress.event_validation_rules
+[828ms][#16][info][tid=50032][stress.test] BEGIN | stress.event_scheduler_basic
+[829ms][#17][info][tid=50032][stress.test] BEGIN | stress.event_scheduler_ordering
+[830ms][#18][info][tid=50032][stress.test] BEGIN | stress.event_scheduler_massive
+[868ms][#19][info][tid=50032][stress.test] BEGIN | stress.event_validation_and_scheduler_edges
+[870ms][#20][info][tid=50032][stress.test] BEGIN | stress.affix_scaling
+[883ms][#21][info][tid=50032][stress.test] BEGIN | stress.affix_empty
+[884ms][#22][info][tid=50032][stress.test] BEGIN | stress.experience_curve
+[885ms][#23][info][tid=50032][stress.test] BEGIN | stress.experience_edge_cases
+[886ms][#24][info][tid=50032][stress.test] BEGIN | stress.entity_spawn_massive
+[902ms][#25][info][tid=50032][stress.test] BEGIN | stress.combat_damage_multiple_entities
+[920ms][#26][info][tid=50032][stress.test] BEGIN | stress.combat_damage_many_sources_single_entity
+[921ms][#27][info][tid=50032][stress.test] BEGIN | stress.combat_damage_many_sources_many_entities
+[1181ms][#28][info][tid=50032][stress.test] BEGIN | stress.combat_validation_matrix
+[1182ms][#29][info][tid=50032][stress.test] BEGIN | stress.entity_contract_edges
+[1183ms][#30][info][tid=50032][stress.test] BEGIN | stress.world_loop_core
+[10867ms][#31][info][tid=50032][stress.test] BEGIN | stress.world_status_negative_immunity
+[10869ms][#32][info][tid=50032][stress.test] BEGIN | stress.world_loop_status_sweeps
+[10878ms][#33][info][tid=50032][stress.test] BEGIN | stress.world_loop_empty_world
+[10880ms][#34][info][tid=50032][stress.summary] SUMMARY | level=high | total=32 | passed=32 | failed=0
+[10882ms][#35][info][tid=50032][stress.result] 1/32 | PASS | stress.inventory_weight_exact | duration=621ms | expected_once=5088 actual_once=5088 iterations=10000 total_weight_sum=50880000
+[10883ms][#36][info][tid=50032][stress.result] 2/32 | PASS | stress.inventory_empty | duration=1ms | weight=0
+[10885ms][#37][info][tid=50032][stress.result] 3/32 | PASS | stress.inventory_missing_templates | duration=180ms | expected_partial_weight=2512 actual_partial_weight=2512
+[10886ms][#38][info][tid=50032][stress.result] 4/32 | PASS | stress.inventory_equipment_quantity_rule | duration=3ms | equipment_quantity=1
+[10887ms][#39][info][tid=50032][stress.result] 5/32 | PASS | stress.inventory_duplicate_equipment_instances | duration=1ms | equipment_instances=10 same_template=true unique_ids=true
+[10888ms][#40][info][tid=50032][stress.result] 6/32 | PASS | stress.inventory_material_stack_rule | duration=1ms | slots=1 quantity=350
+[10890ms][#41][info][tid=50032][stress.result] 7/32 | PASS | stress.inventory_slot_limit | duration=1ms | max_slots=3 rejected_status=full
+[10891ms][#42][info][tid=50032][stress.result] 8/32 | PASS | stress.inventory_remove_item | duration=1ms | before=10 after=9 missing_status=not_found
+[10892ms][#43][info][tid=50032][stress.result] 9/32 | PASS | stress.inventory_validation_matrix | duration=1ms | cases=9
+[10893ms][#44][info][tid=50032][stress.result] 10/32 | PASS | stress.damage_kind_classification | duration=0ms | physical=4 non_physical=2
+[10895ms][#45][info][tid=50032][stress.result] 11/32 | PASS | stress.material_damage_resolution | duration=0ms | cases=8 total_resolved=455
+[10896ms][#46][info][tid=50032][stress.result] 12/32 | PASS | stress.material_damage_massive_map_objects | duration=2ms | iterations=50000 total_damage=3660067
+[10897ms][#47][info][tid=50032][stress.result] 13/32 | PASS | stress.material_state_defaults | duration=1ms | kind=1 durability=1000 broken=false
+[10898ms][#48][info][tid=50032][stress.result] 14/32 | PASS | stress.event_validation_rules | duration=1ms | validation_ok
+[10899ms][#49][info][tid=50032][stress.result] 15/32 | PASS | stress.event_scheduler_basic | duration=1ms | ordering_ok
+[10901ms][#50][info][tid=50032][stress.result] 16/32 | PASS | stress.event_scheduler_ordering | duration=1ms | ordered_events=3
+[10902ms][#51][info][tid=50032][stress.result] 17/32 | PASS | stress.event_scheduler_massive | duration=37ms | scheduled=50000 first_pop=25000 second_pop=25000
+[10903ms][#52][info][tid=50032][stress.result] 18/32 | PASS | stress.event_validation_and_scheduler_edges | duration=1ms | rejections=3 ready=1
+[10904ms][#53][info][tid=50032][stress.result] 19/32 | PASS | stress.affix_scaling | duration=13ms | attack_percent_delta=170000 defense_percent_delta=110000 move_speed_percent_delta=-80000 affix_count=25000
+[10906ms][#54][info][tid=50032][stress.result] 20/32 | PASS | stress.affix_empty | duration=0ms | empty_affix_modifiers_ok
+[10907ms][#55][info][tid=50032][stress.result] 21/32 | PASS | stress.experience_curve | duration=1ms | max_level=200 total_required=1871500 final_level=201 tier_resets=0
+[10908ms][#56][info][tid=50032][stress.result] 22/32 | PASS | stress.experience_edge_cases | duration=0ms | zero_required=100 zero_reward=15 final_level=3 leftover_exp=7
+[10909ms][#57][info][tid=50032][stress.result] 23/32 | PASS | stress.entity_spawn_massive | duration=16ms | spawned_entities=5000
+[10910ms][#58][info][tid=50032][stress.result] 24/32 | PASS | stress.combat_damage_multiple_entities | duration=17ms | entities=5000 total_damage=577567 killed=1001 lethal_hits=1001
+[10911ms][#59][info][tid=50032][stress.result] 25/32 | PASS | stress.combat_damage_many_sources_single_entity | duration=1ms | sources=12 hits=72 hp_start=564 hp_end=384
+[10912ms][#60][info][tid=50032][stress.result] 26/32 | PASS | stress.combat_damage_many_sources_many_entities | duration=259ms | targets=5000 sources_per_target=12 total_hits=360001 total_damage=720425 killed=1 forced_kill=true
+[10913ms][#61][info][tid=50032][stress.result] 27/32 | PASS | stress.combat_validation_matrix | duration=0ms | cases=8 valid=1
+[10914ms][#62][info][tid=50032][stress.result] 28/32 | PASS | stress.entity_contract_edges | duration=1ms | duplicate_inventory=true zero_and_negative_damage=true missing_target=true
+[10915ms][#63][info][tid=50032][stress.result] 29/32 | PASS | stress.world_loop_core | duration=9684ms | ticks=240 entities_processed=1200000 avg_entities_per_tick=5000 events_processed=0 status_sweeps=1200000
+[10916ms][#64][info][tid=50032][stress.result] 30/32 | PASS | stress.world_status_negative_immunity | duration=2ms | bless_stacks=5 poison_blocked=true
+[10917ms][#65][info][tid=50032][stress.result] 31/32 | PASS | stress.world_loop_status_sweeps | duration=9ms | entities=100 ticks=60 status_sweeps=6000 events_processed=0
+[10919ms][#66][info][tid=50032][stress.result] 32/32 | PASS | stress.world_loop_empty_world | duration=1ms | ticks=240 entities_processed=0 events_processed=0 status_sweeps=0
+[10920ms][#67][info][tid=50032][stress.summary] FINISH | failures=0
+[4ms][#1][info][tid=49636][stress] RUN | level=high
+[5ms][#2][info][tid=49636][stress.test] BEGIN | stress.inventory_weight_exact
+[190ms][#3][info][tid=49636][stress.test] END | stress.inventory_weight_exact | PASS | duration=185ms | expected_once=5088 actual_once=5088 iterations=10000 total_weight_sum=50880000
+[193ms][#4][info][tid=49636][stress.test] BEGIN | stress.inventory_empty
+[194ms][#5][info][tid=49636][stress.test] END | stress.inventory_empty | PASS | duration=0ms | weight=0
+[195ms][#6][info][tid=49636][stress.test] BEGIN | stress.inventory_missing_templates
+[295ms][#7][info][tid=49636][stress.test] END | stress.inventory_missing_templates | PASS | duration=99ms | expected_partial_weight=2512 actual_partial_weight=2512
+[299ms][#8][info][tid=49636][stress.test] BEGIN | stress.inventory_equipment_quantity_rule
+[300ms][#9][info][tid=49636][stress.test] END | stress.inventory_equipment_quantity_rule | PASS | duration=1ms | equipment_quantity=1
+[301ms][#10][info][tid=49636][stress.test] BEGIN | stress.inventory_duplicate_equipment_instances
+[303ms][#11][info][tid=49636][stress.test] END | stress.inventory_duplicate_equipment_instances | PASS | duration=1ms | equipment_instances=10 same_template=true unique_ids=true
+[305ms][#12][info][tid=49636][stress.test] BEGIN | stress.inventory_material_stack_rule
+[307ms][#13][info][tid=49636][stress.test] END | stress.inventory_material_stack_rule | PASS | duration=2ms | slots=1 quantity=350
+[309ms][#14][info][tid=49636][stress.test] BEGIN | stress.inventory_slot_limit
+[311ms][#15][info][tid=49636][stress.test] END | stress.inventory_slot_limit | PASS | duration=1ms | max_slots=3 rejected_status=full
+[313ms][#16][info][tid=49636][stress.test] BEGIN | stress.inventory_remove_item
+[315ms][#17][info][tid=49636][stress.test] END | stress.inventory_remove_item | PASS | duration=1ms | before=10 after=9 missing_status=not_found
+[317ms][#18][info][tid=49636][stress.test] BEGIN | stress.inventory_validation_matrix
+[319ms][#19][info][tid=49636][stress.test] END | stress.inventory_validation_matrix | PASS | duration=1ms | cases=9
+[320ms][#20][info][tid=49636][stress.test] BEGIN | stress.inventory_mixed_operations_invariants
+[326ms][#21][error][tid=49636][stress.inventory_mixed_operations_invariants] exception in stress.inventory_mixed_operations_invariants: unexpected material add status
+[328ms][#22][error][tid=49636][stress.test] END | stress.inventory_mixed_operations_invariants | FAIL | duration=7ms | unexpected material add status
+[329ms][#23][info][tid=49636][stress.test] BEGIN | stress.damage_kind_classification
+[331ms][#24][info][tid=49636][stress.test] END | stress.damage_kind_classification | PASS | duration=1ms | physical=4 non_physical=2
+[333ms][#25][info][tid=49636][stress.test] BEGIN | stress.material_damage_resolution
+[334ms][#26][info][tid=49636][stress.test] END | stress.material_damage_resolution | PASS | duration=1ms | cases=8 total_resolved=455
+[336ms][#27][info][tid=49636][stress.test] BEGIN | stress.material_damage_deterministic_fuzz
+[339ms][#28][info][tid=49636][stress.test] END | stress.material_damage_deterministic_fuzz | PASS | duration=3ms | cases=50000 positive_cases=45439 zero_or_negative_cases=4561 total_resolved=391701849
+[341ms][#29][info][tid=49636][stress.test] BEGIN | stress.material_state_defaults
+[342ms][#30][info][tid=49636][stress.test] END | stress.material_state_defaults | PASS | duration=1ms | kind=1 durability=1000 broken=false
+[344ms][#31][info][tid=49636][stress.test] BEGIN | stress.event_validation_rules
+[345ms][#32][info][tid=49636][stress.test] END | stress.event_validation_rules | PASS | duration=1ms | validation_ok
+[347ms][#33][info][tid=49636][stress.test] BEGIN | stress.event_scheduler_basic
+[348ms][#34][info][tid=49636][stress.test] END | stress.event_scheduler_basic | PASS | duration=1ms | ordering_ok
+[350ms][#35][info][tid=49636][stress.test] BEGIN | stress.event_scheduler_ordering
+[352ms][#36][info][tid=49636][stress.test] END | stress.event_scheduler_ordering | PASS | duration=1ms | ordered_events=3
+[353ms][#37][info][tid=49636][stress.test] BEGIN | stress.event_scheduler_massive
+[376ms][#38][info][tid=49636][stress.test] END | stress.event_scheduler_massive | PASS | duration=22ms | scheduled=50000 first_pop=25000 second_pop=25000
+[377ms][#39][info][tid=49636][stress.test] BEGIN | stress.event_validation_and_scheduler_edges
+[378ms][#40][info][tid=49636][stress.test] END | stress.event_validation_and_scheduler_edges | PASS | duration=0ms | rejections=3 ready=1
+[379ms][#41][info][tid=49636][stress.test] BEGIN | stress.event_same_due_time_stability
+[381ms][#42][info][tid=49636][stress.test] END | stress.event_same_due_time_stability | PASS | duration=1ms | same_due_events=1000
+[382ms][#43][info][tid=49636][stress.test] BEGIN | stress.event_invalid_mass_rejection
+[384ms][#44][info][tid=49636][stress.test] END | stress.event_invalid_mass_rejection | PASS | duration=1ms | invalid_events=1000 rejected=1000
+[385ms][#45][info][tid=49636][stress.test] BEGIN | stress.affix_scaling
+[394ms][#46][info][tid=49636][stress.test] END | stress.affix_scaling | PASS | duration=9ms | attack_percent_delta=170000 defense_percent_delta=110000 move_speed_percent_delta=-80000 affix_count=25000
+[396ms][#47][info][tid=49636][stress.test] BEGIN | stress.affix_empty
+[398ms][#48][info][tid=49636][stress.test] END | stress.affix_empty | PASS | duration=2ms | empty_affix_modifiers_ok
+[400ms][#49][info][tid=49636][stress.test] BEGIN | stress.experience_curve
+[401ms][#50][info][tid=49636][stress.test] END | stress.experience_curve | PASS | duration=1ms | max_level=200 total_required=1871500 final_level=201 tier_resets=0
+[402ms][#51][info][tid=49636][stress.test] BEGIN | stress.experience_edge_cases
+[404ms][#52][info][tid=49636][stress.test] END | stress.experience_edge_cases | PASS | duration=1ms | zero_required=100 zero_reward=15 final_level=3 leftover_exp=7
+[405ms][#53][info][tid=49636][stress.test] BEGIN | stress.entity_spawn_massive
+[412ms][#54][info][tid=49636][stress.test] END | stress.entity_spawn_massive | PASS | duration=6ms
+[414ms][#55][info][tid=49636][stress.test] BEGIN | stress.entity_contract_edges
+[415ms][#56][info][tid=49636][stress.test] END | stress.entity_contract_edges | PASS | duration=1ms | duplicate_inventory=true zero_and_negative_damage=true missing_target=true
+[417ms][#57][info][tid=49636][stress.test] BEGIN | stress.combat_damage_multiple_entities
+[428ms][#58][info][tid=49636][stress.test] END | stress.combat_damage_multiple_entities | PASS | duration=11ms | entities=5000 total_damage=577567 killed=1001 lethal_hits=1001
+[431ms][#59][info][tid=49636][stress.test] BEGIN | stress.combat_damage_many_sources_single_entity
+[432ms][#60][info][tid=49636][stress.test] END | stress.combat_damage_many_sources_single_entity | PASS | duration=1ms | sources=12 hits=72 hp_start=564 hp_end=384
+[434ms][#61][info][tid=49636][stress.test] BEGIN | stress.combat_damage_many_sources_many_entities
+[620ms][#62][info][tid=49636][stress.test] END | stress.combat_damage_many_sources_many_entities | PASS | duration=186ms | targets=5000 sources_per_target=12 total_hits=360001 total_damage=720425 killed=1 forced_kill=true
+[623ms][#63][info][tid=49636][stress.test] BEGIN | stress.combat_dead_entity_killer_not_overwritten
+[625ms][#64][info][tid=49636][stress.test] END | stress.combat_dead_entity_killer_not_overwritten | PASS | duration=2ms | killer_preserved=true original_killer=10
+[626ms][#65][info][tid=49636][stress.test] BEGIN | stress.combat_validation_matrix
+[628ms][#66][info][tid=49636][stress.test] END | stress.combat_validation_matrix | PASS | duration=1ms | cases=8 valid=1
+[629ms][#67][info][tid=49636][stress.test] BEGIN | stress.world_status_negative_immunity
+[630ms][#68][info][tid=49636][stress.test] END | stress.world_status_negative_immunity | PASS | duration=1ms | bless_stacks=5 poison_blocked=true
+[631ms][#69][info][tid=49636][stress.test] BEGIN | stress.world_loop_mixed_entity_states
+[699ms][#70][info][tid=49636][stress.test] END | stress.world_loop_mixed_entity_states | PASS | duration=67ms | entities=2000 with_inventory=1000 with_status=666 expected_dead=400 actual_dead=933 ticks=120 entities_processed=240000
+[700ms][#71][info][tid=49636][stress.test] BEGIN | stress.world_loop_core
+[2963ms][#72][info][tid=49636][stress.test] END | stress.world_loop_core | PASS | duration=2262ms | ticks=240 entities_processed=1200000 avg_entities_per_tick=5000 events_processed=0 status_sweeps=1200000 loop_duration_ms=1361 entities_per_second=881704 min_entities_per_second=80000
+[2965ms][#73][info][tid=49636][stress.test] BEGIN | stress.world_loop_status_sweeps
+[2968ms][#74][info][tid=49636][stress.test] END | stress.world_loop_status_sweeps | PASS | duration=2ms | entities=100 ticks=60 status_sweeps=6000 events_processed=0
+[2969ms][#75][info][tid=49636][stress.test] BEGIN | stress.world_loop_empty_world
+[2971ms][#76][info][tid=49636][stress.test] END | stress.world_loop_empty_world | PASS | duration=1ms | ticks=240 entities_processed=0 events_processed=0 status_sweeps=0
+[2973ms][#77][info][tid=49636][stress.summary] SUMMARY | level=high | total=37 | passed=36 | failed=1
+[2974ms][#78][info][tid=49636][stress.result] 1/37 | PASS | stress.inventory_weight_exact | duration=185ms | expected_once=5088 actual_once=5088 iterations=10000 total_weight_sum=50880000
+[2975ms][#79][info][tid=49636][stress.result] 2/37 | PASS | stress.inventory_empty | duration=0ms | weight=0
+[2976ms][#80][info][tid=49636][stress.result] 3/37 | PASS | stress.inventory_missing_templates | duration=99ms | expected_partial_weight=2512 actual_partial_weight=2512
+[2978ms][#81][info][tid=49636][stress.result] 4/37 | PASS | stress.inventory_equipment_quantity_rule | duration=1ms | equipment_quantity=1
+[2979ms][#82][info][tid=49636][stress.result] 5/37 | PASS | stress.inventory_duplicate_equipment_instances | duration=1ms | equipment_instances=10 same_template=true unique_ids=true
+[2982ms][#83][info][tid=49636][stress.result] 6/37 | PASS | stress.inventory_material_stack_rule | duration=2ms | slots=1 quantity=350
+[2983ms][#84][info][tid=49636][stress.result] 7/37 | PASS | stress.inventory_slot_limit | duration=1ms | max_slots=3 rejected_status=full
+[2984ms][#85][info][tid=49636][stress.result] 8/37 | PASS | stress.inventory_remove_item | duration=1ms | before=10 after=9 missing_status=not_found
+[2985ms][#86][info][tid=49636][stress.result] 9/37 | PASS | stress.inventory_validation_matrix | duration=1ms | cases=9
+[2987ms][#87][error][tid=49636][stress.result] 10/37 | FAIL | stress.inventory_mixed_operations_invariants | duration=7ms | unexpected material add status
+[2989ms][#88][info][tid=49636][stress.result] 11/37 | PASS | stress.damage_kind_classification | duration=1ms | physical=4 non_physical=2
+[2990ms][#89][info][tid=49636][stress.result] 12/37 | PASS | stress.material_damage_resolution | duration=1ms | cases=8 total_resolved=455
+[2991ms][#90][info][tid=49636][stress.result] 13/37 | PASS | stress.material_damage_deterministic_fuzz | duration=3ms | cases=50000 positive_cases=45439 zero_or_negative_cases=4561 total_resolved=391701849
+[2993ms][#91][info][tid=49636][stress.result] 14/37 | PASS | stress.material_state_defaults | duration=1ms | kind=1 durability=1000 broken=false
+[2994ms][#92][info][tid=49636][stress.result] 15/37 | PASS | stress.event_validation_rules | duration=1ms | validation_ok
+[2996ms][#93][info][tid=49636][stress.result] 16/37 | PASS | stress.event_scheduler_basic | duration=1ms | ordering_ok
+[2998ms][#94][info][tid=49636][stress.result] 17/37 | PASS | stress.event_scheduler_ordering | duration=1ms | ordered_events=3
+[2999ms][#95][info][tid=49636][stress.result] 18/37 | PASS | stress.event_scheduler_massive | duration=22ms | scheduled=50000 first_pop=25000 second_pop=25000
+[3000ms][#96][info][tid=49636][stress.result] 19/37 | PASS | stress.event_validation_and_scheduler_edges | duration=0ms | rejections=3 ready=1
+[3001ms][#97][info][tid=49636][stress.result] 20/37 | PASS | stress.event_same_due_time_stability | duration=1ms | same_due_events=1000
+[3003ms][#98][info][tid=49636][stress.result] 21/37 | PASS | stress.event_invalid_mass_rejection | duration=1ms | invalid_events=1000 rejected=1000
+[3004ms][#99][info][tid=49636][stress.result] 22/37 | PASS | stress.affix_scaling | duration=9ms | attack_percent_delta=170000 defense_percent_delta=110000 move_speed_percent_delta=-80000 affix_count=25000
+[3005ms][#100][info][tid=49636][stress.result] 23/37 | PASS | stress.affix_empty | duration=2ms | empty_affix_modifiers_ok
+[3007ms][#101][info][tid=49636][stress.result] 24/37 | PASS | stress.experience_curve | duration=1ms | max_level=200 total_required=1871500 final_level=201 tier_resets=0
+[3008ms][#102][info][tid=49636][stress.result] 25/37 | PASS | stress.experience_edge_cases | duration=1ms | zero_required=100 zero_reward=15 final_level=3 leftover_exp=7
+[3009ms][#103][info][tid=49636][stress.result] 26/37 | PASS | stress.entity_spawn_massive | duration=6ms
+[3011ms][#104][info][tid=49636][stress.result] 27/37 | PASS | stress.entity_contract_edges | duration=1ms | duplicate_inventory=true zero_and_negative_damage=true missing_target=true
+[3013ms][#105][info][tid=49636][stress.result] 28/37 | PASS | stress.combat_damage_multiple_entities | duration=11ms | entities=5000 total_damage=577567 killed=1001 lethal_hits=1001
+[3015ms][#106][info][tid=49636][stress.result] 29/37 | PASS | stress.combat_damage_many_sources_single_entity | duration=1ms | sources=12 hits=72 hp_start=564 hp_end=384
+[3017ms][#107][info][tid=49636][stress.result] 30/37 | PASS | stress.combat_damage_many_sources_many_entities | duration=186ms | targets=5000 sources_per_target=12 total_hits=360001 total_damage=720425 killed=1 forced_kill=true
+[3019ms][#108][info][tid=49636][stress.result] 31/37 | PASS | stress.combat_dead_entity_killer_not_overwritten | duration=2ms | killer_preserved=true original_killer=10
+[3021ms][#109][info][tid=49636][stress.result] 32/37 | PASS | stress.combat_validation_matrix | duration=1ms | cases=8 valid=1
+[3023ms][#110][info][tid=49636][stress.result] 33/37 | PASS | stress.world_status_negative_immunity | duration=1ms | bless_stacks=5 poison_blocked=true
+[3024ms][#111][info][tid=49636][stress.result] 34/37 | PASS | stress.world_loop_mixed_entity_states | duration=67ms | budget=5000ms | entities=2000 with_inventory=1000 with_status=666 expected_dead=400 actual_dead=933 ticks=120 entities_processed=240000
+[3026ms][#112][info][tid=49636][stress.result] 35/37 | PASS | stress.world_loop_core | duration=2262ms | budget=15000ms | ticks=240 entities_processed=1200000 avg_entities_per_tick=5000 events_processed=0 status_sweeps=1200000 loop_duration_ms=1361 entities_per_second=881704 min_entities_per_second=80000
+[3027ms][#113][info][tid=49636][stress.result] 36/37 | PASS | stress.world_loop_status_sweeps | duration=2ms | entities=100 ticks=60 status_sweeps=6000 events_processed=0
+[3028ms][#114][info][tid=49636][stress.result] 37/37 | PASS | stress.world_loop_empty_world | duration=1ms | ticks=240 entities_processed=0 events_processed=0 status_sweeps=0
+[3030ms][#115][info][tid=49636][stress.summary] FINISH | failures=1
+[4ms][#1][info][tid=9596][stress] RUN | level=high
+[6ms][#2][info][tid=9596][stress.test] BEGIN | stress.inventory_weight_exact
+[149ms][#3][info][tid=9596][stress.test] END | stress.inventory_weight_exact | PASS | duration=142ms | expected_once=5088 actual_once=5088 iterations=10000 total_weight_sum=50880000
+[150ms][#4][info][tid=9596][stress.test] BEGIN | stress.inventory_empty
+[151ms][#5][info][tid=9596][stress.test] END | stress.inventory_empty | PASS | duration=1ms | weight=0
+[152ms][#6][info][tid=9596][stress.test] BEGIN | stress.inventory_missing_templates
+[217ms][#7][info][tid=9596][stress.test] END | stress.inventory_missing_templates | PASS | duration=64ms | expected_partial_weight=2512 actual_partial_weight=2512
+[218ms][#8][info][tid=9596][stress.test] BEGIN | stress.inventory_equipment_quantity_rule
+[218ms][#9][info][tid=9596][stress.test] END | stress.inventory_equipment_quantity_rule | PASS | duration=0ms | equipment_quantity=1
+[219ms][#10][info][tid=9596][stress.test] BEGIN | stress.inventory_duplicate_equipment_instances
+[220ms][#11][info][tid=9596][stress.test] END | stress.inventory_duplicate_equipment_instances | PASS | duration=0ms | equipment_instances=10 same_template=true unique_ids=true
+[221ms][#12][info][tid=9596][stress.test] BEGIN | stress.inventory_material_stack_rule
+[221ms][#13][info][tid=9596][stress.test] END | stress.inventory_material_stack_rule | PASS | duration=0ms | slots=1 quantity=350
+[222ms][#14][info][tid=9596][stress.test] BEGIN | stress.inventory_slot_limit
+[223ms][#15][info][tid=9596][stress.test] END | stress.inventory_slot_limit | PASS | duration=1ms | max_slots=3 rejected_status=full
+[224ms][#16][info][tid=9596][stress.test] BEGIN | stress.inventory_remove_item
+[225ms][#17][info][tid=9596][stress.test] END | stress.inventory_remove_item | PASS | duration=1ms | before=10 after=9 missing_status=not_found
+[226ms][#18][info][tid=9596][stress.test] BEGIN | stress.inventory_validation_matrix
+[229ms][#19][info][tid=9596][stress.test] END | stress.inventory_validation_matrix | PASS | duration=2ms | cases=9
+[230ms][#20][info][tid=9596][stress.test] BEGIN | stress.inventory_mixed_operations_invariants
+[235ms][#21][error][tid=9596][stress.inventory_mixed_operations_invariants] exception in stress.inventory_mixed_operations_invariants: unexpected material add status
+[236ms][#22][error][tid=9596][stress.test] END | stress.inventory_mixed_operations_invariants | FAIL | duration=6ms | unexpected material add status
+[238ms][#23][info][tid=9596][stress.test] BEGIN | stress.damage_kind_classification
+[239ms][#24][info][tid=9596][stress.test] END | stress.damage_kind_classification | PASS | duration=1ms | physical=4 non_physical=2
+[240ms][#25][info][tid=9596][stress.test] BEGIN | stress.material_damage_resolution
+[241ms][#26][info][tid=9596][stress.test] END | stress.material_damage_resolution | PASS | duration=1ms | cases=8 total_resolved=455
+[243ms][#27][info][tid=9596][stress.test] BEGIN | stress.material_damage_deterministic_fuzz
+[245ms][#28][info][tid=9596][stress.test] END | stress.material_damage_deterministic_fuzz | PASS | duration=2ms | cases=50000 positive_cases=45439 zero_or_negative_cases=4561 total_resolved=391701849
+[247ms][#29][info][tid=9596][stress.test] BEGIN | stress.material_state_defaults
+[248ms][#30][info][tid=9596][stress.test] END | stress.material_state_defaults | PASS | duration=1ms | kind=1 durability=1000 broken=false
+[249ms][#31][info][tid=9596][stress.test] BEGIN | stress.event_validation_rules
+[249ms][#32][info][tid=9596][stress.test] END | stress.event_validation_rules | PASS | duration=0ms | validation_ok
+[251ms][#33][info][tid=9596][stress.test] BEGIN | stress.event_scheduler_basic
+[252ms][#34][info][tid=9596][stress.test] END | stress.event_scheduler_basic | PASS | duration=1ms | ordering_ok
+[253ms][#35][info][tid=9596][stress.test] BEGIN | stress.event_scheduler_ordering
+[254ms][#36][info][tid=9596][stress.test] END | stress.event_scheduler_ordering | PASS | duration=0ms | ordered_events=3
+[254ms][#37][info][tid=9596][stress.test] BEGIN | stress.event_scheduler_massive
+[272ms][#38][info][tid=9596][stress.test] END | stress.event_scheduler_massive | PASS | duration=17ms | scheduled=50000 first_pop=25000 second_pop=25000
+[273ms][#39][info][tid=9596][stress.test] BEGIN | stress.event_validation_and_scheduler_edges
+[274ms][#40][info][tid=9596][stress.test] END | stress.event_validation_and_scheduler_edges | PASS | duration=0ms | rejections=3 ready=1
+[275ms][#41][info][tid=9596][stress.test] BEGIN | stress.event_same_due_time_stability
+[277ms][#42][info][tid=9596][stress.test] END | stress.event_same_due_time_stability | PASS | duration=2ms | same_due_events=1000
+[279ms][#43][info][tid=9596][stress.test] BEGIN | stress.event_invalid_mass_rejection
+[280ms][#44][info][tid=9596][stress.test] END | stress.event_invalid_mass_rejection | PASS | duration=1ms | invalid_events=1000 rejected=1000
+[281ms][#45][info][tid=9596][stress.test] BEGIN | stress.affix_scaling
+[289ms][#46][info][tid=9596][stress.test] END | stress.affix_scaling | PASS | duration=8ms | attack_percent_delta=170000 defense_percent_delta=110000 move_speed_percent_delta=-80000 affix_count=25000
+[291ms][#47][info][tid=9596][stress.test] BEGIN | stress.affix_empty
+[292ms][#48][info][tid=9596][stress.test] END | stress.affix_empty | PASS | duration=1ms | empty_affix_modifiers_ok
+[294ms][#49][info][tid=9596][stress.test] BEGIN | stress.experience_curve
+[296ms][#50][info][tid=9596][stress.test] END | stress.experience_curve | PASS | duration=1ms | max_level=200 total_required=1871500 final_level=201 tier_resets=0
+[297ms][#51][info][tid=9596][stress.test] BEGIN | stress.experience_edge_cases
+[298ms][#52][info][tid=9596][stress.test] END | stress.experience_edge_cases | PASS | duration=1ms | zero_required=100 zero_reward=15 final_level=3 leftover_exp=7
+[299ms][#53][info][tid=9596][stress.test] BEGIN | stress.entity_spawn_massive
+[307ms][#54][info][tid=9596][stress.test] END | stress.entity_spawn_massive | PASS | duration=7ms
+[308ms][#55][info][tid=9596][stress.test] BEGIN | stress.entity_contract_edges
+[309ms][#56][info][tid=9596][stress.test] END | stress.entity_contract_edges | PASS | duration=1ms | duplicate_inventory=true zero_and_negative_damage=true missing_target=true
+[311ms][#57][info][tid=9596][stress.test] BEGIN | stress.combat_damage_multiple_entities
+[320ms][#58][info][tid=9596][stress.test] END | stress.combat_damage_multiple_entities | PASS | duration=9ms | entities=5000 total_damage=577567 killed=1001 lethal_hits=1001
+[322ms][#59][info][tid=9596][stress.test] BEGIN | stress.combat_damage_many_sources_single_entity
+[323ms][#60][info][tid=9596][stress.test] END | stress.combat_damage_many_sources_single_entity | PASS | duration=1ms | sources=12 hits=72 hp_start=564 hp_end=384
+[325ms][#61][info][tid=9596][stress.test] BEGIN | stress.combat_damage_many_sources_many_entities
+[473ms][#62][info][tid=9596][stress.test] END | stress.combat_damage_many_sources_many_entities | PASS | duration=148ms | targets=5000 sources_per_target=12 total_hits=360001 total_damage=720425 killed=1 forced_kill=true
+[474ms][#63][info][tid=9596][stress.test] BEGIN | stress.combat_dead_entity_killer_not_overwritten
+[476ms][#64][info][tid=9596][stress.test] END | stress.combat_dead_entity_killer_not_overwritten | PASS | duration=1ms | killer_preserved=true original_killer=10
+[477ms][#65][info][tid=9596][stress.test] BEGIN | stress.combat_validation_matrix
+[479ms][#66][info][tid=9596][stress.test] END | stress.combat_validation_matrix | PASS | duration=1ms | cases=8 valid=1
+[481ms][#67][info][tid=9596][stress.test] BEGIN | stress.world_status_negative_immunity
+[482ms][#68][info][tid=9596][stress.test] END | stress.world_status_negative_immunity | PASS | duration=1ms | bless_stacks=5 poison_blocked=true
+[484ms][#69][info][tid=9596][stress.test] BEGIN | stress.world_loop_mixed_entity_states
+[542ms][#70][info][tid=9596][stress.test] END | stress.world_loop_mixed_entity_states | PASS | duration=57ms | entities=2000 with_inventory=1000 with_status=666 expected_dead=400 actual_dead=933 ticks=120 entities_processed=240000
+[544ms][#71][info][tid=9596][stress.test] BEGIN | stress.world_loop_core
+[2832ms][#72][info][tid=9596][stress.test] END | stress.world_loop_core | PASS | duration=2288ms | ticks=240 entities_processed=1200000 avg_entities_per_tick=5000 events_processed=0 status_sweeps=1200000 loop_duration_ms=1418 entities_per_second=846262 min_entities_per_second=80000
+[2834ms][#73][info][tid=9596][stress.test] BEGIN | stress.world_loop_status_sweeps
+[2836ms][#74][info][tid=9596][stress.test] END | stress.world_loop_status_sweeps | PASS | duration=2ms | entities=100 ticks=60 status_sweeps=6000 events_processed=0
+[2838ms][#75][info][tid=9596][stress.test] BEGIN | stress.world_loop_empty_world
+[2839ms][#76][info][tid=9596][stress.test] END | stress.world_loop_empty_world | PASS | duration=1ms | ticks=240 entities_processed=0 events_processed=0 status_sweeps=0
+[2841ms][#77][info][tid=9596][stress.summary] SUMMARY | level=high | total=37 | passed=36 | failed=1
+[2842ms][#78][info][tid=9596][stress.result] 1/37 | PASS | stress.inventory_weight_exact | duration=142ms | expected_once=5088 actual_once=5088 iterations=10000 total_weight_sum=50880000
+[2844ms][#79][info][tid=9596][stress.result] 2/37 | PASS | stress.inventory_empty | duration=1ms | weight=0
+[2847ms][#80][info][tid=9596][stress.result] 3/37 | PASS | stress.inventory_missing_templates | duration=64ms | expected_partial_weight=2512 actual_partial_weight=2512
+[2849ms][#81][info][tid=9596][stress.result] 4/37 | PASS | stress.inventory_equipment_quantity_rule | duration=0ms | equipment_quantity=1
+[2850ms][#82][info][tid=9596][stress.result] 5/37 | PASS | stress.inventory_duplicate_equipment_instances | duration=0ms | equipment_instances=10 same_template=true unique_ids=true
+[2851ms][#83][info][tid=9596][stress.result] 6/37 | PASS | stress.inventory_material_stack_rule | duration=0ms | slots=1 quantity=350
+[2853ms][#84][info][tid=9596][stress.result] 7/37 | PASS | stress.inventory_slot_limit | duration=1ms | max_slots=3 rejected_status=full
+[2855ms][#85][info][tid=9596][stress.result] 8/37 | PASS | stress.inventory_remove_item | duration=1ms | before=10 after=9 missing_status=not_found
+[2857ms][#86][info][tid=9596][stress.result] 9/37 | PASS | stress.inventory_validation_matrix | duration=2ms | cases=9
+[2858ms][#87][error][tid=9596][stress.result] 10/37 | FAIL | stress.inventory_mixed_operations_invariants | duration=6ms | unexpected material add status
+[2860ms][#88][info][tid=9596][stress.result] 11/37 | PASS | stress.damage_kind_classification | duration=1ms | physical=4 non_physical=2
+[2861ms][#89][info][tid=9596][stress.result] 12/37 | PASS | stress.material_damage_resolution | duration=1ms | cases=8 total_resolved=455
+[2863ms][#90][info][tid=9596][stress.result] 13/37 | PASS | stress.material_damage_deterministic_fuzz | duration=2ms | cases=50000 positive_cases=45439 zero_or_negative_cases=4561 total_resolved=391701849
+[2864ms][#91][info][tid=9596][stress.result] 14/37 | PASS | stress.material_state_defaults | duration=1ms | kind=1 durability=1000 broken=false
+[2866ms][#92][info][tid=9596][stress.result] 15/37 | PASS | stress.event_validation_rules | duration=0ms | validation_ok
+[2866ms][#93][info][tid=9596][stress.result] 16/37 | PASS | stress.event_scheduler_basic | duration=1ms | ordering_ok
+[2868ms][#94][info][tid=9596][stress.result] 17/37 | PASS | stress.event_scheduler_ordering | duration=0ms | ordered_events=3
+[2870ms][#95][info][tid=9596][stress.result] 18/37 | PASS | stress.event_scheduler_massive | duration=17ms | scheduled=50000 first_pop=25000 second_pop=25000
+[2871ms][#96][info][tid=9596][stress.result] 19/37 | PASS | stress.event_validation_and_scheduler_edges | duration=0ms | rejections=3 ready=1
+[2873ms][#97][info][tid=9596][stress.result] 20/37 | PASS | stress.event_same_due_time_stability | duration=2ms | same_due_events=1000
+[2874ms][#98][info][tid=9596][stress.result] 21/37 | PASS | stress.event_invalid_mass_rejection | duration=1ms | invalid_events=1000 rejected=1000
+[2875ms][#99][info][tid=9596][stress.result] 22/37 | PASS | stress.affix_scaling | duration=8ms | attack_percent_delta=170000 defense_percent_delta=110000 move_speed_percent_delta=-80000 affix_count=25000
+[2877ms][#100][info][tid=9596][stress.result] 23/37 | PASS | stress.affix_empty | duration=1ms | empty_affix_modifiers_ok
+[2879ms][#101][info][tid=9596][stress.result] 24/37 | PASS | stress.experience_curve | duration=1ms | max_level=200 total_required=1871500 final_level=201 tier_resets=0
+[2880ms][#102][info][tid=9596][stress.result] 25/37 | PASS | stress.experience_edge_cases | duration=1ms | zero_required=100 zero_reward=15 final_level=3 leftover_exp=7
+[2882ms][#103][info][tid=9596][stress.result] 26/37 | PASS | stress.entity_spawn_massive | duration=7ms
+[2883ms][#104][info][tid=9596][stress.result] 27/37 | PASS | stress.entity_contract_edges | duration=1ms | duplicate_inventory=true zero_and_negative_damage=true missing_target=true
+[2884ms][#105][info][tid=9596][stress.result] 28/37 | PASS | stress.combat_damage_multiple_entities | duration=9ms | entities=5000 total_damage=577567 killed=1001 lethal_hits=1001
+[2885ms][#106][info][tid=9596][stress.result] 29/37 | PASS | stress.combat_damage_many_sources_single_entity | duration=1ms | sources=12 hits=72 hp_start=564 hp_end=384
+[2888ms][#107][info][tid=9596][stress.result] 30/37 | PASS | stress.combat_damage_many_sources_many_entities | duration=148ms | targets=5000 sources_per_target=12 total_hits=360001 total_damage=720425 killed=1 forced_kill=true
+[2890ms][#108][info][tid=9596][stress.result] 31/37 | PASS | stress.combat_dead_entity_killer_not_overwritten | duration=1ms | killer_preserved=true original_killer=10
+[2891ms][#109][info][tid=9596][stress.result] 32/37 | PASS | stress.combat_validation_matrix | duration=1ms | cases=8 valid=1
+[2893ms][#110][info][tid=9596][stress.result] 33/37 | PASS | stress.world_status_negative_immunity | duration=1ms | bless_stacks=5 poison_blocked=true
+[2894ms][#111][info][tid=9596][stress.result] 34/37 | PASS | stress.world_loop_mixed_entity_states | duration=57ms | budget=5000ms | entities=2000 with_inventory=1000 with_status=666 expected_dead=400 actual_dead=933 ticks=120 entities_processed=240000
+[2896ms][#112][info][tid=9596][stress.result] 35/37 | PASS | stress.world_loop_core | duration=2288ms | budget=15000ms | ticks=240 entities_processed=1200000 avg_entities_per_tick=5000 events_processed=0 status_sweeps=1200000 loop_duration_ms=1418 entities_per_second=846262 min_entities_per_second=80000
+[2898ms][#113][info][tid=9596][stress.result] 36/37 | PASS | stress.world_loop_status_sweeps | duration=2ms | entities=100 ticks=60 status_sweeps=6000 events_processed=0
+[2898ms][#114][info][tid=9596][stress.result] 37/37 | PASS | stress.world_loop_empty_world | duration=1ms | ticks=240 entities_processed=0 events_processed=0 status_sweeps=0
+[2900ms][#115][info][tid=9596][stress.summary] FINISH | failures=1
+[3ms][#1][info][tid=45064][stress] RUN | level=high
+[5ms][#2][info][tid=45064][stress.test] BEGIN | stress.inventory_weight_exact
+[162ms][#3][info][tid=45064][stress.test] END | stress.inventory_weight_exact | PASS | duration=157ms | expected_once=5088 actual_once=5088 iterations=10000 total_weight_sum=50880000
+[163ms][#4][info][tid=45064][stress.test] BEGIN | stress.inventory_empty
+[164ms][#5][info][tid=45064][stress.test] END | stress.inventory_empty | PASS | duration=0ms | weight=0
+[165ms][#6][info][tid=45064][stress.test] BEGIN | stress.inventory_missing_templates
+[250ms][#7][info][tid=45064][stress.test] END | stress.inventory_missing_templates | PASS | duration=84ms | expected_partial_weight=2512 actual_partial_weight=2512
+[251ms][#8][info][tid=45064][stress.test] BEGIN | stress.inventory_equipment_quantity_rule
+[252ms][#9][info][tid=45064][stress.test] END | stress.inventory_equipment_quantity_rule | PASS | duration=1ms | equipment_quantity=1
+[254ms][#10][info][tid=45064][stress.test] BEGIN | stress.inventory_duplicate_equipment_instances
+[255ms][#11][info][tid=45064][stress.test] END | stress.inventory_duplicate_equipment_instances | PASS | duration=1ms | equipment_instances=10 same_template=true unique_ids=true
+[257ms][#12][info][tid=45064][stress.test] BEGIN | stress.inventory_material_stack_rule
+[258ms][#13][info][tid=45064][stress.test] END | stress.inventory_material_stack_rule | PASS | duration=1ms | slots=1 quantity=350
+[260ms][#14][info][tid=45064][stress.test] BEGIN | stress.inventory_slot_limit
+[261ms][#15][info][tid=45064][stress.test] END | stress.inventory_slot_limit | PASS | duration=1ms | max_slots=3 rejected_status=full
+[262ms][#16][info][tid=45064][stress.test] BEGIN | stress.inventory_remove_item
+[264ms][#17][info][tid=45064][stress.test] END | stress.inventory_remove_item | PASS | duration=1ms | before=10 after=9 missing_status=not_found
+[265ms][#18][info][tid=45064][stress.test] BEGIN | stress.inventory_validation_matrix
+[266ms][#19][info][tid=45064][stress.test] END | stress.inventory_validation_matrix | PASS | duration=1ms | cases=9
+[267ms][#20][info][tid=45064][stress.test] BEGIN | stress.inventory_mixed_operations_invariants
+[271ms][#21][error][tid=45064][stress.inventory_mixed_operations_invariants] exception in stress.inventory_mixed_operations_invariants: unexpected material add status
+[273ms][#22][error][tid=45064][stress.test] END | stress.inventory_mixed_operations_invariants | FAIL | duration=5ms | unexpected material add status
+[274ms][#23][info][tid=45064][stress.test] BEGIN | stress.damage_kind_classification
+[275ms][#24][info][tid=45064][stress.test] END | stress.damage_kind_classification | PASS | duration=1ms | physical=4 non_physical=2
+[276ms][#25][info][tid=45064][stress.test] BEGIN | stress.material_damage_resolution
+[278ms][#26][info][tid=45064][stress.test] END | stress.material_damage_resolution | PASS | duration=1ms | cases=8 total_resolved=455
+[279ms][#27][info][tid=45064][stress.test] BEGIN | stress.material_damage_deterministic_fuzz
+[282ms][#28][info][tid=45064][stress.test] END | stress.material_damage_deterministic_fuzz | PASS | duration=2ms | cases=50000 positive_cases=45439 zero_or_negative_cases=4561 total_resolved=391701849
+[283ms][#29][info][tid=45064][stress.test] BEGIN | stress.material_state_defaults
+[285ms][#30][info][tid=45064][stress.test] END | stress.material_state_defaults | PASS | duration=1ms | kind=1 durability=1000 broken=false
+[286ms][#31][info][tid=45064][stress.test] BEGIN | stress.event_validation_rules
+[287ms][#32][info][tid=45064][stress.test] END | stress.event_validation_rules | PASS | duration=1ms | validation_ok
+[289ms][#33][info][tid=45064][stress.test] BEGIN | stress.event_scheduler_basic
+[290ms][#34][info][tid=45064][stress.test] END | stress.event_scheduler_basic | PASS | duration=1ms | ordering_ok
+[291ms][#35][info][tid=45064][stress.test] BEGIN | stress.event_scheduler_ordering
+[293ms][#36][info][tid=45064][stress.test] END | stress.event_scheduler_ordering | PASS | duration=1ms | ordered_events=3
+[294ms][#37][info][tid=45064][stress.test] BEGIN | stress.event_scheduler_massive
+[313ms][#38][info][tid=45064][stress.test] END | stress.event_scheduler_massive | PASS | duration=18ms | scheduled=50000 first_pop=25000 second_pop=25000
+[314ms][#39][info][tid=45064][stress.test] BEGIN | stress.event_validation_and_scheduler_edges
+[315ms][#40][info][tid=45064][stress.test] END | stress.event_validation_and_scheduler_edges | PASS | duration=1ms | rejections=3 ready=1
+[317ms][#41][info][tid=45064][stress.test] BEGIN | stress.event_same_due_time_stability
+[319ms][#42][info][tid=45064][stress.test] END | stress.event_same_due_time_stability | PASS | duration=2ms | same_due_events=1000
+[321ms][#43][info][tid=45064][stress.test] BEGIN | stress.event_invalid_mass_rejection
+[322ms][#44][info][tid=45064][stress.test] END | stress.event_invalid_mass_rejection | PASS | duration=1ms | invalid_events=1000 rejected=1000
+[324ms][#45][info][tid=45064][stress.test] BEGIN | stress.affix_scaling
+[332ms][#46][info][tid=45064][stress.test] END | stress.affix_scaling | PASS | duration=8ms | attack_percent_delta=170000 defense_percent_delta=110000 move_speed_percent_delta=-80000 affix_count=25000
+[334ms][#47][info][tid=45064][stress.test] BEGIN | stress.affix_empty
+[335ms][#48][info][tid=45064][stress.test] END | stress.affix_empty | PASS | duration=1ms | empty_affix_modifiers_ok
+[336ms][#49][info][tid=45064][stress.test] BEGIN | stress.experience_curve
+[338ms][#50][info][tid=45064][stress.test] END | stress.experience_curve | PASS | duration=1ms | max_level=200 total_required=1871500 final_level=201 tier_resets=0
+[339ms][#51][info][tid=45064][stress.test] BEGIN | stress.experience_edge_cases
+[341ms][#52][info][tid=45064][stress.test] END | stress.experience_edge_cases | PASS | duration=1ms | zero_required=100 zero_reward=15 final_level=3 leftover_exp=7
+[342ms][#53][info][tid=45064][stress.test] BEGIN | stress.entity_spawn_massive
+[350ms][#54][info][tid=45064][stress.test] END | stress.entity_spawn_massive | PASS | duration=7ms
+[351ms][#55][info][tid=45064][stress.test] BEGIN | stress.entity_contract_edges
+[353ms][#56][info][tid=45064][stress.test] END | stress.entity_contract_edges | PASS | duration=1ms | duplicate_inventory=true zero_and_negative_damage=true missing_target=true
+[354ms][#57][info][tid=45064][stress.test] BEGIN | stress.combat_damage_multiple_entities
+[364ms][#58][info][tid=45064][stress.test] END | stress.combat_damage_multiple_entities | PASS | duration=9ms | entities=5000 total_damage=577567 killed=1001 lethal_hits=1001
+[366ms][#59][info][tid=45064][stress.test] BEGIN | stress.combat_damage_many_sources_single_entity
+[367ms][#60][info][tid=45064][stress.test] END | stress.combat_damage_many_sources_single_entity | PASS | duration=1ms | sources=12 hits=72 hp_start=564 hp_end=384
+[369ms][#61][info][tid=45064][stress.test] BEGIN | stress.combat_damage_many_sources_many_entities
+[525ms][#62][info][tid=45064][stress.test] END | stress.combat_damage_many_sources_many_entities | PASS | duration=156ms | targets=5000 sources_per_target=12 total_hits=360001 total_damage=720425 killed=1 forced_kill=true
+[528ms][#63][info][tid=45064][stress.test] BEGIN | stress.combat_dead_entity_killer_not_overwritten
+[529ms][#64][info][tid=45064][stress.test] END | stress.combat_dead_entity_killer_not_overwritten | PASS | duration=1ms | killer_preserved=true original_killer=10
+[530ms][#65][info][tid=45064][stress.test] BEGIN | stress.combat_validation_matrix
+[532ms][#66][info][tid=45064][stress.test] END | stress.combat_validation_matrix | PASS | duration=1ms | cases=8 valid=1
+[533ms][#67][info][tid=45064][stress.test] BEGIN | stress.world_status_negative_immunity
+[536ms][#68][info][tid=45064][stress.test] END | stress.world_status_negative_immunity | PASS | duration=2ms | bless_stacks=5 poison_blocked=true
+[537ms][#69][info][tid=45064][stress.test] BEGIN | stress.world_loop_mixed_entity_states
+[594ms][#70][info][tid=45064][stress.test] END | stress.world_loop_mixed_entity_states | PASS | duration=57ms | entities=2000 with_inventory=1000 with_status=666 expected_dead=400 actual_dead=933 ticks=120 entities_processed=240000
+[596ms][#71][info][tid=45064][stress.test] BEGIN | stress.world_loop_core
+[2702ms][#72][info][tid=45064][stress.test] END | stress.world_loop_core | PASS | duration=2106ms | ticks=240 entities_processed=1200000 avg_entities_per_tick=5000 events_processed=0 status_sweeps=1200000 loop_duration_ms=1216 entities_per_second=986842 min_entities_per_second=80000
+[2704ms][#73][info][tid=45064][stress.test] BEGIN | stress.world_loop_status_sweeps
+[2706ms][#74][info][tid=45064][stress.test] END | stress.world_loop_status_sweeps | PASS | duration=2ms | entities=100 ticks=60 status_sweeps=6000 events_processed=0
+[2707ms][#75][info][tid=45064][stress.test] BEGIN | stress.world_loop_empty_world
+[2707ms][#76][info][tid=45064][stress.test] END | stress.world_loop_empty_world | PASS | duration=0ms | ticks=240 entities_processed=0 events_processed=0 status_sweeps=0
+[2708ms][#77][info][tid=45064][stress.summary] SUMMARY | level=high | total=37 | passed=36 | failed=1
+[2710ms][#78][info][tid=45064][stress.result] 1/37 | PASS | stress.inventory_weight_exact | duration=157ms | expected_once=5088 actual_once=5088 iterations=10000 total_weight_sum=50880000
+[2711ms][#79][info][tid=45064][stress.result] 2/37 | PASS | stress.inventory_empty | duration=0ms | weight=0
+[2712ms][#80][info][tid=45064][stress.result] 3/37 | PASS | stress.inventory_missing_templates | duration=84ms | expected_partial_weight=2512 actual_partial_weight=2512
+[2713ms][#81][info][tid=45064][stress.result] 4/37 | PASS | stress.inventory_equipment_quantity_rule | duration=1ms | equipment_quantity=1
+[2714ms][#82][info][tid=45064][stress.result] 5/37 | PASS | stress.inventory_duplicate_equipment_instances | duration=1ms | equipment_instances=10 same_template=true unique_ids=true
+[2716ms][#83][info][tid=45064][stress.result] 6/37 | PASS | stress.inventory_material_stack_rule | duration=1ms | slots=1 quantity=350
+[2717ms][#84][info][tid=45064][stress.result] 7/37 | PASS | stress.inventory_slot_limit | duration=1ms | max_slots=3 rejected_status=full
+[2718ms][#85][info][tid=45064][stress.result] 8/37 | PASS | stress.inventory_remove_item | duration=1ms | before=10 after=9 missing_status=not_found
+[2719ms][#86][info][tid=45064][stress.result] 9/37 | PASS | stress.inventory_validation_matrix | duration=1ms | cases=9
+[2720ms][#87][error][tid=45064][stress.result] 10/37 | FAIL | stress.inventory_mixed_operations_invariants | duration=5ms | unexpected material add status
+[2720ms][#88][info][tid=45064][stress.result] 11/37 | PASS | stress.damage_kind_classification | duration=1ms | physical=4 non_physical=2
+[2722ms][#89][info][tid=45064][stress.result] 12/37 | PASS | stress.material_damage_resolution | duration=1ms | cases=8 total_resolved=455
+[2723ms][#90][info][tid=45064][stress.result] 13/37 | PASS | stress.material_damage_deterministic_fuzz | duration=2ms | cases=50000 positive_cases=45439 zero_or_negative_cases=4561 total_resolved=391701849
+[2724ms][#91][info][tid=45064][stress.result] 14/37 | PASS | stress.material_state_defaults | duration=1ms | kind=1 durability=1000 broken=false
+[2725ms][#92][info][tid=45064][stress.result] 15/37 | PASS | stress.event_validation_rules | duration=1ms | validation_ok
+[2725ms][#93][info][tid=45064][stress.result] 16/37 | PASS | stress.event_scheduler_basic | duration=1ms | ordering_ok
+[2726ms][#94][info][tid=45064][stress.result] 17/37 | PASS | stress.event_scheduler_ordering | duration=1ms | ordered_events=3
+[2728ms][#95][info][tid=45064][stress.result] 18/37 | PASS | stress.event_scheduler_massive | duration=18ms | scheduled=50000 first_pop=25000 second_pop=25000
+[2729ms][#96][info][tid=45064][stress.result] 19/37 | PASS | stress.event_validation_and_scheduler_edges | duration=1ms | rejections=3 ready=1
+[2730ms][#97][info][tid=45064][stress.result] 20/37 | PASS | stress.event_same_due_time_stability | duration=2ms | same_due_events=1000
+[2731ms][#98][info][tid=45064][stress.result] 21/37 | PASS | stress.event_invalid_mass_rejection | duration=1ms | invalid_events=1000 rejected=1000
+[2731ms][#99][info][tid=45064][stress.result] 22/37 | PASS | stress.affix_scaling | duration=8ms | attack_percent_delta=170000 defense_percent_delta=110000 move_speed_percent_delta=-80000 affix_count=25000
+[2732ms][#100][info][tid=45064][stress.result] 23/37 | PASS | stress.affix_empty | duration=1ms | empty_affix_modifiers_ok
+[2733ms][#101][info][tid=45064][stress.result] 24/37 | PASS | stress.experience_curve | duration=1ms | max_level=200 total_required=1871500 final_level=201 tier_resets=0
+[2734ms][#102][info][tid=45064][stress.result] 25/37 | PASS | stress.experience_edge_cases | duration=1ms | zero_required=100 zero_reward=15 final_level=3 leftover_exp=7
+[2735ms][#103][info][tid=45064][stress.result] 26/37 | PASS | stress.entity_spawn_massive | duration=7ms
+[2735ms][#104][info][tid=45064][stress.result] 27/37 | PASS | stress.entity_contract_edges | duration=1ms | duplicate_inventory=true zero_and_negative_damage=true missing_target=true
+[2736ms][#105][info][tid=45064][stress.result] 28/37 | PASS | stress.combat_damage_multiple_entities | duration=9ms | entities=5000 total_damage=577567 killed=1001 lethal_hits=1001
+[2737ms][#106][info][tid=45064][stress.result] 29/37 | PASS | stress.combat_damage_many_sources_single_entity | duration=1ms | sources=12 hits=72 hp_start=564 hp_end=384
+[2739ms][#107][info][tid=45064][stress.result] 30/37 | PASS | stress.combat_damage_many_sources_many_entities | duration=156ms | targets=5000 sources_per_target=12 total_hits=360001 total_damage=720425 killed=1 forced_kill=true
+[2740ms][#108][info][tid=45064][stress.result] 31/37 | PASS | stress.combat_dead_entity_killer_not_overwritten | duration=1ms | killer_preserved=true original_killer=10
+[2741ms][#109][info][tid=45064][stress.result] 32/37 | PASS | stress.combat_validation_matrix | duration=1ms | cases=8 valid=1
+[2742ms][#110][info][tid=45064][stress.result] 33/37 | PASS | stress.world_status_negative_immunity | duration=2ms | bless_stacks=5 poison_blocked=true
+[2743ms][#111][info][tid=45064][stress.result] 34/37 | PASS | stress.world_loop_mixed_entity_states | duration=57ms | budget=5000ms | entities=2000 with_inventory=1000 with_status=666 expected_dead=400 actual_dead=933 ticks=120 entities_processed=240000
+[2744ms][#112][info][tid=45064][stress.result] 35/37 | PASS | stress.world_loop_core | duration=2106ms | budget=15000ms | ticks=240 entities_processed=1200000 avg_entities_per_tick=5000 events_processed=0 status_sweeps=1200000 loop_duration_ms=1216 entities_per_second=986842 min_entities_per_second=80000
+[2745ms][#113][info][tid=45064][stress.result] 36/37 | PASS | stress.world_loop_status_sweeps | duration=2ms | entities=100 ticks=60 status_sweeps=6000 events_processed=0
+[2746ms][#114][info][tid=45064][stress.result] 37/37 | PASS | stress.world_loop_empty_world | duration=0ms | ticks=240 entities_processed=0 events_processed=0 status_sweeps=0
+[2747ms][#115][info][tid=45064][stress.summary] FINISH | failures=1
+[9ms][#1][info][tid=48016][stress] RUN | level=high
+[10ms][#2][info][tid=48016][stress.test] BEGIN | stress.inventory_weight_exact
+[368ms][#3][info][tid=48016][stress.test] END | stress.inventory_weight_exact | PASS | duration=357ms | expected_once=5088 actual_once=5088 iterations=10000 total_weight_sum=50880000
+[370ms][#4][info][tid=48016][stress.test] BEGIN | stress.inventory_empty
+[371ms][#5][info][tid=48016][stress.test] END | stress.inventory_empty | PASS | duration=1ms | weight=0
+[373ms][#6][info][tid=48016][stress.test] BEGIN | stress.inventory_missing_templates
+[505ms][#7][info][tid=48016][stress.test] END | stress.inventory_missing_templates | PASS | duration=131ms | expected_partial_weight=2512 actual_partial_weight=2512
+[507ms][#8][info][tid=48016][stress.test] BEGIN | stress.inventory_equipment_quantity_rule
+[509ms][#9][info][tid=48016][stress.test] END | stress.inventory_equipment_quantity_rule | PASS | duration=1ms | equipment_quantity=1
+[510ms][#10][info][tid=48016][stress.test] BEGIN | stress.inventory_duplicate_equipment_instances
+[512ms][#11][info][tid=48016][stress.test] END | stress.inventory_duplicate_equipment_instances | PASS | duration=1ms | equipment_instances=10 same_template=true unique_ids=true
+[513ms][#12][info][tid=48016][stress.test] BEGIN | stress.inventory_material_stack_rule
+[514ms][#13][info][tid=48016][stress.test] END | stress.inventory_material_stack_rule | PASS | duration=1ms | slots=1 quantity=350
+[516ms][#14][info][tid=48016][stress.test] BEGIN | stress.inventory_slot_limit
+[517ms][#15][info][tid=48016][stress.test] END | stress.inventory_slot_limit | PASS | duration=1ms | max_slots=3 rejected_status=full
+[519ms][#16][info][tid=48016][stress.test] BEGIN | stress.inventory_remove_item
+[521ms][#17][info][tid=48016][stress.test] END | stress.inventory_remove_item | PASS | duration=1ms | before=10 after=9 missing_status=not_found
+[522ms][#18][info][tid=48016][stress.test] BEGIN | stress.inventory_validation_matrix
+[524ms][#19][info][tid=48016][stress.test] END | stress.inventory_validation_matrix | PASS | duration=1ms | cases=9
+[526ms][#20][info][tid=48016][stress.test] BEGIN | stress.inventory_mixed_operations_invariants
+[532ms][#21][error][tid=48016][stress.inventory_mixed_operations_invariants] exception in stress.inventory_mixed_operations_invariants: unexpected material add status status=partially_added iteration=243 quantity=44 current_slots=128
+[534ms][#22][error][tid=48016][stress.test] END | stress.inventory_mixed_operations_invariants | FAIL | duration=8ms | unexpected material add status status=partially_added iteration=243 quantity=44 current_slots=128
+[536ms][#23][info][tid=48016][stress.test] BEGIN | stress.damage_kind_classification
+[538ms][#24][info][tid=48016][stress.test] END | stress.damage_kind_classification | PASS | duration=1ms | physical=4 non_physical=2
+[539ms][#25][info][tid=48016][stress.test] BEGIN | stress.material_damage_resolution
+[541ms][#26][info][tid=48016][stress.test] END | stress.material_damage_resolution | PASS | duration=1ms | cases=8 total_resolved=455
+[543ms][#27][info][tid=48016][stress.test] BEGIN | stress.material_damage_deterministic_fuzz
+[546ms][#28][info][tid=48016][stress.test] END | stress.material_damage_deterministic_fuzz | PASS | duration=3ms | cases=50000 positive_cases=45439 zero_or_negative_cases=4561 total_resolved=391701849
+[548ms][#29][info][tid=48016][stress.test] BEGIN | stress.material_state_defaults
+[549ms][#30][info][tid=48016][stress.test] END | stress.material_state_defaults | PASS | duration=1ms | kind=1 durability=1000 broken=false
+[550ms][#31][info][tid=48016][stress.test] BEGIN | stress.event_validation_rules
+[552ms][#32][info][tid=48016][stress.test] END | stress.event_validation_rules | PASS | duration=1ms | validation_ok
+[554ms][#33][info][tid=48016][stress.test] BEGIN | stress.event_scheduler_basic
+[555ms][#34][info][tid=48016][stress.test] END | stress.event_scheduler_basic | PASS | duration=1ms | ordering_ok
+[557ms][#35][info][tid=48016][stress.test] BEGIN | stress.event_scheduler_ordering
+[559ms][#36][info][tid=48016][stress.test] END | stress.event_scheduler_ordering | PASS | duration=1ms | ordered_events=3
+[560ms][#37][info][tid=48016][stress.test] BEGIN | stress.event_scheduler_massive
+[580ms][#38][info][tid=48016][stress.test] END | stress.event_scheduler_massive | PASS | duration=19ms | scheduled=50000 first_pop=25000 second_pop=25000
+[581ms][#39][info][tid=48016][stress.test] BEGIN | stress.event_validation_and_scheduler_edges
+[583ms][#40][info][tid=48016][stress.test] END | stress.event_validation_and_scheduler_edges | PASS | duration=1ms | rejections=3 ready=1
+[584ms][#41][info][tid=48016][stress.test] BEGIN | stress.event_same_due_time_stability
+[586ms][#42][info][tid=48016][stress.test] END | stress.event_same_due_time_stability | PASS | duration=2ms | same_due_events=1000
+[588ms][#43][info][tid=48016][stress.test] BEGIN | stress.event_invalid_mass_rejection
+[589ms][#44][info][tid=48016][stress.test] END | stress.event_invalid_mass_rejection | PASS | duration=1ms | invalid_events=1000 rejected=1000
+[593ms][#45][info][tid=48016][stress.test] BEGIN | stress.affix_scaling
+[602ms][#46][info][tid=48016][stress.test] END | stress.affix_scaling | PASS | duration=9ms | attack_percent_delta=170000 defense_percent_delta=110000 move_speed_percent_delta=-80000 affix_count=25000
+[604ms][#47][info][tid=48016][stress.test] BEGIN | stress.affix_empty
+[605ms][#48][info][tid=48016][stress.test] END | stress.affix_empty | PASS | duration=1ms | empty_affix_modifiers_ok
+[607ms][#49][info][tid=48016][stress.test] BEGIN | stress.experience_curve
+[609ms][#50][info][tid=48016][stress.test] END | stress.experience_curve | PASS | duration=1ms | max_level=200 total_required=1871500 final_level=201 tier_resets=0
+[611ms][#51][info][tid=48016][stress.test] BEGIN | stress.experience_edge_cases
+[613ms][#52][info][tid=48016][stress.test] END | stress.experience_edge_cases | PASS | duration=2ms | zero_required=100 zero_reward=15 final_level=3 leftover_exp=7
+[615ms][#53][info][tid=48016][stress.test] BEGIN | stress.entity_spawn_massive
+[622ms][#54][info][tid=48016][stress.test] END | stress.entity_spawn_massive | PASS | duration=7ms
+[624ms][#55][info][tid=48016][stress.test] BEGIN | stress.entity_contract_edges
+[626ms][#56][info][tid=48016][stress.test] END | stress.entity_contract_edges | PASS | duration=1ms | duplicate_inventory=true zero_and_negative_damage=true missing_target=true
+[627ms][#57][info][tid=48016][stress.test] BEGIN | stress.combat_damage_multiple_entities
+[641ms][#58][info][tid=48016][stress.test] END | stress.combat_damage_multiple_entities | PASS | duration=13ms | entities=5000 total_damage=577567 killed=1001 lethal_hits=1001
+[642ms][#59][info][tid=48016][stress.test] BEGIN | stress.combat_damage_many_sources_single_entity
+[644ms][#60][info][tid=48016][stress.test] END | stress.combat_damage_many_sources_single_entity | PASS | duration=1ms | sources=12 hits=72 hp_start=564 hp_end=384
+[646ms][#61][info][tid=48016][stress.test] BEGIN | stress.combat_damage_many_sources_many_entities
+[805ms][#62][info][tid=48016][stress.test] END | stress.combat_damage_many_sources_many_entities | PASS | duration=159ms | targets=5000 sources_per_target=12 total_hits=360001 total_damage=720425 killed=1 forced_kill=true
+[807ms][#63][info][tid=48016][stress.test] BEGIN | stress.combat_dead_entity_killer_not_overwritten
+[808ms][#64][info][tid=48016][stress.test] END | stress.combat_dead_entity_killer_not_overwritten | PASS | duration=1ms | killer_preserved=true original_killer=10
+[810ms][#65][info][tid=48016][stress.test] BEGIN | stress.combat_validation_matrix
+[812ms][#66][info][tid=48016][stress.test] END | stress.combat_validation_matrix | PASS | duration=1ms | cases=8 valid=1
+[813ms][#67][info][tid=48016][stress.test] BEGIN | stress.world_status_negative_immunity
+[815ms][#68][info][tid=48016][stress.test] END | stress.world_status_negative_immunity | PASS | duration=1ms | bless_stacks=5 poison_blocked=true
+[817ms][#69][info][tid=48016][stress.test] BEGIN | stress.world_loop_mixed_entity_states
+[894ms][#70][info][tid=48016][stress.test] END | stress.world_loop_mixed_entity_states | PASS | duration=77ms | entities=2000 with_inventory=1000 with_status=666 expected_dead=400 actual_dead=933 ticks=120 entities_processed=240000
+[896ms][#71][info][tid=48016][stress.test] BEGIN | stress.world_loop_core
+[2929ms][#72][info][tid=48016][stress.test] END | stress.world_loop_core | PASS | duration=2032ms | ticks=240 entities_processed=1200000 avg_entities_per_tick=5000 events_processed=0 status_sweeps=1200000 loop_duration_ms=1184 entities_per_second=1013513 min_entities_per_second=80000
+[2931ms][#73][info][tid=48016][stress.test] BEGIN | stress.world_loop_status_sweeps
+[2933ms][#74][info][tid=48016][stress.test] END | stress.world_loop_status_sweeps | PASS | duration=2ms | entities=100 ticks=60 status_sweeps=6000 events_processed=0
+[2935ms][#75][info][tid=48016][stress.test] BEGIN | stress.world_loop_empty_world
+[2937ms][#76][info][tid=48016][stress.test] END | stress.world_loop_empty_world | PASS | duration=1ms | ticks=240 entities_processed=0 events_processed=0 status_sweeps=0
+[2938ms][#77][info][tid=48016][stress.summary] SUMMARY | level=high | total=37 | passed=36 | failed=1
+[2939ms][#78][info][tid=48016][stress.result] 1/37 | PASS | stress.inventory_weight_exact | duration=357ms | expected_once=5088 actual_once=5088 iterations=10000 total_weight_sum=50880000
+[2940ms][#79][info][tid=48016][stress.result] 2/37 | PASS | stress.inventory_empty | duration=1ms | weight=0
+[2941ms][#80][info][tid=48016][stress.result] 3/37 | PASS | stress.inventory_missing_templates | duration=131ms | expected_partial_weight=2512 actual_partial_weight=2512
+[2942ms][#81][info][tid=48016][stress.result] 4/37 | PASS | stress.inventory_equipment_quantity_rule | duration=1ms | equipment_quantity=1
+[2944ms][#82][info][tid=48016][stress.result] 5/37 | PASS | stress.inventory_duplicate_equipment_instances | duration=1ms | equipment_instances=10 same_template=true unique_ids=true
+[2946ms][#83][info][tid=48016][stress.result] 6/37 | PASS | stress.inventory_material_stack_rule | duration=1ms | slots=1 quantity=350
+[2947ms][#84][info][tid=48016][stress.result] 7/37 | PASS | stress.inventory_slot_limit | duration=1ms | max_slots=3 rejected_status=full
+[2948ms][#85][info][tid=48016][stress.result] 8/37 | PASS | stress.inventory_remove_item | duration=1ms | before=10 after=9 missing_status=not_found
+[2950ms][#86][info][tid=48016][stress.result] 9/37 | PASS | stress.inventory_validation_matrix | duration=1ms | cases=9
+[2951ms][#87][error][tid=48016][stress.result] 10/37 | FAIL | stress.inventory_mixed_operations_invariants | duration=8ms | unexpected material add status status=partially_added iteration=243 quantity=44 current_slots=128
+[2952ms][#88][info][tid=48016][stress.result] 11/37 | PASS | stress.damage_kind_classification | duration=1ms | physical=4 non_physical=2
+[2953ms][#89][info][tid=48016][stress.result] 12/37 | PASS | stress.material_damage_resolution | duration=1ms | cases=8 total_resolved=455
+[2954ms][#90][info][tid=48016][stress.result] 13/37 | PASS | stress.material_damage_deterministic_fuzz | duration=3ms | cases=50000 positive_cases=45439 zero_or_negative_cases=4561 total_resolved=391701849
+[2955ms][#91][info][tid=48016][stress.result] 14/37 | PASS | stress.material_state_defaults | duration=1ms | kind=1 durability=1000 broken=false
+[2957ms][#92][info][tid=48016][stress.result] 15/37 | PASS | stress.event_validation_rules | duration=1ms | validation_ok
+[2958ms][#93][info][tid=48016][stress.result] 16/37 | PASS | stress.event_scheduler_basic | duration=1ms | ordering_ok
+[2959ms][#94][info][tid=48016][stress.result] 17/37 | PASS | stress.event_scheduler_ordering | duration=1ms | ordered_events=3
+[2960ms][#95][info][tid=48016][stress.result] 18/37 | PASS | stress.event_scheduler_massive | duration=19ms | scheduled=50000 first_pop=25000 second_pop=25000
+[2961ms][#96][info][tid=48016][stress.result] 19/37 | PASS | stress.event_validation_and_scheduler_edges | duration=1ms | rejections=3 ready=1
+[2962ms][#97][info][tid=48016][stress.result] 20/37 | PASS | stress.event_same_due_time_stability | duration=2ms | same_due_events=1000
+[2963ms][#98][info][tid=48016][stress.result] 21/37 | PASS | stress.event_invalid_mass_rejection | duration=1ms | invalid_events=1000 rejected=1000
+[2964ms][#99][info][tid=48016][stress.result] 22/37 | PASS | stress.affix_scaling | duration=9ms | attack_percent_delta=170000 defense_percent_delta=110000 move_speed_percent_delta=-80000 affix_count=25000
+[2965ms][#100][info][tid=48016][stress.result] 23/37 | PASS | stress.affix_empty | duration=1ms | empty_affix_modifiers_ok
+[2966ms][#101][info][tid=48016][stress.result] 24/37 | PASS | stress.experience_curve | duration=1ms | max_level=200 total_required=1871500 final_level=201 tier_resets=0
+[2968ms][#102][info][tid=48016][stress.result] 25/37 | PASS | stress.experience_edge_cases | duration=2ms | zero_required=100 zero_reward=15 final_level=3 leftover_exp=7
+[2969ms][#103][info][tid=48016][stress.result] 26/37 | PASS | stress.entity_spawn_massive | duration=7ms
+[2970ms][#104][info][tid=48016][stress.result] 27/37 | PASS | stress.entity_contract_edges | duration=1ms | duplicate_inventory=true zero_and_negative_damage=true missing_target=true
+[2971ms][#105][info][tid=48016][stress.result] 28/37 | PASS | stress.combat_damage_multiple_entities | duration=13ms | entities=5000 total_damage=577567 killed=1001 lethal_hits=1001
+[2972ms][#106][info][tid=48016][stress.result] 29/37 | PASS | stress.combat_damage_many_sources_single_entity | duration=1ms | sources=12 hits=72 hp_start=564 hp_end=384
+[2974ms][#107][info][tid=48016][stress.result] 30/37 | PASS | stress.combat_damage_many_sources_many_entities | duration=159ms | targets=5000 sources_per_target=12 total_hits=360001 total_damage=720425 killed=1 forced_kill=true
+[2975ms][#108][info][tid=48016][stress.result] 31/37 | PASS | stress.combat_dead_entity_killer_not_overwritten | duration=1ms | killer_preserved=true original_killer=10
+[2976ms][#109][info][tid=48016][stress.result] 32/37 | PASS | stress.combat_validation_matrix | duration=1ms | cases=8 valid=1
+[2977ms][#110][info][tid=48016][stress.result] 33/37 | PASS | stress.world_status_negative_immunity | duration=1ms | bless_stacks=5 poison_blocked=true
+[2978ms][#111][info][tid=48016][stress.result] 34/37 | PASS | stress.world_loop_mixed_entity_states | duration=77ms | budget=5000ms | entities=2000 with_inventory=1000 with_status=666 expected_dead=400 actual_dead=933 ticks=120 entities_processed=240000
+[2979ms][#112][info][tid=48016][stress.result] 35/37 | PASS | stress.world_loop_core | duration=2032ms | budget=15000ms | ticks=240 entities_processed=1200000 avg_entities_per_tick=5000 events_processed=0 status_sweeps=1200000 loop_duration_ms=1184 entities_per_second=1013513 min_entities_per_second=80000
+[2981ms][#113][info][tid=48016][stress.result] 36/37 | PASS | stress.world_loop_status_sweeps | duration=2ms | entities=100 ticks=60 status_sweeps=6000 events_processed=0
+[2982ms][#114][info][tid=48016][stress.result] 37/37 | PASS | stress.world_loop_empty_world | duration=1ms | ticks=240 entities_processed=0 events_processed=0 status_sweeps=0
+[2983ms][#115][info][tid=48016][stress.summary] FINISH | failures=1
+[3ms][#1][info][tid=42640][stress] RUN | level=high
+[5ms][#2][info][tid=42640][stress.test] BEGIN | stress.inventory_weight_exact
+[209ms][#3][info][tid=42640][stress.test] END | stress.inventory_weight_exact | PASS | duration=203ms | expected_once=5088 actual_once=5088 iterations=10000 total_weight_sum=50880000
+[210ms][#4][info][tid=42640][stress.test] BEGIN | stress.inventory_empty
+[211ms][#5][info][tid=42640][stress.test] END | stress.inventory_empty | PASS | duration=1ms | weight=0
+[213ms][#6][info][tid=42640][stress.test] BEGIN | stress.inventory_missing_templates
+[311ms][#7][info][tid=42640][stress.test] END | stress.inventory_missing_templates | PASS | duration=98ms | expected_partial_weight=2512 actual_partial_weight=2512
+[314ms][#8][info][tid=42640][stress.test] BEGIN | stress.inventory_equipment_quantity_rule
+[315ms][#9][info][tid=42640][stress.test] END | stress.inventory_equipment_quantity_rule | PASS | duration=0ms | equipment_quantity=1
+[316ms][#10][info][tid=42640][stress.test] BEGIN | stress.inventory_duplicate_equipment_instances
+[317ms][#11][info][tid=42640][stress.test] END | stress.inventory_duplicate_equipment_instances | PASS | duration=1ms | equipment_instances=10 same_template=true unique_ids=true
+[319ms][#12][info][tid=42640][stress.test] BEGIN | stress.inventory_material_stack_rule
+[321ms][#13][info][tid=42640][stress.test] END | stress.inventory_material_stack_rule | PASS | duration=1ms | slots=1 quantity=350
+[322ms][#14][info][tid=42640][stress.test] BEGIN | stress.inventory_slot_limit
+[324ms][#15][info][tid=42640][stress.test] END | stress.inventory_slot_limit | PASS | duration=1ms | max_slots=3 rejected_status=full
+[325ms][#16][info][tid=42640][stress.test] BEGIN | stress.inventory_remove_item
+[327ms][#17][info][tid=42640][stress.test] END | stress.inventory_remove_item | PASS | duration=1ms | before=10 after=9 missing_status=not_found
+[328ms][#18][info][tid=42640][stress.test] BEGIN | stress.inventory_validation_matrix
+[330ms][#19][info][tid=42640][stress.test] END | stress.inventory_validation_matrix | PASS | duration=2ms | cases=9
+[333ms][#20][info][tid=42640][stress.test] BEGIN | stress.inventory_mixed_operations_invariants
+[443ms][#21][info][tid=42640][stress.test] END | stress.inventory_mixed_operations_invariants | PASS | duration=110ms | add_attempts=5000 successful_adds=889 remove_attempts=715 successful_removes=715 final_slots=128
+[444ms][#22][info][tid=42640][stress.test] BEGIN | stress.damage_kind_classification
+[445ms][#23][info][tid=42640][stress.test] END | stress.damage_kind_classification | PASS | duration=1ms | physical=4 non_physical=2
+[447ms][#24][info][tid=42640][stress.test] BEGIN | stress.material_damage_resolution
+[448ms][#25][info][tid=42640][stress.test] END | stress.material_damage_resolution | PASS | duration=0ms | cases=8 total_resolved=455
+[449ms][#26][info][tid=42640][stress.test] BEGIN | stress.material_damage_deterministic_fuzz
+[451ms][#27][info][tid=42640][stress.test] END | stress.material_damage_deterministic_fuzz | PASS | duration=2ms | cases=50000 positive_cases=45439 zero_or_negative_cases=4561 total_resolved=391701849
+[453ms][#28][info][tid=42640][stress.test] BEGIN | stress.material_state_defaults
+[454ms][#29][info][tid=42640][stress.test] END | stress.material_state_defaults | PASS | duration=1ms | kind=1 durability=1000 broken=false
+[455ms][#30][info][tid=42640][stress.test] BEGIN | stress.event_validation_rules
+[457ms][#31][info][tid=42640][stress.test] END | stress.event_validation_rules | PASS | duration=1ms | validation_ok
+[458ms][#32][info][tid=42640][stress.test] BEGIN | stress.event_scheduler_basic
+[460ms][#33][info][tid=42640][stress.test] END | stress.event_scheduler_basic | PASS | duration=1ms | ordering_ok
+[461ms][#34][info][tid=42640][stress.test] BEGIN | stress.event_scheduler_ordering
+[462ms][#35][info][tid=42640][stress.test] END | stress.event_scheduler_ordering | PASS | duration=1ms | ordered_events=3
+[464ms][#36][info][tid=42640][stress.test] BEGIN | stress.event_scheduler_massive
+[482ms][#37][info][tid=42640][stress.test] END | stress.event_scheduler_massive | PASS | duration=18ms | scheduled=50000 first_pop=25000 second_pop=25000
+[484ms][#38][info][tid=42640][stress.test] BEGIN | stress.event_validation_and_scheduler_edges
+[485ms][#39][info][tid=42640][stress.test] END | stress.event_validation_and_scheduler_edges | PASS | duration=1ms | rejections=3 ready=1
+[487ms][#40][info][tid=42640][stress.test] BEGIN | stress.event_same_due_time_stability
+[490ms][#41][info][tid=42640][stress.test] END | stress.event_same_due_time_stability | PASS | duration=2ms | same_due_events=1000
+[492ms][#42][info][tid=42640][stress.test] BEGIN | stress.event_invalid_mass_rejection
+[493ms][#43][info][tid=42640][stress.test] END | stress.event_invalid_mass_rejection | PASS | duration=1ms | invalid_events=1000 rejected=1000
+[495ms][#44][info][tid=42640][stress.test] BEGIN | stress.affix_scaling
+[505ms][#45][info][tid=42640][stress.test] END | stress.affix_scaling | PASS | duration=10ms | attack_percent_delta=170000 defense_percent_delta=110000 move_speed_percent_delta=-80000 affix_count=25000
+[507ms][#46][info][tid=42640][stress.test] BEGIN | stress.affix_empty
+[508ms][#47][info][tid=42640][stress.test] END | stress.affix_empty | PASS | duration=1ms | empty_affix_modifiers_ok
+[509ms][#48][info][tid=42640][stress.test] BEGIN | stress.experience_curve
+[511ms][#49][info][tid=42640][stress.test] END | stress.experience_curve | PASS | duration=1ms | max_level=200 total_required=1871500 final_level=201 tier_resets=0
+[512ms][#50][info][tid=42640][stress.test] BEGIN | stress.experience_edge_cases
+[513ms][#51][info][tid=42640][stress.test] END | stress.experience_edge_cases | PASS | duration=1ms | zero_required=100 zero_reward=15 final_level=3 leftover_exp=7
+[515ms][#52][info][tid=42640][stress.test] BEGIN | stress.entity_spawn_massive
+[521ms][#53][info][tid=42640][stress.test] END | stress.entity_spawn_massive | PASS | duration=5ms
+[523ms][#54][info][tid=42640][stress.test] BEGIN | stress.entity_contract_edges
+[525ms][#55][info][tid=42640][stress.test] END | stress.entity_contract_edges | PASS | duration=1ms | duplicate_inventory=true zero_and_negative_damage=true missing_target=true
+[526ms][#56][info][tid=42640][stress.test] BEGIN | stress.combat_damage_multiple_entities
+[536ms][#57][info][tid=42640][stress.test] END | stress.combat_damage_multiple_entities | PASS | duration=9ms | entities=5000 total_damage=577567 killed=1001 lethal_hits=1001
+[537ms][#58][info][tid=42640][stress.test] BEGIN | stress.combat_damage_many_sources_single_entity
+[539ms][#59][info][tid=42640][stress.test] END | stress.combat_damage_many_sources_single_entity | PASS | duration=1ms | sources=12 hits=72 hp_start=564 hp_end=384
+[541ms][#60][info][tid=42640][stress.test] BEGIN | stress.combat_damage_many_sources_many_entities
+[731ms][#61][info][tid=42640][stress.test] END | stress.combat_damage_many_sources_many_entities | PASS | duration=190ms | targets=5000 sources_per_target=12 total_hits=360001 total_damage=720425 killed=1 forced_kill=true
+[733ms][#62][info][tid=42640][stress.test] BEGIN | stress.combat_dead_entity_killer_not_overwritten
+[734ms][#63][info][tid=42640][stress.test] END | stress.combat_dead_entity_killer_not_overwritten | PASS | duration=1ms | killer_preserved=true original_killer=10
+[735ms][#64][info][tid=42640][stress.test] BEGIN | stress.combat_validation_matrix
+[736ms][#65][info][tid=42640][stress.test] END | stress.combat_validation_matrix | PASS | duration=1ms | cases=8 valid=1
+[738ms][#66][info][tid=42640][stress.test] BEGIN | stress.world_status_negative_immunity
+[740ms][#67][info][tid=42640][stress.test] END | stress.world_status_negative_immunity | PASS | duration=2ms | bless_stacks=5 poison_blocked=true
+[741ms][#68][info][tid=42640][stress.test] BEGIN | stress.world_loop_mixed_entity_states
+[815ms][#69][info][tid=42640][stress.test] END | stress.world_loop_mixed_entity_states | PASS | duration=73ms | entities=2000 with_inventory=1000 with_status=666 expected_dead=400 actual_dead=933 ticks=120 entities_processed=240000
+[816ms][#70][info][tid=42640][stress.test] BEGIN | stress.world_loop_core
+[2859ms][#71][info][tid=42640][stress.test] END | stress.world_loop_core | PASS | duration=2042ms | ticks=240 entities_processed=1200000 avg_entities_per_tick=5000 events_processed=0 status_sweeps=1200000 loop_duration_ms=1144 entities_per_second=1048951 min_entities_per_second=80000
+[2861ms][#72][info][tid=42640][stress.test] BEGIN | stress.world_loop_status_sweeps
+[2862ms][#73][info][tid=42640][stress.test] END | stress.world_loop_status_sweeps | PASS | duration=1ms | entities=100 ticks=60 status_sweeps=6000 events_processed=0
+[2863ms][#74][info][tid=42640][stress.test] BEGIN | stress.world_loop_empty_world
+[2864ms][#75][info][tid=42640][stress.test] END | stress.world_loop_empty_world | PASS | duration=0ms | ticks=240 entities_processed=0 events_processed=0 status_sweeps=0
+[2864ms][#76][info][tid=42640][stress.summary] SUMMARY | level=high | total=37 | passed=37 | failed=0
+[2866ms][#77][info][tid=42640][stress.result] 1/37 | PASS | stress.inventory_weight_exact | duration=203ms | expected_once=5088 actual_once=5088 iterations=10000 total_weight_sum=50880000
+[2867ms][#78][info][tid=42640][stress.result] 2/37 | PASS | stress.inventory_empty | duration=1ms | weight=0
+[2868ms][#79][info][tid=42640][stress.result] 3/37 | PASS | stress.inventory_missing_templates | duration=98ms | expected_partial_weight=2512 actual_partial_weight=2512
+[2870ms][#80][info][tid=42640][stress.result] 4/37 | PASS | stress.inventory_equipment_quantity_rule | duration=0ms | equipment_quantity=1
+[2871ms][#81][info][tid=42640][stress.result] 5/37 | PASS | stress.inventory_duplicate_equipment_instances | duration=1ms | equipment_instances=10 same_template=true unique_ids=true
+[2872ms][#82][info][tid=42640][stress.result] 6/37 | PASS | stress.inventory_material_stack_rule | duration=1ms | slots=1 quantity=350
+[2873ms][#83][info][tid=42640][stress.result] 7/37 | PASS | stress.inventory_slot_limit | duration=1ms | max_slots=3 rejected_status=full
+[2874ms][#84][info][tid=42640][stress.result] 8/37 | PASS | stress.inventory_remove_item | duration=1ms | before=10 after=9 missing_status=not_found
+[2875ms][#85][info][tid=42640][stress.result] 9/37 | PASS | stress.inventory_validation_matrix | duration=2ms | cases=9
+[2876ms][#86][info][tid=42640][stress.result] 10/37 | PASS | stress.inventory_mixed_operations_invariants | duration=110ms | add_attempts=5000 successful_adds=889 remove_attempts=715 successful_removes=715 final_slots=128
+[2877ms][#87][info][tid=42640][stress.result] 11/37 | PASS | stress.damage_kind_classification | duration=1ms | physical=4 non_physical=2
+[2878ms][#88][info][tid=42640][stress.result] 12/37 | PASS | stress.material_damage_resolution | duration=0ms | cases=8 total_resolved=455
+[2879ms][#89][info][tid=42640][stress.result] 13/37 | PASS | stress.material_damage_deterministic_fuzz | duration=2ms | cases=50000 positive_cases=45439 zero_or_negative_cases=4561 total_resolved=391701849
+[2881ms][#90][info][tid=42640][stress.result] 14/37 | PASS | stress.material_state_defaults | duration=1ms | kind=1 durability=1000 broken=false
+[2882ms][#91][info][tid=42640][stress.result] 15/37 | PASS | stress.event_validation_rules | duration=1ms | validation_ok
+[2883ms][#92][info][tid=42640][stress.result] 16/37 | PASS | stress.event_scheduler_basic | duration=1ms | ordering_ok
+[2885ms][#93][info][tid=42640][stress.result] 17/37 | PASS | stress.event_scheduler_ordering | duration=1ms | ordered_events=3
+[2886ms][#94][info][tid=42640][stress.result] 18/37 | PASS | stress.event_scheduler_massive | duration=18ms | scheduled=50000 first_pop=25000 second_pop=25000
+[2887ms][#95][info][tid=42640][stress.result] 19/37 | PASS | stress.event_validation_and_scheduler_edges | duration=1ms | rejections=3 ready=1
+[2888ms][#96][info][tid=42640][stress.result] 20/37 | PASS | stress.event_same_due_time_stability | duration=2ms | same_due_events=1000
+[2890ms][#97][info][tid=42640][stress.result] 21/37 | PASS | stress.event_invalid_mass_rejection | duration=1ms | invalid_events=1000 rejected=1000
+[2891ms][#98][info][tid=42640][stress.result] 22/37 | PASS | stress.affix_scaling | duration=10ms | attack_percent_delta=170000 defense_percent_delta=110000 move_speed_percent_delta=-80000 affix_count=25000
+[2892ms][#99][info][tid=42640][stress.result] 23/37 | PASS | stress.affix_empty | duration=1ms | empty_affix_modifiers_ok
+[2893ms][#100][info][tid=42640][stress.result] 24/37 | PASS | stress.experience_curve | duration=1ms | max_level=200 total_required=1871500 final_level=201 tier_resets=0
+[2894ms][#101][info][tid=42640][stress.result] 25/37 | PASS | stress.experience_edge_cases | duration=1ms | zero_required=100 zero_reward=15 final_level=3 leftover_exp=7
+[2895ms][#102][info][tid=42640][stress.result] 26/37 | PASS | stress.entity_spawn_massive | duration=5ms
+[2896ms][#103][info][tid=42640][stress.result] 27/37 | PASS | stress.entity_contract_edges | duration=1ms | duplicate_inventory=true zero_and_negative_damage=true missing_target=true
+[2897ms][#104][info][tid=42640][stress.result] 28/37 | PASS | stress.combat_damage_multiple_entities | duration=9ms | entities=5000 total_damage=577567 killed=1001 lethal_hits=1001
+[2898ms][#105][info][tid=42640][stress.result] 29/37 | PASS | stress.combat_damage_many_sources_single_entity | duration=1ms | sources=12 hits=72 hp_start=564 hp_end=384
+[2899ms][#106][info][tid=42640][stress.result] 30/37 | PASS | stress.combat_damage_many_sources_many_entities | duration=190ms | targets=5000 sources_per_target=12 total_hits=360001 total_damage=720425 killed=1 forced_kill=true
+[2900ms][#107][info][tid=42640][stress.result] 31/37 | PASS | stress.combat_dead_entity_killer_not_overwritten | duration=1ms | killer_preserved=true original_killer=10
+[2901ms][#108][info][tid=42640][stress.result] 32/37 | PASS | stress.combat_validation_matrix | duration=1ms | cases=8 valid=1
+[2903ms][#109][info][tid=42640][stress.result] 33/37 | PASS | stress.world_status_negative_immunity | duration=2ms | bless_stacks=5 poison_blocked=true
+[2904ms][#110][info][tid=42640][stress.result] 34/37 | PASS | stress.world_loop_mixed_entity_states | duration=73ms | budget=5000ms | entities=2000 with_inventory=1000 with_status=666 expected_dead=400 actual_dead=933 ticks=120 entities_processed=240000
+[2906ms][#111][info][tid=42640][stress.result] 35/37 | PASS | stress.world_loop_core | duration=2042ms | budget=15000ms | ticks=240 entities_processed=1200000 avg_entities_per_tick=5000 events_processed=0 status_sweeps=1200000 loop_duration_ms=1144 entities_per_second=1048951 min_entities_per_second=80000
+[2908ms][#112][info][tid=42640][stress.result] 36/37 | PASS | stress.world_loop_status_sweeps | duration=1ms | entities=100 ticks=60 status_sweeps=6000 events_processed=0
+[2909ms][#113][info][tid=42640][stress.result] 37/37 | PASS | stress.world_loop_empty_world | duration=0ms | ticks=240 entities_processed=0 events_processed=0 status_sweeps=0
+[2910ms][#114][info][tid=42640][stress.summary] FINISH | failures=0
+[4ms][#1][info][tid=33684][stress] RUN | level=high
+[5ms][#2][info][tid=33684][stress.test] BEGIN | stress.inventory_weight_exact
+[208ms][#3][info][tid=33684][stress.test] END | stress.inventory_weight_exact | PASS | duration=202ms | expected_once=5088 actual_once=5088 iterations=10000 total_weight_sum=50880000
+[210ms][#4][info][tid=33684][stress.test] BEGIN | stress.inventory_empty
+[212ms][#5][info][tid=33684][stress.test] END | stress.inventory_empty | PASS | duration=2ms | weight=0
+[213ms][#6][info][tid=33684][stress.test] BEGIN | stress.inventory_missing_templates
+[308ms][#7][info][tid=33684][stress.test] END | stress.inventory_missing_templates | PASS | duration=94ms | expected_partial_weight=2512 actual_partial_weight=2512
+[309ms][#8][info][tid=33684][stress.test] BEGIN | stress.inventory_equipment_quantity_rule
+[311ms][#9][info][tid=33684][stress.test] END | stress.inventory_equipment_quantity_rule | PASS | duration=1ms | equipment_quantity=1
+[312ms][#10][info][tid=33684][stress.test] BEGIN | stress.inventory_duplicate_equipment_instances
+[314ms][#11][info][tid=33684][stress.test] END | stress.inventory_duplicate_equipment_instances | PASS | duration=1ms | equipment_instances=10 same_template=true unique_ids=true
+[315ms][#12][info][tid=33684][stress.test] BEGIN | stress.inventory_material_stack_rule
+[317ms][#13][info][tid=33684][stress.test] END | stress.inventory_material_stack_rule | PASS | duration=1ms | slots=1 quantity=350
+[318ms][#14][info][tid=33684][stress.test] BEGIN | stress.inventory_slot_limit
+[320ms][#15][info][tid=33684][stress.test] END | stress.inventory_slot_limit | PASS | duration=1ms | max_slots=3 rejected_status=full
+[321ms][#16][info][tid=33684][stress.test] BEGIN | stress.inventory_remove_item
+[322ms][#17][info][tid=33684][stress.test] END | stress.inventory_remove_item | PASS | duration=1ms | before=10 after=9 missing_status=not_found
+[323ms][#18][info][tid=33684][stress.test] BEGIN | stress.inventory_validation_matrix
+[324ms][#19][info][tid=33684][stress.test] END | stress.inventory_validation_matrix | PASS | duration=1ms | cases=9
+[326ms][#20][info][tid=33684][stress.test] BEGIN | stress.inventory_mixed_operations_invariants
+[449ms][#21][info][tid=33684][stress.test] END | stress.inventory_mixed_operations_invariants | PASS | duration=122ms | add_attempts=5000 successful_adds=889 remove_attempts=715 successful_removes=715 final_slots=128
+[452ms][#22][info][tid=33684][stress.test] BEGIN | stress.damage_kind_classification
+[453ms][#23][info][tid=33684][stress.test] END | stress.damage_kind_classification | PASS | duration=1ms | physical=4 non_physical=2
+[454ms][#24][info][tid=33684][stress.test] BEGIN | stress.material_damage_resolution
+[455ms][#25][info][tid=33684][stress.test] END | stress.material_damage_resolution | PASS | duration=1ms | cases=8 total_resolved=455
+[456ms][#26][info][tid=33684][stress.test] BEGIN | stress.material_damage_deterministic_fuzz
+[459ms][#27][info][tid=33684][stress.test] END | stress.material_damage_deterministic_fuzz | PASS | duration=2ms | cases=50000 positive_cases=45439 zero_or_negative_cases=4561 total_resolved=391701849
+[461ms][#28][info][tid=33684][stress.test] BEGIN | stress.material_state_defaults
+[462ms][#29][info][tid=33684][stress.test] END | stress.material_state_defaults | PASS | duration=1ms | kind=1 durability=1000 broken=false
+[463ms][#30][info][tid=33684][stress.test] BEGIN | stress.event_validation_rules
+[464ms][#31][info][tid=33684][stress.test] END | stress.event_validation_rules | PASS | duration=0ms | validation_ok
+[465ms][#32][info][tid=33684][stress.test] BEGIN | stress.event_scheduler_basic
+[466ms][#33][info][tid=33684][stress.test] END | stress.event_scheduler_basic | PASS | duration=1ms | ordering_ok
+[468ms][#34][info][tid=33684][stress.test] BEGIN | stress.event_scheduler_ordering
+[470ms][#35][info][tid=33684][stress.test] END | stress.event_scheduler_ordering | PASS | duration=1ms | ordered_events=3
+[471ms][#36][info][tid=33684][stress.test] BEGIN | stress.event_scheduler_massive
+[486ms][#37][info][tid=33684][stress.test] END | stress.event_scheduler_massive | PASS | duration=15ms | scheduled=50000 first_pop=25000 second_pop=25000
+[488ms][#38][info][tid=33684][stress.test] BEGIN | stress.event_validation_and_scheduler_edges
+[489ms][#39][info][tid=33684][stress.test] END | stress.event_validation_and_scheduler_edges | PASS | duration=1ms | rejections=3 ready=1
+[490ms][#40][info][tid=33684][stress.test] BEGIN | stress.event_same_due_time_stability
+[491ms][#41][info][tid=33684][stress.test] END | stress.event_same_due_time_stability | PASS | duration=1ms | same_due_events=1000
+[493ms][#42][info][tid=33684][stress.test] BEGIN | stress.event_invalid_mass_rejection
+[494ms][#43][info][tid=33684][stress.test] END | stress.event_invalid_mass_rejection | PASS | duration=1ms | invalid_events=1000 rejected=1000
+[495ms][#44][info][tid=33684][stress.test] BEGIN | stress.affix_scaling
+[503ms][#45][info][tid=33684][stress.test] END | stress.affix_scaling | PASS | duration=7ms | attack_percent_delta=170000 defense_percent_delta=110000 move_speed_percent_delta=-80000 affix_count=25000
+[504ms][#46][info][tid=33684][stress.test] BEGIN | stress.affix_empty
+[505ms][#47][info][tid=33684][stress.test] END | stress.affix_empty | PASS | duration=0ms | empty_affix_modifiers_ok
+[506ms][#48][info][tid=33684][stress.test] BEGIN | stress.experience_curve
+[507ms][#49][info][tid=33684][stress.test] END | stress.experience_curve | PASS | duration=0ms | max_level=200 total_required=1871500 final_level=201 tier_resets=0
+[508ms][#50][info][tid=33684][stress.test] BEGIN | stress.experience_edge_cases
+[509ms][#51][info][tid=33684][stress.test] END | stress.experience_edge_cases | PASS | duration=1ms | zero_required=100 zero_reward=15 final_level=3 leftover_exp=7
+[510ms][#52][info][tid=33684][stress.test] BEGIN | stress.entity_spawn_massive
+[517ms][#53][info][tid=33684][stress.test] END | stress.entity_spawn_massive | PASS | duration=6ms
+[518ms][#54][info][tid=33684][stress.test] BEGIN | stress.entity_contract_edges
+[520ms][#55][info][tid=33684][stress.test] END | stress.entity_contract_edges | PASS | duration=1ms | duplicate_inventory=true zero_and_negative_damage=true missing_target=true
+[520ms][#56][info][tid=33684][stress.test] BEGIN | stress.combat_damage_multiple_entities
+[527ms][#57][info][tid=33684][stress.test] END | stress.combat_damage_multiple_entities | PASS | duration=7ms | entities=5000 total_damage=577567 killed=1001 lethal_hits=1001
+[529ms][#58][info][tid=33684][stress.test] BEGIN | stress.combat_damage_many_sources_single_entity
+[530ms][#59][info][tid=33684][stress.test] END | stress.combat_damage_many_sources_single_entity | PASS | duration=1ms | sources=12 hits=72 hp_start=564 hp_end=384
+[531ms][#60][info][tid=33684][stress.test] BEGIN | stress.combat_damage_many_sources_many_entities
+[703ms][#61][info][tid=33684][stress.test] END | stress.combat_damage_many_sources_many_entities | PASS | duration=172ms | targets=5000 sources_per_target=12 total_hits=360001 total_damage=720425 killed=1 forced_kill=true
+[705ms][#62][info][tid=33684][stress.test] BEGIN | stress.combat_dead_entity_killer_not_overwritten
+[707ms][#63][info][tid=33684][stress.test] END | stress.combat_dead_entity_killer_not_overwritten | PASS | duration=2ms | killer_preserved=true original_killer=10
+[709ms][#64][info][tid=33684][stress.test] BEGIN | stress.combat_validation_matrix
+[711ms][#65][info][tid=33684][stress.test] END | stress.combat_validation_matrix | PASS | duration=1ms | cases=8 valid=1
+[712ms][#66][info][tid=33684][stress.test] BEGIN | stress.world_status_negative_immunity
+[714ms][#67][info][tid=33684][stress.test] END | stress.world_status_negative_immunity | PASS | duration=1ms | bless_stacks=5 poison_blocked=true
+[716ms][#68][info][tid=33684][stress.test] BEGIN | stress.world_loop_mixed_entity_states
+[789ms][#69][info][tid=33684][stress.test] END | stress.world_loop_mixed_entity_states | PASS | duration=72ms | entities=2000 with_inventory=1000 with_status=666 expected_dead=400 actual_dead=933 ticks=120 entities_processed=240000
+[790ms][#70][info][tid=33684][stress.test] BEGIN | stress.world_loop_core
+[3089ms][#71][info][tid=33684][stress.test] END | stress.world_loop_core | PASS | duration=2298ms | ticks=240 entities_processed=1200000 avg_entities_per_tick=5000 scheduled_events=5000 events_processed=5000 remaining_events=0 status_sweeps=1200000 loop_duration_ms=1391 entities_per_second=862688 min_entities_per_second=80000
+[3091ms][#72][info][tid=33684][stress.test] BEGIN | stress.world_loop_status_sweeps
+[3093ms][#73][info][tid=33684][stress.test] END | stress.world_loop_status_sweeps | PASS | duration=1ms | entities=100 ticks=60 status_sweeps=6000 events_processed=0
+[3094ms][#74][info][tid=33684][stress.test] BEGIN | stress.world_loop_empty_world
+[3095ms][#75][info][tid=33684][stress.test] END | stress.world_loop_empty_world | PASS | duration=0ms | ticks=240 entities_processed=0 events_processed=0 status_sweeps=0
+[3096ms][#76][info][tid=33684][stress.test] BEGIN | stress.world_loop_processes_due_events
+[3098ms][#77][info][tid=33684][stress.test] END | stress.world_loop_processes_due_events | PASS | duration=2ms | scheduled_due_events=5000 events_processed=5000 remaining_events=0
+[3099ms][#78][info][tid=33684][stress.test] BEGIN | stress.world_loop_keeps_future_events_pending
+[3100ms][#79][info][tid=33684][stress.test] END | stress.world_loop_keeps_future_events_pending | PASS | duration=0ms | future_events=1000 events_processed=0 remaining_events=1000
+[3102ms][#80][info][tid=33684][stress.test] BEGIN | stress.world_loop_mixed_entities_status_and_events
+[3117ms][#81][info][tid=33684][stress.test] END | stress.world_loop_mixed_entities_status_and_events | PASS | duration=15ms | entities=1000 due_events=10000 ticks=60 entities_processed=60000 events_processed=10000 status_sweeps=60000
+[3119ms][#82][info][tid=33684][stress.summary] SUMMARY | level=high | total=40 | passed=40 | failed=0
+[3119ms][#83][info][tid=33684][stress.result] 1/40 | PASS | stress.inventory_weight_exact | duration=202ms | expected_once=5088 actual_once=5088 iterations=10000 total_weight_sum=50880000
+[3120ms][#84][info][tid=33684][stress.result] 2/40 | PASS | stress.inventory_empty | duration=2ms | weight=0
+[3121ms][#85][info][tid=33684][stress.result] 3/40 | PASS | stress.inventory_missing_templates | duration=94ms | expected_partial_weight=2512 actual_partial_weight=2512
+[3121ms][#86][info][tid=33684][stress.result] 4/40 | PASS | stress.inventory_equipment_quantity_rule | duration=1ms | equipment_quantity=1
+[3122ms][#87][info][tid=33684][stress.result] 5/40 | PASS | stress.inventory_duplicate_equipment_instances | duration=1ms | equipment_instances=10 same_template=true unique_ids=true
+[3123ms][#88][info][tid=33684][stress.result] 6/40 | PASS | stress.inventory_material_stack_rule | duration=1ms | slots=1 quantity=350
+[3124ms][#89][info][tid=33684][stress.result] 7/40 | PASS | stress.inventory_slot_limit | duration=1ms | max_slots=3 rejected_status=full
+[3125ms][#90][info][tid=33684][stress.result] 8/40 | PASS | stress.inventory_remove_item | duration=1ms | before=10 after=9 missing_status=not_found
+[3126ms][#91][info][tid=33684][stress.result] 9/40 | PASS | stress.inventory_validation_matrix | duration=1ms | cases=9
+[3128ms][#92][info][tid=33684][stress.result] 10/40 | PASS | stress.inventory_mixed_operations_invariants | duration=122ms | add_attempts=5000 successful_adds=889 remove_attempts=715 successful_removes=715 final_slots=128
+[3129ms][#93][info][tid=33684][stress.result] 11/40 | PASS | stress.damage_kind_classification | duration=1ms | physical=4 non_physical=2
+[3130ms][#94][info][tid=33684][stress.result] 12/40 | PASS | stress.material_damage_resolution | duration=1ms | cases=8 total_resolved=455
+[3132ms][#95][info][tid=33684][stress.result] 13/40 | PASS | stress.material_damage_deterministic_fuzz | duration=2ms | cases=50000 positive_cases=45439 zero_or_negative_cases=4561 total_resolved=391701849
+[3132ms][#96][info][tid=33684][stress.result] 14/40 | PASS | stress.material_state_defaults | duration=1ms | kind=1 durability=1000 broken=false
+[3133ms][#97][info][tid=33684][stress.result] 15/40 | PASS | stress.event_validation_rules | duration=0ms | validation_ok
+[3134ms][#98][info][tid=33684][stress.result] 16/40 | PASS | stress.event_scheduler_basic | duration=1ms | ordering_ok
+[3135ms][#99][info][tid=33684][stress.result] 17/40 | PASS | stress.event_scheduler_ordering | duration=1ms | ordered_events=3
+[3136ms][#100][info][tid=33684][stress.result] 18/40 | PASS | stress.event_scheduler_massive | duration=15ms | scheduled=50000 first_pop=25000 second_pop=25000
+[3137ms][#101][info][tid=33684][stress.result] 19/40 | PASS | stress.event_validation_and_scheduler_edges | duration=1ms | rejections=3 ready=1
+[3139ms][#102][info][tid=33684][stress.result] 20/40 | PASS | stress.event_same_due_time_stability | duration=1ms | same_due_events=1000
+[3140ms][#103][info][tid=33684][stress.result] 21/40 | PASS | stress.event_invalid_mass_rejection | duration=1ms | invalid_events=1000 rejected=1000
+[3140ms][#104][info][tid=33684][stress.result] 22/40 | PASS | stress.affix_scaling | duration=7ms | attack_percent_delta=170000 defense_percent_delta=110000 move_speed_percent_delta=-80000 affix_count=25000
+[3141ms][#105][info][tid=33684][stress.result] 23/40 | PASS | stress.affix_empty | duration=0ms | empty_affix_modifiers_ok
+[3142ms][#106][info][tid=33684][stress.result] 24/40 | PASS | stress.experience_curve | duration=0ms | max_level=200 total_required=1871500 final_level=201 tier_resets=0
+[3144ms][#107][info][tid=33684][stress.result] 25/40 | PASS | stress.experience_edge_cases | duration=1ms | zero_required=100 zero_reward=15 final_level=3 leftover_exp=7
+[3145ms][#108][info][tid=33684][stress.result] 26/40 | PASS | stress.entity_spawn_massive | duration=6ms
+[3146ms][#109][info][tid=33684][stress.result] 27/40 | PASS | stress.entity_contract_edges | duration=1ms | duplicate_inventory=true zero_and_negative_damage=true missing_target=true
+[3147ms][#110][info][tid=33684][stress.result] 28/40 | PASS | stress.combat_damage_multiple_entities | duration=7ms | entities=5000 total_damage=577567 killed=1001 lethal_hits=1001
+[3149ms][#111][info][tid=33684][stress.result] 29/40 | PASS | stress.combat_damage_many_sources_single_entity | duration=1ms | sources=12 hits=72 hp_start=564 hp_end=384
+[3150ms][#112][info][tid=33684][stress.result] 30/40 | PASS | stress.combat_damage_many_sources_many_entities | duration=172ms | targets=5000 sources_per_target=12 total_hits=360001 total_damage=720425 killed=1 forced_kill=true
+[3151ms][#113][info][tid=33684][stress.result] 31/40 | PASS | stress.combat_dead_entity_killer_not_overwritten | duration=2ms | killer_preserved=true original_killer=10
+[3151ms][#114][info][tid=33684][stress.result] 32/40 | PASS | stress.combat_validation_matrix | duration=1ms | cases=8 valid=1
+[3152ms][#115][info][tid=33684][stress.result] 33/40 | PASS | stress.world_status_negative_immunity | duration=1ms | bless_stacks=5 poison_blocked=true
+[3154ms][#116][info][tid=33684][stress.result] 34/40 | PASS | stress.world_loop_mixed_entity_states | duration=72ms | budget=5000ms | entities=2000 with_inventory=1000 with_status=666 expected_dead=400 actual_dead=933 ticks=120 entities_processed=240000
+[3155ms][#117][info][tid=33684][stress.result] 35/40 | PASS | stress.world_loop_core | duration=2298ms | budget=15000ms | ticks=240 entities_processed=1200000 avg_entities_per_tick=5000 scheduled_events=5000 events_processed=5000 remaining_events=0 status_sweeps=1200000 loop_duration_ms=1391 entities_per_second=862688 min_entities_per_second=80000
+[3157ms][#118][info][tid=33684][stress.result] 36/40 | PASS | stress.world_loop_status_sweeps | duration=1ms | entities=100 ticks=60 status_sweeps=6000 events_processed=0
+[3158ms][#119][info][tid=33684][stress.result] 37/40 | PASS | stress.world_loop_empty_world | duration=0ms | ticks=240 entities_processed=0 events_processed=0 status_sweeps=0
+[3159ms][#120][info][tid=33684][stress.result] 38/40 | PASS | stress.world_loop_processes_due_events | duration=2ms | scheduled_due_events=5000 events_processed=5000 remaining_events=0
+[3160ms][#121][info][tid=33684][stress.result] 39/40 | PASS | stress.world_loop_keeps_future_events_pending | duration=0ms | future_events=1000 events_processed=0 remaining_events=1000
+[3162ms][#122][info][tid=33684][stress.result] 40/40 | PASS | stress.world_loop_mixed_entities_status_and_events | duration=15ms | entities=1000 due_events=10000 ticks=60 entities_processed=60000 events_processed=10000 status_sweeps=60000
+[3163ms][#123][info][tid=33684][stress.summary] FINISH | failures=0

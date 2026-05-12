@@ -1,247 +1,798 @@
 #include "mmo/persistence/lua_loader.hpp"
+
+#include <cstdint>
+#include <limits>
+#include <sstream>
+#include <string>
+#include <string_view>
+#include <unordered_set>
+#include <utility>
+#include <vector>
+
 #ifdef MMO_USE_LUA
+
 extern "C" {
 #include <lua.h>
 #include <lauxlib.h>
 #include <lualib.h>
 }
 
-#include <vector>
-#include <string>
-#include <sstream>
-
 namespace mmo
 {
     namespace persistence
     {
-        // Keep string copies so `std::string_view` stored in definitions
-        // remains valid for the lifetime of the process. This simple pool
-        // is acceptable for the loader skeleton; production code should use
-        // a dedicated string pool or store std::string in definitions.
-        static std::vector<std::string> s_persistent_strings;
+            struct ParsedItem
+            {
+                core::item::Definition definition{};
+                std::string name{};
+            };
 
-        bool load_items_from_lua(const std::string& path, core::item::Catalog& catalog, std::string& out_error)
+            // Temporary/simple lifetime solution:
+            // item definitions appear to store the name as string_view.
+            // Therefore names loaded from Lua must live after this function returns.
+            //
+            // Long-term better solution:
+            // Catalog should own item names, or item identity should use std::string.
+            static std::vector<std::string> s_persistent_strings;
+
+            [[nodiscard]] auto make_error(const std::string& message, const LuaLoadStats& stats) -> LuaLoadResult
+            {
+                LuaLoadResult result{};
+                result.ok = false;
+                result.error = message;
+                result.stats = stats;
+                return result;
+            }
+
+            [[nodiscard]] auto make_success(const LuaLoadStats& stats) -> LuaLoadResult
+            {
+                LuaLoadResult result{};
+                result.ok = true;
+                result.error.clear();
+                result.stats = stats;
+                return result;
+            }
+
+            [[nodiscard]] auto strict_mode(const LuaLoadOptions& options) -> bool
+            {
+                return options.mode == LuaLoadMode::strict;
+            }
+
+            [[nodiscard]] auto error_for_item(lua_Integer key, const std::string& message) -> std::string
+            {
+                std::ostringstream stream;
+                stream << "item id " << static_cast<long long>(key) << ": " << message;
+                return stream.str();
+            }
+
+            [[nodiscard]] auto read_string_field(
+                lua_State* state,
+                int table_index,
+                const char* field_name,
+                std::string& value) -> bool
+            {
+                lua_getfield(state, table_index, field_name);
+
+                const bool found = lua_isstring(state, -1) != 0;
+
+                if (found)
+                {
+                    const char* text = lua_tostring(state, -1);
+                    value = text != nullptr ? text : "";
+                }
+
+                lua_pop(state, 1);
+                return found;
+            }
+
+            [[nodiscard]] auto read_bool_field(
+                lua_State* state,
+                int table_index,
+                const char* field_name,
+                bool& value) -> bool
+            {
+                lua_getfield(state, table_index, field_name);
+
+                const bool found = lua_isboolean(state, -1) != 0;
+
+                if (found)
+                {
+                    value = lua_toboolean(state, -1) != 0;
+                }
+
+                lua_pop(state, 1);
+                return found;
+            }
+
+            [[nodiscard]] auto read_int32_field(
+                lua_State* state,
+                int table_index,
+                const char* field_name,
+                std::int32_t& value,
+                const LuaLoadOptions& options,
+                std::string& error) -> bool
+            {
+                lua_getfield(state, table_index, field_name);
+
+                if (lua_isnil(state, -1))
+                {
+                    lua_pop(state, 1);
+                    return true;
+                }
+
+                if (!lua_isinteger(state, -1))
+                {
+                    if (strict_mode(options))
+                    {
+                        error = std::string("field must be integer: ") + field_name;
+                        lua_pop(state, 1);
+                        return false;
+                    }
+
+                    lua_pop(state, 1);
+                    return true;
+                }
+
+                const lua_Integer raw = lua_tointeger(state, -1);
+
+                if (raw < static_cast<lua_Integer>(std::numeric_limits<std::int32_t>::min()) ||
+                    raw > static_cast<lua_Integer>(std::numeric_limits<std::int32_t>::max()))
+                {
+                    error = std::string("field out of int32 range: ") + field_name;
+                    lua_pop(state, 1);
+                    return false;
+                }
+
+                value = static_cast<std::int32_t>(raw);
+
+                lua_pop(state, 1);
+                return true;
+            }
+
+            [[nodiscard]] auto read_uint32_field(
+                lua_State* state,
+                int table_index,
+                const char* field_name,
+                std::uint32_t& value,
+                const LuaLoadOptions& options,
+                std::string& error) -> bool
+            {
+                lua_getfield(state, table_index, field_name);
+
+                if (lua_isnil(state, -1))
+                {
+                    lua_pop(state, 1);
+                    return true;
+                }
+
+                if (!lua_isinteger(state, -1))
+                {
+                    if (strict_mode(options))
+                    {
+                        error = std::string("field must be unsigned integer: ") + field_name;
+                        lua_pop(state, 1);
+                        return false;
+                    }
+
+                    lua_pop(state, 1);
+                    return true;
+                }
+
+                const lua_Integer raw = lua_tointeger(state, -1);
+
+                if (raw < 0)
+                {
+                    if (strict_mode(options))
+                    {
+                        error = std::string("field cannot be negative: ") + field_name;
+                        lua_pop(state, 1);
+                        return false;
+                    }
+
+                    lua_pop(state, 1);
+                    return true;
+                }
+
+                if (static_cast<unsigned long long>(raw) > std::numeric_limits<std::uint32_t>::max())
+                {
+                    error = std::string("field out of uint32 range: ") + field_name;
+                    lua_pop(state, 1);
+                    return false;
+                }
+
+                value = static_cast<std::uint32_t>(raw);
+
+                lua_pop(state, 1);
+                return true;
+            }
+
+            [[nodiscard]] auto parse_kind(
+                std::string_view text,
+                core::item::Kind& kind) -> bool
+            {
+                if (text == "equipment")
+                {
+                    kind = core::item::Kind::equipment;
+                    return true;
+                }
+
+                if (text == "consumable")
+                {
+                    kind = core::item::Kind::consumable;
+                    return true;
+                }
+
+                if (text == "material")
+                {
+                    kind = core::item::Kind::material;
+                    return true;
+                }
+
+                if (text == "quest")
+                {
+                    kind = core::item::Kind::quest;
+                    return true;
+                }
+
+                if (text == "collectible")
+                {
+                    kind = core::item::Kind::collectible;
+                    return true;
+                }
+
+                return false;
+            }
+
+            [[nodiscard]] auto parse_equipment_class(
+                std::string_view text,
+                core::item::EquipmentClass& equipment_class) -> bool
+            {
+                if (text == "weapon")
+                {
+                    equipment_class = core::item::EquipmentClass::weapon;
+                    return true;
+                }
+
+                if (text == "armor")
+                {
+                    equipment_class = core::item::EquipmentClass::armor;
+                    return true;
+                }
+
+                if (text == "accessory")
+                {
+                    equipment_class = core::item::EquipmentClass::accessory;
+                    return true;
+                }
+
+                if (text == "tool")
+                {
+                    equipment_class = core::item::EquipmentClass::tool;
+                    return true;
+                }
+
+                return false;
+            }
+
+            [[nodiscard]] auto parse_equipment_slot(
+                std::string_view text,
+                core::item::EquipmentSlot& slot) -> bool
+            {
+                if (text == "head")
+                {
+                    slot = core::item::EquipmentSlot::head;
+                    return true;
+                }
+
+                if (text == "chest")
+                {
+                    slot = core::item::EquipmentSlot::chest;
+                    return true;
+                }
+
+                if (text == "hands")
+                {
+                    slot = core::item::EquipmentSlot::hands;
+                    return true;
+                }
+
+                if (text == "legs")
+                {
+                    slot = core::item::EquipmentSlot::legs;
+                    return true;
+                }
+
+                if (text == "feet")
+                {
+                    slot = core::item::EquipmentSlot::feet;
+                    return true;
+                }
+
+                if (text == "main_hand")
+                {
+                    slot = core::item::EquipmentSlot::main_hand;
+                    return true;
+                }
+
+                if (text == "off_hand")
+                {
+                    slot = core::item::EquipmentSlot::off_hand;
+                    return true;
+                }
+
+                if (text == "ring_1")
+                {
+                    slot = core::item::EquipmentSlot::ring_1;
+                    return true;
+                }
+
+                if (text == "ring_2")
+                {
+                    slot = core::item::EquipmentSlot::ring_2;
+                    return true;
+                }
+
+                if (text == "earring_1")
+                {
+                    slot = core::item::EquipmentSlot::earring_1;
+                    return true;
+                }
+
+                if (text == "earring_2")
+                {
+                    slot = core::item::EquipmentSlot::earring_2;
+                    return true;
+                }
+
+                if (text == "necklace")
+                {
+                    slot = core::item::EquipmentSlot::necklace;
+                    return true;
+                }
+
+                if (text == "tool")
+                {
+                    slot = core::item::EquipmentSlot::tool;
+                    return true;
+                }
+
+                return false;
+            }
+
+            [[nodiscard]] auto read_primary(
+                lua_State* state,
+                int table_index,
+                const LuaLoadOptions& options,
+                core::stat::Primary& primary,
+                std::string& error) -> bool
+            {
+                return
+                    read_int32_field(state, table_index, "vitality", primary.vitality, options, error) &&
+                    read_int32_field(state, table_index, "strength", primary.strength, options, error) &&
+                    read_int32_field(state, table_index, "agility", primary.agility, options, error) &&
+                    read_int32_field(state, table_index, "intellect", primary.intellect, options, error) &&
+                    read_int32_field(state, table_index, "faith", primary.faith, options, error) &&
+                    read_int32_field(state, table_index, "dexterity", primary.dexterity, options, error) &&
+                    read_int32_field(state, table_index, "luck", primary.luck, options, error);
+            }
+
+            [[nodiscard]] auto parse_equipment(
+                lua_State* state,
+                int item_table_index,
+                const LuaLoadOptions& options,
+                core::item::EquipmentDefinition& equipment,
+                std::string& error) -> bool
+            {
+                lua_getfield(state, item_table_index, "equipment");
+
+                if (!lua_istable(state, -1))
+                {
+                    lua_pop(state, 1);
+
+                    if (strict_mode(options) && options.require_equipment_table_for_equipment)
+                    {
+                        error = "equipment table is required for equipment item";
+                        return false;
+                    }
+
+                    return true;
+                }
+
+                const int equipment_table_index = lua_gettop(state);
+
+                std::string class_text;
+
+                if (read_string_field(state, equipment_table_index, "class", class_text))
+                {
+                    if (!parse_equipment_class(class_text, equipment.equipment_class) && strict_mode(options))
+                    {
+                        error = "unknown equipment class: " + class_text;
+                        lua_pop(state, 1);
+                        return false;
+                    }
+                }
+                else if (strict_mode(options))
+                {
+                    error = "equipment class is required";
+                    lua_pop(state, 1);
+                    return false;
+                }
+
+                std::string slot_text;
+
+                if (read_string_field(state, equipment_table_index, "slot", slot_text))
+                {
+                    if (!parse_equipment_slot(slot_text, equipment.slot) && strict_mode(options))
+                    {
+                        error = "unknown equipment slot: " + slot_text;
+                        lua_pop(state, 1);
+                        return false;
+                    }
+                }
+                else if (strict_mode(options))
+                {
+                    error = "equipment slot is required";
+                    lua_pop(state, 1);
+                    return false;
+                }
+
+                if (!read_int32_field(state, equipment_table_index, "attack", equipment.attack, options, error) ||
+                    !read_int32_field(state, equipment_table_index, "defense", equipment.defense, options, error) ||
+                    !read_uint32_field(state, equipment_table_index, "weight", equipment.weight, options, error) ||
+                    !read_uint32_field(state, equipment_table_index, "max_durability", equipment.max_durability, options, error) ||
+                    !read_uint32_field(state, equipment_table_index, "modification_slots", equipment.modification_slots, options, error) ||
+                    !read_uint32_field(state, equipment_table_index, "affix_slots", equipment.affix_slots, options, error))
+                {
+                    lua_pop(state, 1);
+                    return false;
+                }
+
+                read_bool_field(state, equipment_table_index, "two_handed", equipment.two_handed);
+
+                lua_getfield(state, equipment_table_index, "requirements");
+
+                if (lua_istable(state, -1))
+                {
+                    const int requirements_table_index = lua_gettop(state);
+
+                    lua_getfield(state, requirements_table_index, "minimum_primary");
+
+                    if (lua_istable(state, -1))
+                    {
+                        const int minimum_primary_table_index = lua_gettop(state);
+
+                        if (!read_primary(
+                                state,
+                                minimum_primary_table_index,
+                                options,
+                                equipment.requirements.minimum_primary,
+                                error))
+                        {
+                            lua_pop(state, 2);
+                            return false;
+                        }
+                    }
+
+                    lua_pop(state, 1);
+
+                    if (!read_int32_field(
+                            state,
+                            requirements_table_index,
+                            "under_requirement_penalty_percent",
+                            equipment.requirements.under_requirement_penalty_percent,
+                            options,
+                            error))
+                    {
+                        lua_pop(state, 2);
+                        return false;
+                    }
+                }
+
+                lua_pop(state, 1);
+
+                lua_pop(state, 1);
+                return true;
+            }
+
+            auto increment_kind_stats(core::item::Kind kind, LuaLoadStats& stats) -> void
+            {
+                switch (kind)
+                {
+                    case core::item::Kind::equipment:
+                        ++stats.equipment_loaded;
+                        break;
+
+                    case core::item::Kind::material:
+                        ++stats.materials_loaded;
+                        break;
+
+                    case core::item::Kind::consumable:
+                        ++stats.consumables_loaded;
+                        break;
+
+                    case core::item::Kind::quest:
+                        ++stats.quest_items_loaded;
+                        break;
+
+                    case core::item::Kind::collectible:
+                        ++stats.collectibles_loaded;
+                        break;
+                }
+            }
+
+            [[nodiscard]] auto select_items_table(
+                lua_State* state,
+                const LuaLoadOptions& options,
+                std::string& error) -> bool
+            {
+                const int top = lua_gettop(state);
+
+                if (options.allow_returned_table && top >= 1 && lua_istable(state, -1))
+                {
+                    return true;
+                }
+
+                if (options.allow_global_items_table)
+                {
+                    lua_getglobal(state, "items");
+
+                    if (lua_istable(state, -1))
+                    {
+                        return true;
+                    }
+
+                    lua_pop(state, 1);
+                }
+
+                if (!options.allow_returned_table && !options.allow_global_items_table)
+                {
+                    error = "no Lua table source enabled";
+                    return false;
+                }
+
+                error = "lua script did not return a table and global 'items' was not found";
+                return false;
+            }
+
+            [[nodiscard]] auto parse_item(
+                lua_State* state,
+                lua_Integer key,
+                int item_table_index,
+                const LuaLoadOptions& options,
+                ParsedItem& parsed,
+                std::string& error) -> bool
+            {
+                if (key <= 0)
+                {
+                    error = "item id must be positive";
+                    return false;
+                }
+
+                if (static_cast<unsigned long long>(key) > std::numeric_limits<std::uint32_t>::max())
+                {
+                    error = "item id out of supported range";
+                    return false;
+                }
+
+                parsed.definition.identity.item_template_id =
+                    static_cast<core::id::ItemTemplateId>(static_cast<std::uint32_t>(key));
+
+                if (read_string_field(state, item_table_index, "name", parsed.name))
+                {
+                    if (parsed.name.empty() && strict_mode(options) && options.require_name)
+                    {
+                        error = "item name cannot be empty";
+                        return false;
+                    }
+                }
+                else if (strict_mode(options) && options.require_name)
+                {
+                    error = "item name is required";
+                    return false;
+                }
+
+                std::string kind_text;
+                bool kind_was_read = false;
+
+                if (read_string_field(state, item_table_index, "kind", kind_text))
+                {
+                    kind_was_read = true;
+
+                    core::item::Kind parsed_kind{};
+
+                    if (!parse_kind(kind_text, parsed_kind))
+                    {
+                        if (strict_mode(options))
+                        {
+                            error = "unknown item kind: " + kind_text;
+                            return false;
+                        }
+                    }
+                    else
+                    {
+                        parsed.definition.kind = parsed_kind;
+                    }
+                }
+                else if (strict_mode(options) && options.require_kind)
+                {
+                    error = "item kind is required";
+                    return false;
+                }
+
+                if (kind_was_read && parsed.definition.kind == core::item::Kind::equipment)
+                {
+                    core::item::EquipmentDefinition equipment{};
+
+                    if (!parse_equipment(
+                            state,
+                            item_table_index,
+                            options,
+                            equipment,
+                            error))
+                    {
+                        return false;
+                    }
+
+                    parsed.definition.equipment = equipment;
+                }
+
+                return true;
+            }
+        }
+
+        LuaLoadResult load_items_from_lua_ex(
+            const std::string& path,
+            core::item::Catalog& catalog,
+            const LuaLoadOptions& options)
         {
-            lua_State* L = luaL_newstate();
-            if (!L)
+            LuaLoadStats stats{};
+
+            lua_State* state = luaL_newstate();
+
+            if (state == nullptr)
             {
-                out_error = "failed to create lua state";
-                return false;
+                return make_error("failed to create lua state", stats);
             }
 
-            luaL_openlibs(L);
+            luaL_openlibs(state);
 
-            if (luaL_dofile(L, path.c_str()) != LUA_OK)
+            if (luaL_dofile(state, path.c_str()) != LUA_OK)
             {
-                const char* msg = lua_tostring(L, -1);
-                out_error = msg ? msg : "unknown error running lua file";
-                lua_close(L);
-                return false;
+                const char* message = lua_tostring(state, -1);
+                const std::string error = message != nullptr
+                    ? message
+                    : "unknown error running lua file";
+
+                lua_close(state);
+                return make_error(error, stats);
             }
 
-            // At this point the chunk may have returned a table, or the
-            // script may have created a global `items` table. Prefer the
-            // returned value if present; otherwise check global `items`.
-            int top = lua_gettop(L);
-            bool have_table = false;
-            if (top >= 1 && lua_istable(L, -1))
+            std::string error;
+
+            if (!select_items_table(state, options, error))
             {
-                have_table = true;
-            }
-            else
-            {
-                lua_getglobal(L, "items");
-                if (lua_istable(L, -1))
-                {
-                    have_table = true;
-                }
+                lua_close(state);
+                return make_error(error, stats);
             }
 
-            if (!have_table)
+            const int items_table_index = lua_gettop(state);
+
+            std::vector<ParsedItem> parsed_items;
+            parsed_items.reserve(128);
+
+            std::unordered_set<std::uint32_t> ids_seen_in_file;
+
+            lua_pushnil(state);
+
+            while (lua_next(state, items_table_index) != 0)
             {
-                out_error = "lua script did not return a table and global 'items' not found";
-                lua_close(L);
-                return false;
+                if (!lua_isinteger(state, -2))
+                {
+                    lua_pop(state, 1);
+                    lua_close(state);
+                    return make_error("item key is not an integer", stats);
+                }
+
+                const lua_Integer key = lua_tointeger(state, -2);
+
+                if (!lua_istable(state, -1))
+                {
+                    lua_pop(state, 1);
+                    lua_close(state);
+                    return make_error(
+                        error_for_item(key, "item entry is not a table"),
+                        stats);
+                }
+
+                if (key <= 0 ||
+                    static_cast<unsigned long long>(key) > std::numeric_limits<std::uint32_t>::max())
+                {
+                    lua_pop(state, 1);
+                    lua_close(state);
+                    return make_error(
+                        error_for_item(key, "item id out of supported range"),
+                        stats);
+                }
+
+                const auto normalized_id = static_cast<std::uint32_t>(key);
+
+                if (!ids_seen_in_file.insert(normalized_id).second)
+                {
+                    lua_pop(state, 1);
+                    lua_close(state);
+                    return make_error(
+                        error_for_item(key, "duplicated item id in file"),
+                        stats);
+                }
+
+                if (catalog.find(static_cast<core::id::ItemTemplateId>(normalized_id)) != nullptr)
+                {
+                    lua_pop(state, 1);
+                    lua_close(state);
+                    return make_error(
+                        error_for_item(key, "item id already exists in destination catalog"),
+                        stats);
+                }
+
+                ++stats.items_seen;
+
+                ParsedItem parsed{};
+
+                if (!parse_item(
+                        state,
+                        key,
+                        lua_gettop(state),
+                        options,
+                        parsed,
+                        error))
+                {
+                    lua_pop(state, 1);
+                    lua_close(state);
+                    return make_error(error_for_item(key, error), stats);
+                }
+
+                parsed_items.push_back(std::move(parsed));
+
+                lua_pop(state, 1);
             }
 
-            // Iterate pairs: key => value
-            lua_pushnil(L);
-            while (lua_next(L, -2) != 0)
+            lua_close(state);
+
+            // Commit phase.
+            //
+            // The catalog is only modified after the full Lua table has been parsed
+            // and validated. This prevents parse-time partial pollution.
+            for (auto& parsed : parsed_items)
             {
-                // key at -2, value at -1
-                if (!lua_isinteger(L, -2))
+                if (!parsed.name.empty())
                 {
-                    out_error = "item key is not an integer";
-                    lua_settop(L, 0);
-                    lua_close(L);
-                    return false;
+                    s_persistent_strings.push_back(parsed.name);
+                    parsed.definition.identity.name = s_persistent_strings.back();
                 }
 
-                lua_Integer key = lua_tointeger(L, -2);
+                catalog.insert(parsed.definition);
 
-                core::item::Definition def{};
-                def.identity.item_template_id = static_cast<core::id::ItemTemplateId>(key);
-
-                if (!lua_istable(L, -1))
-                {
-                    std::ostringstream ss;
-                    ss << "item entry is not a table for id: " << key;
-                    out_error = ss.str();
-                    lua_settop(L, 0);
-                    lua_close(L);
-                    return false;
-                }
-
-                // name (optional but useful)
-                lua_getfield(L, -1, "name");
-                if (lua_isstring(L, -1))
-                {
-                    const char* s = lua_tostring(L, -1);
-                    s_persistent_strings.emplace_back(s ? s : "");
-                    def.identity.name = s_persistent_strings.back();
-                }
-                lua_pop(L, 1);
-
-                // kind (optional)
-                lua_getfield(L, -1, "kind");
-                if (lua_isstring(L, -1))
-                {
-                    const char* s = lua_tostring(L, -1);
-                    if (s)
-                    {
-                        std::string kind(s);
-                        if (kind == "equipment") def.kind = core::item::Kind::equipment;
-                        else if (kind == "consumable") def.kind = core::item::Kind::consumable;
-                        else if (kind == "material") def.kind = core::item::Kind::material;
-                        else if (kind == "quest") def.kind = core::item::Kind::quest;
-                        else if (kind == "collectible") def.kind = core::item::Kind::collectible;
-                    }
-                }
-                lua_pop(L, 1);
-
-                // equipment (best-effort parsing)
-                if (def.kind == core::item::Kind::equipment)
-                {
-                    lua_getfield(L, -1, "equipment");
-                    if (lua_istable(L, -1))
-                    {
-                        core::item::EquipmentDefinition edef{};
-                        const int equipment_index = lua_gettop(L);
-
-                        auto read_int32 = [L](int table_index, const char* field_name, std::int32_t& value) -> void {
-                            lua_getfield(L, table_index, field_name);
-                            if (lua_isinteger(L, -1))
-                            {
-                                value = static_cast<std::int32_t>(lua_tointeger(L, -1));
-                            }
-                            lua_pop(L, 1);
-                        };
-
-                        auto read_uint32 = [L](int table_index, const char* field_name, std::uint32_t& value) -> void {
-                            lua_getfield(L, table_index, field_name);
-                            if (lua_isinteger(L, -1))
-                            {
-                                value = static_cast<std::uint32_t>(lua_tointeger(L, -1));
-                            }
-                            lua_pop(L, 1);
-                        };
-
-                        auto read_primary = [&read_int32](int table_index) -> core::stat::Primary {
-                            core::stat::Primary primary{};
-                            read_int32(table_index, "vitality", primary.vitality);
-                            read_int32(table_index, "strength", primary.strength);
-                            read_int32(table_index, "agility", primary.agility);
-                            read_int32(table_index, "intellect", primary.intellect);
-                            read_int32(table_index, "faith", primary.faith);
-                            read_int32(table_index, "dexterity", primary.dexterity);
-                            read_int32(table_index, "luck", primary.luck);
-                            return primary;
-                        };
-
-                        // class
-                        lua_getfield(L, equipment_index, "class");
-                        if (lua_isstring(L, -1))
-                        {
-                            std::string cls(lua_tostring(L, -1));
-                            if (cls == "weapon") edef.equipment_class = core::item::EquipmentClass::weapon;
-                            else if (cls == "armor") edef.equipment_class = core::item::EquipmentClass::armor;
-                            else if (cls == "accessory") edef.equipment_class = core::item::EquipmentClass::accessory;
-                            else if (cls == "tool") edef.equipment_class = core::item::EquipmentClass::tool;
-                        }
-                        lua_pop(L, 1);
-
-                        // slot
-                        lua_getfield(L, equipment_index, "slot");
-                        if (lua_isstring(L, -1))
-                        {
-                            std::string slot(lua_tostring(L, -1));
-                            if (slot == "head") edef.slot = core::item::EquipmentSlot::head;
-                            else if (slot == "chest") edef.slot = core::item::EquipmentSlot::chest;
-                            else if (slot == "hands") edef.slot = core::item::EquipmentSlot::hands;
-                            else if (slot == "legs") edef.slot = core::item::EquipmentSlot::legs;
-                            else if (slot == "feet") edef.slot = core::item::EquipmentSlot::feet;
-                            else if (slot == "main_hand") edef.slot = core::item::EquipmentSlot::main_hand;
-                            else if (slot == "off_hand") edef.slot = core::item::EquipmentSlot::off_hand;
-                            else if (slot == "ring_1") edef.slot = core::item::EquipmentSlot::ring_1;
-                            else if (slot == "ring_2") edef.slot = core::item::EquipmentSlot::ring_2;
-                            else if (slot == "earring_1") edef.slot = core::item::EquipmentSlot::earring_1;
-                            else if (slot == "earring_2") edef.slot = core::item::EquipmentSlot::earring_2;
-                            else if (slot == "necklace") edef.slot = core::item::EquipmentSlot::necklace;
-                            else if (slot == "tool") edef.slot = core::item::EquipmentSlot::tool;
-                        }
-                        lua_pop(L, 1);
-
-                        read_int32(equipment_index, "attack", edef.attack);
-                        read_int32(equipment_index, "defense", edef.defense);
-                        read_uint32(equipment_index, "weight", edef.weight);
-
-                        // two_handed
-                        lua_getfield(L, equipment_index, "two_handed");
-                        if (lua_isboolean(L, -1)) edef.two_handed = (lua_toboolean(L, -1) != 0);
-                        lua_pop(L, 1);
-
-                        // max_durability
-                        lua_getfield(L, equipment_index, "max_durability");
-                        if (lua_isinteger(L, -1)) edef.max_durability = static_cast<std::uint32_t>(lua_tointeger(L, -1));
-                        lua_pop(L, 1);
-
-                        read_uint32(equipment_index, "modification_slots", edef.modification_slots);
-                        read_uint32(equipment_index, "affix_slots", edef.affix_slots);
-
-                        lua_getfield(L, equipment_index, "requirements");
-                        if (lua_istable(L, -1))
-                        {
-                            const int requirements_index = lua_gettop(L);
-
-                            lua_getfield(L, requirements_index, "minimum_primary");
-                            if (lua_istable(L, -1))
-                            {
-                                const int minimum_primary_index = lua_gettop(L);
-                                edef.requirements.minimum_primary = read_primary(minimum_primary_index);
-                            }
-                            lua_pop(L, 1);
-
-                            read_int32(requirements_index, "under_requirement_penalty_percent", edef.requirements.under_requirement_penalty_percent);
-                        }
-                        lua_pop(L, 1);
-
-                        def.equipment = edef;
-                    }
-                    lua_pop(L, 1); // pop equipment
-                }
-
-                // best-effort insert
-                catalog.insert(def);
-
-                // pop value, keep key for next()
-                lua_pop(L, 1);
+                ++stats.items_loaded;
+                increment_kind_stats(parsed.definition.kind, stats);
             }
 
-            lua_settop(L, 0);
-            lua_close(L);
-            return true;
+            return make_success(stats);
+        }
+
+        bool load_items_from_lua(
+            const std::string& path,
+            core::item::Catalog& catalog,
+            std::string& out_error)
+        {
+            const auto result = load_items_from_lua_ex(
+                path,
+                catalog,
+                LuaLoadOptions{});
+
+            out_error = result.error;
+            return result.ok;
         }
     }
-}
 
 #endif // MMO_USE_LUA
+
