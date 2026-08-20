@@ -81,6 +81,13 @@ namespace mmo
                     return zone_state;
                 }
 
+                auto set_active(id::ZoneId zone_id, bool active) -> State&
+                {
+                    auto& zone_state = ensure(zone_id);
+                    zone_state.active = active;
+                    return zone_state;
+                }
+
                 auto mark_tick(id::ZoneId zone_id, time::TickCount tick) -> State&
                 {
                     auto& zone_state = ensure(zone_id);

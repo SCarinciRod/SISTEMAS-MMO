@@ -2,9 +2,13 @@
 *.obj
 *.pdb
 *.ilk
+*.log
+*.bak
+compile_commands.json
 build/
 out/
 bin/
 cmake-build-*/
+stress_tmp/
 .vs/
 .cache/

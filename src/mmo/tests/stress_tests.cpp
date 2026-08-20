@@ -72,28 +72,52 @@ namespace
         std::uint32_t material_damage_iterations{ 10000 };
     };
 
-    auto parse_stress_level() -> StressLevel
+    auto read_environment_variable(const char* name) -> std::optional<std::string>
     {
-        const char* value = std::getenv("MMO_STRESS_LEVEL");
+#if defined(_MSC_VER)
+        char* buffer = nullptr;
+        std::size_t buffer_size = 0;
+
+        if (_dupenv_s(&buffer, &buffer_size, name) != 0 || buffer == nullptr)
+        {
+            return std::nullopt;
+        }
+
+        std::string value{ buffer };
+        std::free(buffer);
+        return value;
+#else
+        const char* value = std::getenv(name);
 
         if (value == nullptr)
+        {
+            return std::nullopt;
+        }
+
+        return std::string{ value };
+#endif
+    }
+
+    auto parse_stress_level() -> StressLevel
+    {
+        const auto level = read_environment_variable("MMO_STRESS_LEVEL");
+
+        if (!level.has_value())
         {
             return StressLevel::normal;
         }
 
-        const std::string level{ value };
-
-        if (level == "smoke")
+        if (*level == "smoke")
         {
             return StressLevel::smoke;
         }
 
-        if (level == "high")
+        if (*level == "high")
         {
             return StressLevel::high;
         }
 
-        if (level == "extreme")
+        if (*level == "extreme")
         {
             return StressLevel::extreme;
         }
@@ -123,16 +147,16 @@ namespace
 
     auto read_env_u64(const char* name, std::uint64_t fallback) -> std::uint64_t
     {
-        const char* value = std::getenv(name);
+        const auto value = read_environment_variable(name);
 
-        if (value == nullptr)
+        if (!value.has_value())
         {
             return fallback;
         }
 
         try
         {
-            return static_cast<std::uint64_t>(std::stoull(value));
+            return static_cast<std::uint64_t>(std::stoull(*value));
         }
         catch (...)
         {
@@ -247,30 +271,10 @@ namespace
         return config;
     }
 
-    template <typename>
-    inline constexpr bool dependent_false_v = false;
-
     template <typename WorldT>
     auto world_event_scheduler(WorldT& world) -> decltype(auto)
     {
-        if constexpr (requires { world.events; })
-        {
-            return (world.events);
-        }
-        else if constexpr (requires { world.event_scheduler; })
-        {
-            return (world.event_scheduler);
-        }
-        else if constexpr (requires { world.scheduler; })
-        {
-            return (world.scheduler);
-        }
-        else
-        {
-            static_assert(
-                dependent_false_v<WorldT>,
-                "World does not expose an event scheduler member named events, event_scheduler, or scheduler");
-        }
+        return (world.scheduler);
     }
 
 
@@ -288,6 +292,10 @@ namespace
         else if constexpr (std::is_integral_v<T> && std::is_signed_v<T>)
         {
             return std::to_string(static_cast<long long>(value));
+        }
+        else if constexpr (std::is_convertible_v<T, std::string_view>)
+        {
+            return std::string(std::string_view(value));
         }
         else
         {
@@ -652,7 +660,25 @@ namespace
 
     auto expected_material_damage(
         const mmo::core::material::Definition& definition,
-        static_cast<std::int32_t>(        const mmo::core::damage::Packet& packet) -> std::int32_t
+        const mmo::core::damage::Packet& packet) -> std::int32_t
+    {
+        if (packet.amount <= 0)
+        {
+            return 0;
+        }
+
+        const auto resistance_percent =
+            mmo::core::material::resistance_for(definition.resistance, packet.kind);
+
+        const auto effective_percent =
+            std::max<std::int32_t>(
+                0,
+                100 - resistance_percent + packet.penetration_percent);
+
+        const auto resolved_damage =
+            (static_cast<std::int64_t>(packet.amount) * effective_percent) / 100;
+
+        return static_cast<std::int32_t>(
             std::max<std::int64_t>(resolved_damage, 0));
     }
 
@@ -708,25 +734,6 @@ namespace
         require(file.good(), "failed to write test file");
     }
 }
-    {
-        if (packet.amount <= 0)
-        {
-            return 0;
-        }
-
-        const auto resistance_percent =
-            mmo::core::material::resistance_for(definition.resistance, packet.kind);
-
-        const auto effective_percent =
-            std::max<std::int32_t>(
-                0,
-                100 - resistance_percent + packet.penetration_percent);
-
-        const auto resolved_damage =
-            (static_cast<std::int64_t>(packet.amount) * effective_percent) / 100;
-
-
-
 int main() {
     mmo::core::log::Logger logger{};
     logger.set_file("stress.log");
@@ -772,6 +779,36 @@ int main() {
     // =========================================================================
     // Inventory contract tests.
     // =========================================================================
+
+    push_result(run_test("stress.item_catalog_owns_identity_strings", logger, [&](std::string& details) {
+        mmo::core::item::Catalog catalog{};
+        std::string source_name = "Owned Name";
+        std::string source_description = "Owned Description";
+
+        auto definition = mmo::core::item::make_material_definition();
+        definition.identity.item_template_id =
+            static_cast<mmo::core::id::ItemTemplateId>(9001);
+        definition.identity.name = source_name;
+        definition.identity.description = source_description;
+
+        require(catalog.insert(definition), "owned identity definition should insert");
+
+        source_name.assign("Mutated!!!");
+        source_description.assign("Mutated Descript");
+        definition.identity.name.clear();
+        definition.identity.description.clear();
+
+        const auto* stored = catalog.find(
+            static_cast<mmo::core::id::ItemTemplateId>(9001));
+        require(stored != nullptr, "owned identity definition should remain available");
+        require_equal(std::string("Owned Name"), stored->identity.name, "catalog-owned item name");
+        require_equal(
+            std::string("Owned Description"),
+            stored->identity.description,
+            "catalog-owned item description");
+
+        details.append("name_and_description_owned=true");
+    }));
 
     push_result(run_test("stress.inventory_weight_exact", logger, [&](std::string& details) {
         auto catalog = build_item_catalog();
@@ -996,6 +1033,76 @@ int main() {
         require_inventory_invariants(catalog, inventory, "material stack inventory");
 
         details.append("slots=1 quantity=350");
+    }));
+
+    push_result(run_test("stress.inventory_partial_add_transaction", logger, [&](std::string& details) {
+        auto catalog = build_material_item_catalog();
+        const auto* definition = catalog.find(
+            static_cast<mmo::core::id::ItemTemplateId>(1001));
+        require(definition != nullptr, "transaction material template not found");
+
+        mmo::core::entity::Inventory inventory{};
+        inventory.limits.enforce_slots = true;
+        inventory.limits.max_slots = 1;
+
+        auto existing = mmo::core::item::make_instance(
+            *definition,
+            mmo::core::time::now(),
+            998);
+        existing.item_id = static_cast<mmo::core::id::ItemId>(1);
+        require(
+            mmo::core::inventory::add_item(catalog, inventory, existing).status ==
+                mmo::core::inventory::AddStatus::added,
+            "transaction initial stack failed");
+
+        auto duplicate = mmo::core::item::make_instance(
+            *definition,
+            mmo::core::time::now(),
+            10);
+        duplicate.item_id = existing.item_id;
+
+        const auto duplicate_result =
+            mmo::core::inventory::add_item(catalog, inventory, duplicate);
+        require_equal(
+            mmo::core::inventory::AddStatus::duplicated_item_id,
+            duplicate_result.status,
+            "duplicate live item id status");
+        require_equal(
+            static_cast<std::uint32_t>(0),
+            duplicate_result.quantity_added,
+            "duplicate live item id quantity added");
+        require_equal(
+            static_cast<std::uint32_t>(10),
+            duplicate_result.quantity_remaining,
+            "duplicate live item id quantity remaining");
+        require_equal(
+            static_cast<std::uint32_t>(998),
+            inventory.items.front().quantity,
+            "duplicate rejection must not mutate inventory");
+
+        auto partial = duplicate;
+        partial.item_id = static_cast<mmo::core::id::ItemId>(2);
+        const auto partial_result =
+            mmo::core::inventory::add_item(catalog, inventory, partial);
+        require_equal(
+            mmo::core::inventory::AddStatus::partially_added,
+            partial_result.status,
+            "slot-limited partial add status");
+        require_equal(
+            static_cast<std::uint32_t>(1),
+            partial_result.quantity_added,
+            "slot-limited partial quantity added");
+        require_equal(
+            static_cast<std::uint32_t>(9),
+            partial_result.quantity_remaining,
+            "slot-limited partial quantity remaining");
+        require_equal(
+            static_cast<std::uint32_t>(999),
+            inventory.items.front().quantity,
+            "partial add must publish committed quantity");
+        require_inventory_invariants(catalog, inventory, "partial transaction inventory");
+
+        details.append("duplicate_atomic=true partial_committed=1 remaining=9");
     }));
 
     push_result(run_test("stress.inventory_slot_limit", logger, [&](std::string& details) {
@@ -1365,6 +1472,122 @@ int main() {
         details.append("physical=4 non_physical=2");
     }));
 
+    push_result(run_test("stress.numeric_saturation_boundaries", logger, [&](std::string& details) {
+        constexpr auto int32_max = std::numeric_limits<std::int32_t>::max();
+        constexpr auto int32_min = std::numeric_limits<std::int32_t>::min();
+        constexpr auto uint32_max = std::numeric_limits<std::uint32_t>::max();
+
+        require_equal(
+            int32_max,
+            mmo::core::numeric::saturating_add(int32_max, 1),
+            "signed positive saturation");
+        require_equal(
+            int32_min,
+            mmo::core::numeric::saturating_add(int32_min, -1),
+            "signed negative saturation");
+        require_equal(
+            uint32_max,
+            mmo::core::numeric::saturating_add(uint32_max, 1u),
+            "unsigned saturation");
+
+        mmo::core::stat::Primary extreme_primary{};
+        extreme_primary.vitality = int32_max;
+        extreme_primary.strength = int32_max;
+        extreme_primary.agility = int32_max;
+        extreme_primary.intellect = int32_max;
+        extreme_primary.faith = int32_max;
+        extreme_primary.dexterity = int32_max;
+        extreme_primary.luck = int32_max;
+        const auto extreme_derived = mmo::core::stat::derive(extreme_primary);
+        require_equal(int32_max, extreme_derived.max_hp, "derived max hp saturation");
+        require_equal(int32_max, extreme_derived.attack, "derived attack saturation");
+
+        mmo::core::status::Modifiers lhs{};
+        lhs.health_delta_per_tick = int32_max;
+        lhs.primary_delta.vitality = int32_min;
+        lhs.attack_percent_delta = int32_max;
+
+        mmo::core::status::Modifiers rhs{};
+        rhs.health_delta_per_tick = 1;
+        rhs.primary_delta.vitality = -1;
+        rhs.attack_percent_delta = 1;
+
+        const auto combined = mmo::core::status::add_modifiers(lhs, rhs);
+        require_equal(int32_max, combined.health_delta_per_tick, "periodic modifier saturation");
+        require_equal(int32_min, combined.primary_delta.vitality, "primary modifier saturation");
+        require_equal(int32_max, combined.attack_percent_delta, "percent modifier saturation");
+
+        mmo::core::status::Table statuses{};
+        mmo::core::status::Instance stacked{};
+        stacked.kind = mmo::core::status::Kind::haste;
+        stacked.stacking_mode = mmo::core::status::StackingMode::stack;
+        stacked.max_stacks = uint32_max;
+        stacked.stacks = uint32_max;
+        statuses.apply(stacked);
+        stacked.stacks = 1;
+        statuses.apply(stacked);
+        require_equal(uint32_max, statuses.find(stacked.kind)->stacks, "status stack saturation");
+
+        mmo::core::status::Definition extreme_build_up{};
+        extreme_build_up.delivery = mmo::core::status::Delivery::build_up;
+        extreme_build_up.build_up_threshold = uint32_max;
+        extreme_build_up.build_up_cap_percent = uint32_max;
+        const auto extreme_meter = mmo::core::status::make_meter(
+            extreme_build_up,
+            mmo::core::time::now());
+        require_equal(uint32_max, extreme_meter.capacity, "status meter capacity saturation");
+
+        auto material_definition = make_map_material_definition();
+        material_definition.resistance.impact_resistance_percent = int32_min;
+        mmo::core::damage::Packet material_packet{};
+        material_packet.kind = mmo::core::damage::Kind::impact;
+        material_packet.amount = int32_max;
+        material_packet.penetration_percent = int32_max;
+        require_equal(
+            int32_max,
+            mmo::core::material::resolve_damage(material_definition, material_packet),
+            "material damage saturation");
+
+        mmo::core::combat::DamageProfile damage_profile{};
+        damage_profile.packet = material_packet;
+        damage_profile.critical = true;
+        damage_profile.critical_multiplier_percent = int32_max;
+
+        mmo::core::combat::DefenseProfile defense_profile{};
+        defense_profile.physical_reduction_percent = int32_min;
+        defense_profile.flat_reduction = int32_min;
+        defense_profile.shield_current = 1;
+
+        const auto damage_result = mmo::core::combat::resolve_damage(
+            damage_profile,
+            defense_profile);
+        require_equal(int32_max, damage_result.incoming_damage, "incoming damage saturation");
+        require_equal(int32_max, damage_result.mitigated_damage, "mitigated damage saturation");
+        require_equal(int32_max - 1, damage_result.health_damage, "health damage after shield");
+
+        mmo::core::entity::Table entities{};
+        const auto now = mmo::core::time::now();
+        require(
+            entities.spawn(900001, make_stress_blueprint(), 1, now),
+            "numeric boundary entity spawn");
+        auto* record = entities.find(900001);
+        require(record != nullptr, "numeric boundary entity lookup");
+
+        record->resources.shield_current = int32_max;
+        const auto health_before = record->resources.health_current;
+        require(entities.adjust_health(900001, int32_min), "minimum health delta adjustment");
+        require_equal(0, record->resources.shield_current, "minimum health delta consumes shield");
+        require_equal(health_before - 1, record->resources.health_current, "minimum health delta remainder");
+        require(entities.adjust_health(900001, int32_max), "maximum health delta adjustment");
+        require_equal(record->stats.current_derived.max_hp, record->resources.health_current, "health upper clamp");
+        require(entities.adjust_mana(900001, int32_min), "minimum mana delta adjustment");
+        require_equal(0, record->resources.mana_current, "mana lower clamp");
+        require(entities.adjust_mana(900001, int32_max), "maximum mana delta adjustment");
+        require_equal(record->stats.current_derived.max_mana, record->resources.mana_current, "mana upper clamp");
+
+        details.append("signed_unsigned_resources_damage=covered");
+    }));
+
     push_result(run_test("stress.material_damage_resolution", logger, [&](std::string& details) {
         const auto definition = make_map_material_definition();
 
@@ -1696,6 +1919,65 @@ int main() {
         details.append("rejections=3 ready=1");
     }));
 
+    push_result(run_test("stress.runtime_event_dispatch_exactly_once", logger, [&](std::string& details) {
+        mmo::core::runtime::World world{};
+        const auto now = mmo::core::time::now();
+        constexpr auto entity_id = static_cast<mmo::core::id::EntityId>(1);
+        constexpr auto source_zone = static_cast<mmo::core::id::ZoneId>(10);
+        constexpr auto destination_zone = static_cast<mmo::core::id::ZoneId>(20);
+
+        world.entities.spawn(entity_id, make_stress_blueprint(), source_zone, now);
+
+        mmo::core::event::Event migration{};
+        migration.type = mmo::core::event::Type::migration_completed;
+        migration.due_at = now;
+        migration.entity_id = entity_id;
+        migration.zone_id = destination_zone;
+
+        mmo::core::event::Event wake{};
+        wake.type = mmo::core::event::Type::zone_wake;
+        wake.due_at = now;
+        wake.zone_id = destination_zone;
+
+        mmo::core::event::Event notice{};
+        notice.type = mmo::core::event::Type::region_notice;
+        notice.due_at = now;
+        notice.zone_id = destination_zone;
+        notice.counter = 99;
+
+        mmo::core::event::Event future_notice = notice;
+        future_notice.due_at = now + mmo::core::time::Milliseconds{ 1 };
+        future_notice.counter = 100;
+
+        require(world.scheduler.try_schedule(migration), "migration should schedule");
+        require(world.scheduler.try_schedule(wake), "zone wake should schedule");
+        require(world.scheduler.try_schedule(notice), "notice should schedule");
+        require(world.scheduler.try_schedule(future_notice), "future notice should schedule");
+
+        const auto first_dispatch = mmo::core::runtime::dispatch_ready_events(world, now);
+
+        require_equal(static_cast<std::size_t>(3), first_dispatch.total(), "first dispatch total");
+        require_equal(static_cast<std::size_t>(2), first_dispatch.applied, "first dispatch applied");
+        require_equal(static_cast<std::size_t>(1), first_dispatch.queued, "first dispatch queued");
+        require_equal(static_cast<std::size_t>(0), first_dispatch.rejected, "first dispatch rejected");
+        require_equal(static_cast<std::size_t>(1), world.scheduler.size(), "future event retained");
+        require_equal(static_cast<std::size_t>(1), world.event_outbox.size(), "domain outbox count");
+        require_equal(static_cast<std::uint32_t>(99), world.event_outbox.front().counter, "outbox payload");
+
+        const auto* entity = world.entities.find(entity_id);
+        require(entity != nullptr, "migrated entity should exist");
+        require_equal(destination_zone, entity->placement.zone_id(), "migration destination");
+
+        const auto* zone = world.zones.get(destination_zone);
+        require(zone != nullptr && zone->active, "zone wake should activate destination");
+
+        const auto duplicate_dispatch = mmo::core::runtime::dispatch_ready_events(world, now);
+        require_equal(static_cast<std::size_t>(0), duplicate_dispatch.total(), "events must dispatch once");
+        require_equal(static_cast<std::size_t>(1), world.event_outbox.size(), "outbox must not duplicate");
+
+        details.append("applied=2 queued=1 future=1");
+    }));
+
     push_result(run_test("stress.event_same_due_time_stability", logger, [&](std::string& details) {
         mmo::core::event::Scheduler scheduler{};
         const auto now = mmo::core::time::now();
@@ -1979,8 +2261,57 @@ int main() {
             require(record->resources.health_current > 0, "spawned entity should have positive hp");
             require(record->stats.current_derived.max_hp > 0, "spawned entity should have positive max hp");
         }
+
+        details.append("entities=");
+        details.append(std::to_string(stress_config.entity_spawn_count));
     }));
-   
+
+    push_result(run_test("stress.entity_zone_index_controlled_mutation", logger, [&](std::string& details) {
+        mmo::core::entity::Table entities{};
+        const auto blueprint = make_stress_blueprint();
+        const auto now = mmo::core::time::now();
+        constexpr auto first_entity = static_cast<mmo::core::id::EntityId>(1);
+        constexpr auto second_entity = static_cast<mmo::core::id::EntityId>(2);
+        constexpr auto first_zone = static_cast<mmo::core::id::ZoneId>(10);
+        constexpr auto second_zone = static_cast<mmo::core::id::ZoneId>(20);
+
+        require(
+            !entities.spawn(mmo::core::id::invalid_entity_id, blueprint, first_zone, now),
+            "invalid entity id must be rejected");
+        require(
+            !entities.spawn(first_entity, blueprint, mmo::core::id::invalid_zone_id, now),
+            "invalid spawn zone must be rejected");
+        require(entities.spawn(first_entity, blueprint, first_zone, now), "first spawn failed");
+        require(entities.spawn(second_entity, blueprint, second_zone, now), "second spawn failed");
+        require(entities.has_consistent_indexes(), "spawned zone index inconsistent");
+
+        require(entities.move_to_zone(first_entity, second_zone), "zone move failed");
+        require(entities.ids_in_zone(first_zone).empty(), "old zone retained moved entity");
+        require_equal(
+            static_cast<std::size_t>(2),
+            entities.ids_in_zone(second_zone).size(),
+            "destination zone entity count");
+        require(entities.has_consistent_indexes(), "zone index inconsistent after move");
+
+        require(entities.move_to_zone(first_entity, second_zone), "idempotent zone move failed");
+        require_equal(
+            static_cast<std::size_t>(2),
+            entities.ids_in_zone(second_zone).size(),
+            "idempotent move duplicated index entry");
+        require(
+            !entities.move_to_zone(first_entity, mmo::core::id::invalid_zone_id),
+            "invalid destination zone must be rejected");
+        require(
+            !entities.move_to_zone(static_cast<mmo::core::id::EntityId>(999), first_zone),
+            "missing entity move must fail");
+        require(entities.has_consistent_indexes(), "rejected moves changed zone index");
+
+        require(entities.erase(second_entity), "indexed entity erase failed");
+        require(entities.has_consistent_indexes(), "zone index inconsistent after erase");
+
+        details.append("spawn_rejections=2 moves=1 idempotent=1 erase=1");
+    }));
+
 
     push_result(run_test("stress.entity_contract_edges", logger, [&](std::string& details) {
         mmo::core::runtime::World world{};
@@ -1999,7 +2330,7 @@ int main() {
 
         require(equipment_definition != nullptr, "entity contract equipment template not found");
 
-        const auto make_equipment_instance = [&](mmo::core::id::ItemId item_id){ 
+        const auto make_equipment_instance = [&](mmo::core::id::ItemId item_id) {
             mmo::core::item::Instance instance{};
             instance.item_id = item_id;
             instance.item_template_id = equipment_definition->identity.item_template_id;
@@ -2581,6 +2912,162 @@ int main() {
         details.append("bless_stacks=5 poison_blocked=true");
     }));
 
+    push_result(run_test("stress.status_periodic_cadence_and_catch_up", logger, [&](std::string& details) {
+        mmo::core::runtime::World world{};
+        const auto now = mmo::core::time::now();
+        constexpr auto entity_id = static_cast<mmo::core::id::EntityId>(1);
+
+        world.entities.spawn(entity_id, make_stress_blueprint(), 1, now);
+        auto* record = world.entities.find(entity_id);
+        require(record != nullptr, "periodic status target not found");
+        const auto initial_health = record->resources.health_current;
+
+        const auto poison_definition = mmo::core::status::make_poison_definition();
+        const auto poison = mmo::core::status::make_instance(
+            poison_definition,
+            now,
+            1,
+            entity_id);
+        require(world.entities.apply_status(entity_id, poison), "periodic poison should apply");
+
+        require_equal(
+            static_cast<std::uint64_t>(0),
+            mmo::server::apply_periodic_status_effects(
+                world,
+                entity_id,
+                now + mmo::core::time::Milliseconds{ 999 }),
+            "periodic effect before first deadline");
+        require_equal(
+            initial_health,
+            world.entities.find(entity_id)->resources.health_current,
+            "health before first periodic deadline");
+
+        require_equal(
+            static_cast<std::uint64_t>(1),
+            mmo::server::apply_periodic_status_effects(
+                world,
+                entity_id,
+                now + mmo::core::time::Milliseconds{ 1000 }),
+            "periodic first deadline");
+        require_equal(
+            initial_health - 8,
+            world.entities.find(entity_id)->resources.health_current,
+            "health after first periodic deadline");
+
+        require_equal(
+            static_cast<std::uint64_t>(0),
+            mmo::server::apply_periodic_status_effects(
+                world,
+                entity_id,
+                now + mmo::core::time::Milliseconds{ 1000 }),
+            "periodic deadline must be consumed once");
+
+        require_equal(
+            static_cast<std::uint64_t>(2),
+            mmo::server::apply_periodic_status_effects(
+                world,
+                entity_id,
+                now + mmo::core::time::Milliseconds{ 3500 }),
+            "periodic catch-up count");
+        require_equal(
+            initial_health - 24,
+            world.entities.find(entity_id)->resources.health_current,
+            "health after periodic catch-up");
+
+        require_equal(
+            static_cast<std::uint64_t>(5),
+            mmo::server::apply_periodic_status_effects(
+                world,
+                entity_id,
+                now + mmo::core::time::Milliseconds{ 8000 }),
+            "periodic applications through expiration boundary");
+        require_equal(
+            initial_health - 64,
+            world.entities.find(entity_id)->resources.health_current,
+            "health after all periodic applications");
+        require(
+            world.entities.sweep_statuses(
+                entity_id,
+                now + mmo::core::time::Milliseconds{ 8000 }),
+            "expired periodic status should sweep");
+        require_equal(
+            static_cast<std::uint64_t>(0),
+            mmo::server::apply_periodic_status_effects(
+                world,
+                entity_id,
+                now + mmo::core::time::Milliseconds{ 9000 }),
+            "expired status must not tick again");
+
+        details.append("ticks=8 damage=64 catch_up=2");
+    }));
+
+    push_result(run_test("stress.fixed_timestep_contract", logger, [&](std::string& details) {
+        require_equal(
+            static_cast<mmo::core::time::Nanoseconds::rep>(16'666'666),
+            mmo::core::time::tick_offset(1, 60).count(),
+            "60hz first tick offset");
+        require_equal(
+            static_cast<mmo::core::time::Nanoseconds::rep>(1'000'000'000),
+            mmo::core::time::tick_offset(60, 60).count(),
+            "60hz one second without drift");
+        require_equal(
+            static_cast<mmo::core::time::TickCount>(60),
+            mmo::core::time::duration_to_ticks(mmo::core::time::Seconds{ 1 }, 60),
+            "one second tick conversion");
+        require_equal(
+            static_cast<std::uint64_t>(7),
+            mmo::server::calculate_skipped_ticks(10, 20, 4),
+            "bounded lag skip count");
+        require_equal(
+            static_cast<std::uint64_t>(0),
+            mmo::server::calculate_skipped_ticks(20, 10, 4),
+            "future simulation does not skip");
+
+        mmo::core::runtime::World world{};
+        auto catalog = build_item_catalog();
+        auto& scheduler = world_event_scheduler(world);
+        require(
+            world.entities.spawn(800001, make_stress_blueprint(), 1, mmo::core::time::now()),
+            "fixed timestep entity spawn");
+
+        mmo::core::event::Event event{};
+        event.type = mmo::core::event::Type::region_notice;
+        event.due_at = mmo::core::time::now() + mmo::core::time::Milliseconds{ 50 };
+        event.zone_id = 1;
+        require(scheduler.try_schedule(event), "fixed timestep event schedule");
+
+        mmo::server::LoopConfig config{};
+        config.tick_rate = 20;
+        config.max_ticks = 2;
+        config.sleep = false;
+
+        const auto stats = mmo::server::run_loop(world, catalog, config, logger);
+        require_equal(static_cast<std::uint64_t>(2), stats.ticks, "fixed timestep executed ticks");
+        require_equal(static_cast<std::uint64_t>(1), stats.events_processed, "scheduled simulation event");
+        require_equal(static_cast<std::uint64_t>(1), stats.load_recalculations, "initial dirty load sync");
+        require_equal(static_cast<std::uint64_t>(0), stats.late_ticks, "unpaced loop late ticks");
+        require_equal(static_cast<std::uint64_t>(0), stats.ticks_skipped, "unpaced loop skipped ticks");
+
+        config.max_ticks = 3;
+        const auto clean_stats = mmo::server::run_loop(world, catalog, config, logger);
+        require_equal(
+            static_cast<std::uint64_t>(0),
+            clean_stats.load_recalculations,
+            "clean inventory load must not recalculate per tick");
+
+        require(
+            world.entities.mark_inventory_load_dirty(800001),
+            "explicit inventory dirty mark");
+        config.max_ticks = 2;
+        const auto dirty_stats = mmo::server::run_loop(world, catalog, config, logger);
+        require_equal(
+            static_cast<std::uint64_t>(1),
+            dirty_stats.load_recalculations,
+            "dirty inventory load recalculates exactly once");
+
+        details.append("rate=60 exact_second=true catch_up_limit=4 load_syncs=1/0/1");
+    }));
+
     push_result_with_budget(run_test("stress.world_loop_mixed_entity_states", logger, [&](std::string& details) {
         mmo::core::runtime::World world{};
         auto catalog = build_item_catalog();
@@ -3095,7 +3582,7 @@ int main() {
         details.append(" remaining_events=");
         details.append(std::to_string(scheduler.size()));
     }));
-    
+
     push_result(run_test("stress.world_loop_mixed_entities_status_and_events", logger, [&](std::string& details) {
         mmo::core::runtime::World world{};
         auto catalog = build_item_catalog();
@@ -3334,4 +3821,3 @@ return {
 
     return failures == 0 ? 0 : 1;
 };
-

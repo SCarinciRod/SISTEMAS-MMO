@@ -6,6 +6,11 @@ All notable code and architecture updates for `SISTEMAS-MMO` are recorded here.
 
 ### Added
 
+- Reproducible CMake build with separate core, persistence, server, and stress-test targets plus CTest integration.
+- Cross-compiler warning options and opt-in ASan, UBSan, TSan, warnings-as-errors, and Lua build switches.
+- `core/numeric.hpp` with saturating arithmetic for resource, damage, stat, modifier, meter, and stack boundaries.
+- Fixed-timestep regressions for 60 Hz precision, deterministic scheduled time, bounded catch-up, and dirty load synchronization.
+
 - `core/item.hpp` to define the item contract split into material, consumable, equipment, quest, and collectible item types.
 - `core/logger.hpp` with a lightweight logger and exception helpers for stress testing and runtime diagnostics.
 - `persistence/context.hpp` as the seed for database context initialization and storage layout.
@@ -37,6 +42,18 @@ All notable code and architecture updates for `SISTEMAS-MMO` are recorded here.
 - A full status catalog builder that combines the negative ailments and the new instant buffs.
 
 ### Changed
+
+- Fixed the server aggregate header include and made the existing stress harness C++17-compatible.
+- Documented verified build and test commands in `README.md` and target boundaries in `ARCHITECTURE.md`.
+- Due events now cross an explicit dispatch boundary: migrations and zone activity update the world, domain notifications are retained in an outbox, and failed events are retained for diagnosis.
+- Periodic statuses now honor their configured cadence, consume each deadline once, and catch up deterministically after delayed ticks.
+- Item names and descriptions are owned strings, removing the Lua loader's process-global lifetime workaround.
+- Added regressions for event dispatch, periodic status timing, and item identity ownership.
+- Entity placement mutation is controlled by `entity::Table`, with validation and a diagnostic that checks record/index agreement.
+- Inventory addition is atomic on rejection and reports partial success only when a partial stack was actually committed.
+- Health, mana, damage, derived stats, status modifiers, stacks, and build-up calculations now clamp or saturate at numeric boundaries.
+- The server loop now uses drift-free tick deadlines, deterministic simulation time, bounded catch-up, explicit skipped/late tick counters, and total/max/per-phase timing metrics.
+- Inventory load uses a dirty flag, replacing full inventory-weight recalculation on every tick; direct transitional mutations have an explicit invalidation API.
 
 - Removed `accuracy` and `evasion` from the core stat model; action recovery now relies on the remaining stat biases plus hit/whiff outcome.
 - `core/recovery.hpp` now follows the action contract and computes animation and recovery from stats, action weight, and hit/whiff outcome.

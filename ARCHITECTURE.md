@@ -27,6 +27,7 @@ This file is the working agreement for the project. Read it before making archit
 - `core/entity.hpp`: live entity state table.
 - `core/zone.hpp`: zone state and activity.
 - `core/event.hpp`: delayed event scheduler.
+- `core/numeric.hpp`: checked/saturating integer operations for domain boundaries.
 - `core/runtime.hpp`: aggregate world runtime.
 
 For now these stay in `core` because there is no persistence layer or external content pipeline yet. When that exists, species data and evolution profiles are the first candidates for a content layer split, while runtime remains in `core`.
@@ -93,3 +94,22 @@ Skill direction is split in two axes:
 - sequence pattern: chain, initial, finisher, or evolve
 
 Future skill fusion should reuse the same skill catalog and relation model instead of introducing a separate one-off system.
+
+## Build Boundaries
+
+- `mmo_core` is the header-only foundation target.
+- `mmo_persistence` owns compiled persistence/content adapters such as the optional Lua loader.
+- `mmo_server` is the executable bootstrap target. Its current `main` remains minimal and is not yet a running authoritative server.
+- `mmo_stress_tests` contains the existing mixed functional/stress suite and is registered with CTest.
+- The repository requires C++17. Compiler-specific extensions are disabled.
+
+## Runtime Invariants
+
+- A due scheduled event is never treated as processed merely because it was removed from the scheduler. Infrastructure events mutate world state; domain events enter `World::event_outbox`; invalid or failed transitions enter `World::rejected_events`.
+- Periodic status effects use their own `tick_interval`, advance `next_tick_at` after consumption, and catch up deterministically through the expiration boundary.
+- Item identity text is owned by `item::Definition`. Content adapters must not publish `string_view` values backed by temporary or reallocating storage.
+- Entity placement can only be changed by `entity::Table`; its zone index must agree with every record after spawn, move, and erase.
+- Inventory commands update load authoritatively. Transitional code that mutates `Record::inventory` directly must call `mark_inventory_load_dirty`; the loop recalculates a dirty load once and never polls clean inventory weight.
+- Resource, damage, stat, stack, and modifier arithmetic saturates at the destination type instead of relying on signed overflow or narrowing casts.
+- The server loop derives simulation deadlines from `(epoch, tick index, rate)`, so fractional tick durations do not accumulate drift. Unpaced mode advances the same simulation clock without consulting wall time.
+- A paced loop keeps at most `LoopConfig::max_catch_up_ticks` overdue steps. Older steps are explicitly counted in `LoopStats::ticks_skipped`; lag, total/max tick work, and event/entity/status phase time are observable.

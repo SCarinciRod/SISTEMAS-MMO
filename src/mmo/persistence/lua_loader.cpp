@@ -24,16 +24,7 @@ namespace mmo
             struct ParsedItem
             {
                 core::item::Definition definition{};
-                std::string name{};
             };
-
-            // Temporary/simple lifetime solution:
-            // item definitions appear to store the name as string_view.
-            // Therefore names loaded from Lua must live after this function returns.
-            //
-            // Long-term better solution:
-            // Catalog should own item names, or item identity should use std::string.
-            static std::vector<std::string> s_persistent_strings;
 
             [[nodiscard]] auto make_error(const std::string& message, const LuaLoadStats& stats) -> LuaLoadResult
             {
@@ -577,9 +568,15 @@ namespace mmo
                 parsed.definition.identity.item_template_id =
                     static_cast<core::id::ItemTemplateId>(static_cast<std::uint32_t>(key));
 
-                if (read_string_field(state, item_table_index, "name", parsed.name))
+                if (read_string_field(
+                        state,
+                        item_table_index,
+                        "name",
+                        parsed.definition.identity.name))
                 {
-                    if (parsed.name.empty() && strict_mode(options) && options.require_name)
+                    if (parsed.definition.identity.name.empty() &&
+                        strict_mode(options) &&
+                        options.require_name)
                     {
                         error = "item name cannot be empty";
                         return false;
@@ -764,12 +761,6 @@ namespace mmo
             // and validated. This prevents parse-time partial pollution.
             for (auto& parsed : parsed_items)
             {
-                if (!parsed.name.empty())
-                {
-                    s_persistent_strings.push_back(parsed.name);
-                    parsed.definition.identity.name = s_persistent_strings.back();
-                }
-
                 catalog.insert(parsed.definition);
 
                 ++stats.items_loaded;
@@ -795,4 +786,3 @@ namespace mmo
     }
 
 #endif // MMO_USE_LUA
-

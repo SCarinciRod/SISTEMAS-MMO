@@ -28,6 +28,7 @@ O `core` deve ser a camada mais neutra do servidor. Ele não deve depender de re
 - `core/action.hpp` -> live action contract and action catalog.
 - `core/skill.hpp` -> skill tags, gating, and skill catalog.
 - `core/combat.hpp` -> combat intent, target validation, cost, and aggro contract.
+- `core/numeric.hpp` -> saturating integer arithmetic used at domain boundaries.
 - `core/recovery.hpp` -> action timing and recovery calculations.
 - `core/status.hpp` -> status definitions and active status tables.
 - `core/trigger.hpp` -> generic trigger vocabulary.
@@ -37,6 +38,7 @@ O `core` deve ser a camada mais neutra do servidor. Ele não deve depender de re
 - `core/zone.hpp` -> runtime zone state.
 - `core/event.hpp` -> delayed event scheduler.
 - `core/runtime.hpp` -> aggregate world state.
+- `server/loop.hpp` -> fixed-step simulation clock, bounded catch-up, and phase metrics.
 
 For now these stay in `core` because there is no persistence layer or external content pipeline yet. When that appears, species and evolution profiles are the first candidates to move into a content/data layer, while runtime stays in `core`.
 
@@ -192,3 +194,48 @@ Agrupa tabela de entidades, zonas e agenda de eventos. É o ponto que depois vai
 16. `runtime.hpp` para ver como tudo se conecta.
 
 The running changelog lives in [CHANGELOG.md](CHANGELOG.md).
+
+## Build
+
+Requisitos:
+
+- CMake 3.20 ou mais recente;
+- compilador com suporte a C++17;
+- Lua apenas quando `MMO_ENABLE_LUA=ON`.
+
+Configuração, compilação e testes em um gerador de configuração única, como Ninja:
+
+```bash
+cmake -S . -B build -DCMAKE_BUILD_TYPE=Debug
+cmake --build build
+ctest --test-dir build --output-on-failure
+```
+
+No Visual Studio, a configuração é selecionada durante o build e o teste:
+
+```bash
+cmake -S . -B build
+cmake --build build --config Debug
+ctest --test-dir build -C Debug --output-on-failure
+```
+
+Opções de diagnóstico:
+
+- `MMO_WARNINGS_AS_ERRORS=ON` trata warnings como erros;
+- `MMO_ENABLE_ASAN=ON` habilita AddressSanitizer quando suportado;
+- `MMO_ENABLE_UBSAN=ON` habilita UndefinedBehaviorSanitizer em GCC/Clang;
+- `MMO_ENABLE_TSAN=ON` reserva a configuração de ThreadSanitizer para diagnósticos futuros;
+- `MMO_ENABLE_LUA=ON` compila o loader Lua e exige uma instalação de desenvolvimento do Lua.
+
+Targets atuais:
+
+- `mmo_core`: contratos e implementações header-only do núcleo;
+- `mmo_persistence`: implementação opcional de persistência/conteúdo;
+- `mmo_server`: entrypoint mínimo do servidor;
+- `mmo_stress_tests`: suite funcional e de stress existente, registrada no CTest.
+
+O teste registrado no CTest usa `MMO_STRESS_LEVEL=smoke`. Para executar a carga padrÃ£o completa diretamente:
+
+```bash
+./build/mmo_stress_tests
+```

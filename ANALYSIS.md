@@ -139,3 +139,11 @@ O caminho seguro é este:
 - `destruir` é temporário, regenerável ou permanente até o reset da zona?
 - `ricochete` deve ser totalmente aleatório ou seguir um vetor de reflexão com pequena dispersão?
 - `entalado` vale para monstros, NPCs e jogadores da mesma forma?
+
+## Consolidação P1 do loop
+
+- Antes, `server::run_loop` recalculava o peso completo de cada inventário em todo tick: custo estrutural $O(ticks \times entidades \times itens)$ mesmo sem mutação.
+- Agora `Load::inventory_dirty` invalida esse valor. Spawn ou mutação explícita causa uma sincronização; ticks seguintes reutilizam a carga limpa. `LoopStats::load_recalculations` permite verificar a hipótese (regressão de referência: `1/0/1` para carga inicial, três ticks limpos e nova invalidação).
+- O contrato ainda é transitório porque `Table::find` expõe `Record*`. Código que alterar `Record::inventory` diretamente deve chamar `mark_inventory_load_dirty`; a remoção completa dessa escape hatch pertence ao próximo incremento de mutabilidade controlada.
+- O relógio de simulação usa o índice absoluto do tick, evitando o drift de somar `1000 / tick_rate` em milissegundos. Em 60 Hz, o offset do tick 60 é exatamente 1 segundo.
+- A política de atraso mantém no máximo quatro ticks vencidos por padrão e contabiliza os descartados. Tempo total/máximo de tick e tempos acumulados das fases de evento, entidade e status ficam disponíveis sem introduzir concorrência.

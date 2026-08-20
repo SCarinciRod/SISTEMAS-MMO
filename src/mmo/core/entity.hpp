@@ -8,6 +8,7 @@
 #include "experience.hpp"
 #include "item.hpp"
 #include "inventory.hpp"
+#include "numeric.hpp"
 #include "stat.hpp"
 #include "status.hpp"
 #include "time.hpp"
@@ -58,9 +59,30 @@ namespace mmo
                 Type type{ Type::unknown };
             };
 
-            struct Placement
+            class Placement
             {
-                id::ZoneId zone_id{ id::invalid_zone_id };
+            public:
+                Placement() = default;
+                Placement(const Placement&) = default;
+                Placement(Placement&&) noexcept = default;
+
+                [[nodiscard]] auto zone_id() const noexcept -> id::ZoneId
+                {
+                    return zone_id_;
+                }
+
+            private:
+                auto operator=(const Placement&) -> Placement& = default;
+                auto operator=(Placement&&) noexcept -> Placement& = default;
+
+                auto set_zone(id::ZoneId zone_id) noexcept -> void
+                {
+                    zone_id_ = zone_id;
+                }
+
+                id::ZoneId zone_id_{ id::invalid_zone_id };
+
+                friend class Table;
             };
 
             struct Stats
@@ -90,6 +112,7 @@ namespace mmo
             {
                 std::uint32_t carried_weight{ 0 };
                 stat::Encumbrance encumbrance{};
+                bool inventory_dirty{ true };
             };
 
             // Combat state: status stacks, action timing, aggro, and damage ledgers.
@@ -151,6 +174,12 @@ namespace mmo
                 record.load.encumbrance = stat::derive_encumbrance(
                     record.load.carried_weight,
                     record.stats.current_derived.max_weight);
+                record.load.inventory_dirty = false;
+            }
+
+            inline auto mark_inventory_load_dirty(Record& record) noexcept -> void
+            {
+                record.load.inventory_dirty = true;
             }
 
             [[nodiscard]] inline auto validate_inventory(
@@ -172,6 +201,7 @@ namespace mmo
 
                 if (result.quantity_added > 0)
                 {
+                    mark_inventory_load_dirty(record);
                     sync_load(record, catalog);
                 }
 
@@ -193,6 +223,7 @@ namespace mmo
 
                 if (result.quantity_removed > 0)
                 {
+                    mark_inventory_load_dirty(record);
                     sync_load(record, catalog);
                 }
 
@@ -350,12 +381,17 @@ namespace mmo
                     id::ZoneId zone_id,
                     time::TimePoint now) -> bool
                 {
+                    if (entity_id == id::invalid_entity_id || zone_id == id::invalid_zone_id)
+                    {
+                        return false;
+                    }
+
                     Record record{};
                     record.identity.entity_id = entity_id;
                     record.identity.template_id = blueprint.template_id;
                     record.identity.species_id = blueprint.species_id;
                     record.identity.type = blueprint.type;
-                    record.placement.zone_id = zone_id;
+                    record.placement.set_zone(zone_id);
                     record.stats.base_primary = blueprint.base_primary;
                     record.stats.current_primary = blueprint.base_primary;
                     record.stats.current_derived = stat::derive(record.stats.current_primary);
@@ -371,6 +407,12 @@ namespace mmo
 
                 auto insert(const Record& record) -> bool
                 {
+                    if (record.identity.entity_id == id::invalid_entity_id ||
+                        record.placement.zone_id() == id::invalid_zone_id)
+                    {
+                        return false;
+                    }
+
                     auto insert_result = records_.emplace(record.identity.entity_id, record);
                     auto& it = insert_result.first;
 
@@ -381,7 +423,7 @@ namespace mmo
                     }
 
                     refresh_record(it->second);
-                    zone_index_[record.placement.zone_id].insert(record.identity.entity_id);
+                    zone_index_[record.placement.zone_id()].insert(record.identity.entity_id);
                     return true;
                 }
 
@@ -393,7 +435,7 @@ namespace mmo
                         return false;
                     }
 
-                    unlink_from_zone(record_it->second.placement.zone_id, entity_id);
+                    unlink_from_zone(record_it->second.placement.zone_id(), entity_id);
                     records_.erase(record_it);
                     return true;
                 }
@@ -422,20 +464,25 @@ namespace mmo
 
                 auto move_to_zone(id::EntityId entity_id, id::ZoneId zone_id) -> bool
                 {
+                    if (zone_id == id::invalid_zone_id)
+                    {
+                        return false;
+                    }
+
                     auto record_it = records_.find(entity_id);
                     if (record_it == records_.end())
                     {
                         return false;
                     }
 
-                    if (record_it->second.placement.zone_id == zone_id)
+                    if (record_it->second.placement.zone_id() == zone_id)
                     {
                         zone_index_[zone_id].insert(entity_id);
                         return true;
                     }
 
-                    unlink_from_zone(record_it->second.placement.zone_id, entity_id);
-                    record_it->second.placement.zone_id = zone_id;
+                    unlink_from_zone(record_it->second.placement.zone_id(), entity_id);
+                    record_it->second.placement.set_zone(zone_id);
                     zone_index_[zone_id].insert(entity_id);
                     return true;
                 }
@@ -477,6 +524,34 @@ namespace mmo
                     return true;
                 }
 
+                // Transitional bridge for adapters that still mutate Record::inventory directly.
+                auto mark_inventory_load_dirty(id::EntityId entity_id) -> bool
+                {
+                    auto record_it = records_.find(entity_id);
+                    if (record_it == records_.end())
+                    {
+                        return false;
+                    }
+
+                    mmo::core::entity::mark_inventory_load_dirty(record_it->second);
+                    return true;
+                }
+
+                auto sync_inventory_load_if_dirty(
+                    id::EntityId entity_id,
+                    const item::Catalog& catalog) -> bool
+                {
+                    auto record_it = records_.find(entity_id);
+                    if (record_it == records_.end() || !record_it->second.load.inventory_dirty)
+                    {
+                        return false;
+                    }
+
+                    sync_load(record_it->second, catalog);
+                    refresh_record(record_it->second);
+                    return true;
+                }
+
                 auto add_inventory_item(
                     id::EntityId entity_id,
                     const item::Catalog& catalog,
@@ -499,6 +574,7 @@ namespace mmo
 
                     if (result.quantity_added > 0)
                     {
+                        mmo::core::entity::mark_inventory_load_dirty(record_it->second);
                         sync_load(record_it->second, catalog);
                         refresh_record(record_it->second);
                     }
@@ -530,6 +606,7 @@ namespace mmo
 
                     if (result.quantity_removed > 0)
                     {
+                        mmo::core::entity::mark_inventory_load_dirty(record_it->second);
                         sync_load(record_it->second, catalog);
                         refresh_record(record_it->second);
                     }
@@ -582,9 +659,11 @@ namespace mmo
 
                     if (result.shield_absorbed > 0)
                     {
-                        target.resources.shield_current = std::max<std::int32_t>(
-                            0,
-                            target.resources.shield_current - result.shield_absorbed);
+                        target.resources.shield_current = numeric::clamp_to_int32(
+                            std::max<std::int64_t>(
+                                0,
+                                static_cast<std::int64_t>(target.resources.shield_current) -
+                                    result.shield_absorbed));
                     }
 
                     if (result.shield_broken)
@@ -595,10 +674,12 @@ namespace mmo
 
                     if (result.health_damage > 0)
                     {
-                        target.resources.health_current = std::clamp(
-                            target.resources.health_current - result.health_damage,
-                            0,
-                            target.stats.current_derived.max_hp);
+                        target.resources.health_current = numeric::clamp_to_int32(
+                            std::clamp<std::int64_t>(
+                                static_cast<std::int64_t>(target.resources.health_current) -
+                                    result.health_damage,
+                                0,
+                                target.stats.current_derived.max_hp));
                     }
 
                     if (profile.packet.source.entity_id.has_value())
@@ -948,14 +1029,20 @@ namespace mmo
 
                     bool shield_broken = false;
 
-                    if (delta < 0)
+                    auto effective_delta = static_cast<std::int64_t>(delta);
+
+                    if (effective_delta < 0)
                     {
-                        auto damage = -delta;
-                        const auto absorbed = std::min(record_it->second.resources.shield_current, damage);
+                        auto damage = -effective_delta;
+                        const auto shield_current = std::max<std::int64_t>(
+                            0,
+                            record_it->second.resources.shield_current);
+                        const auto absorbed = std::min(shield_current, damage);
 
                         if (absorbed > 0)
                         {
-                            record_it->second.resources.shield_current -= absorbed;
+                            record_it->second.resources.shield_current = numeric::clamp_to_int32(
+                                shield_current - absorbed);
                             damage -= absorbed;
                         }
 
@@ -976,13 +1063,15 @@ namespace mmo
                             return true;
                         }
 
-                        delta = -damage;
+                        effective_delta = -damage;
                     }
 
-                    record_it->second.resources.health_current = std::clamp(
-                        record_it->second.resources.health_current + delta,
-                        0,
-                        record_it->second.stats.current_derived.max_hp);
+                    record_it->second.resources.health_current = numeric::clamp_to_int32(
+                        std::clamp<std::int64_t>(
+                            static_cast<std::int64_t>(record_it->second.resources.health_current) +
+                                effective_delta,
+                            0,
+                            record_it->second.stats.current_derived.max_hp));
 
                     if (record_it->second.resources.health_current <= 0)
                     {
@@ -1015,10 +1104,12 @@ namespace mmo
                         return false;
                     }
 
-                    record_it->second.resources.mana_current = std::clamp(
-                        record_it->second.resources.mana_current + delta,
-                        0,
-                        record_it->second.stats.current_derived.max_mana);
+                    record_it->second.resources.mana_current = numeric::clamp_to_int32(
+                        std::clamp<std::int64_t>(
+                            static_cast<std::int64_t>(record_it->second.resources.mana_current) +
+                                delta,
+                            0,
+                            record_it->second.stats.current_derived.max_mana));
 
                     return true;
                 }
@@ -1107,6 +1198,50 @@ namespace mmo
                     return ids;
                 }
 
+                [[nodiscard]] auto has_consistent_indexes() const -> bool
+                {
+                    std::size_t indexed_entities = 0;
+
+                    for (const auto& zone_entry : zone_index_)
+                    {
+                        for (const auto entity_id : zone_entry.second)
+                        {
+                            const auto record_it = records_.find(entity_id);
+                            if (record_it == records_.end() ||
+                                record_it->second.identity.entity_id != entity_id ||
+                                record_it->second.placement.zone_id() != zone_entry.first)
+                            {
+                                return false;
+                            }
+
+                            ++indexed_entities;
+                        }
+                    }
+
+                    if (indexed_entities != records_.size())
+                    {
+                        return false;
+                    }
+
+                    for (const auto& record_entry : records_)
+                    {
+                        if (record_entry.first != record_entry.second.identity.entity_id)
+                        {
+                            return false;
+                        }
+
+                        const auto zone_it = zone_index_.find(
+                            record_entry.second.placement.zone_id());
+                        if (zone_it == zone_index_.end() ||
+                            zone_it->second.count(record_entry.first) != 1)
+                        {
+                            return false;
+                        }
+                    }
+
+                    return true;
+                }
+
                 [[nodiscard]] auto size() const noexcept -> std::size_t
                 {
                     return records_.size();
@@ -1138,7 +1273,13 @@ namespace mmo
                         modifiers.derived_delta);
 
                     const auto apply_percent = [](std::int32_t value, std::int32_t percent_delta) -> std::int32_t {
-                        return stat::scale(value, std::max<std::int32_t>(0, 100 + percent_delta), 100);
+                        const auto effective_percent = std::max<std::int64_t>(
+                            0,
+                            100 + static_cast<std::int64_t>(percent_delta));
+                        return numeric::scale_non_negative(
+                            value,
+                            static_cast<std::uint64_t>(effective_percent),
+                            100);
                     };
 
                     record.stats.current_derived.max_hp = apply_percent(record.stats.current_derived.max_hp, modifiers.max_hp_percent_delta);
@@ -1207,7 +1348,9 @@ namespace mmo
 
                         for (const auto& layer : instance.shield_layers)
                         {
-                            shield_percent += layer.absorb_percent_of_max_hp;
+                            shield_percent = numeric::saturating_add(
+                                shield_percent,
+                                layer.absorb_percent_of_max_hp);
                         }
 
                         if (shield_percent > 0)
@@ -1222,10 +1365,12 @@ namespace mmo
                                 30,
                                 100);
 
-                            record.resources.shield_current = std::clamp(
-                                record.resources.shield_current + shield_points,
-                                0,
-                                shield_cap);
+                            record.resources.shield_current = numeric::clamp_to_int32(
+                                std::clamp<std::int64_t>(
+                                    static_cast<std::int64_t>(record.resources.shield_current) +
+                                        shield_points,
+                                    0,
+                                    shield_cap));
                         }
                     }
 
@@ -1275,13 +1420,13 @@ namespace mmo
                         return modifiers;
                     }
 
-                    const auto positive_multiplier = 100 + modifiers.positive_effect_percent_delta;
+                    const auto positive_multiplier = static_cast<std::uint64_t>(
+                        100 + static_cast<std::int64_t>(modifiers.positive_effect_percent_delta));
 
                     const auto amplify_positive = [positive_multiplier](std::int32_t& value) -> void {
                         if (value > 0)
                         {
-                            value = static_cast<std::int32_t>(
-                                (static_cast<std::int64_t>(value) * positive_multiplier) / 100);
+                            value = numeric::scale_non_negative(value, positive_multiplier, 100);
                         }
                     };
 

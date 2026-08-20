@@ -80,7 +80,7 @@ namespace mmo
                     }
                 }
 
-                if (rule.required_zone_id.has_value() && context.record->placement.zone_id != rule.required_zone_id.value())
+                if (rule.required_zone_id.has_value() && context.record->placement.zone_id() != rule.required_zone_id.value())
                 {
                     return false;
                 }
