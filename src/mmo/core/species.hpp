@@ -118,7 +118,6 @@ namespace mmo
                 auto insert(const Definition& definition) -> bool
                 {
                     auto insert_result = definitions_.emplace(definition.species_id, definition);
-                    auto& it = insert_result.first;
                     const bool inserted = insert_result.second;
                     if (!inserted)
                     {

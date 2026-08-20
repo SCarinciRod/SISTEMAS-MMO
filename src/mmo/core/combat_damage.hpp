@@ -2,8 +2,10 @@
 
 #include <algorithm>
 #include <cstdint>
+#include <limits>
 
 #include "damage.hpp"
+#include "numeric.hpp"
 
 namespace mmo
 {
@@ -58,8 +60,10 @@ namespace mmo
                     const auto critical_multiplier =
                         std::max<std::int32_t>(100, profile.critical_multiplier_percent);
 
-                    incoming_damage = static_cast<std::int32_t>(
-                        (static_cast<std::int64_t>(incoming_damage) * critical_multiplier) / 100);
+                    incoming_damage = numeric::scale_non_negative(
+                        incoming_damage,
+                        static_cast<std::uint64_t>(critical_multiplier),
+                        100);
                 }
 
                 result.incoming_damage = incoming_damage;
@@ -68,16 +72,20 @@ namespace mmo
                     ? defense.physical_reduction_percent
                     : defense.magical_reduction_percent;
 
-                const auto effective_percent = std::max<std::int32_t>(
+                const auto effective_percent = std::max<std::int64_t>(
                     0,
-                    100 - reduction_percent + profile.packet.penetration_percent);
+                    100 - static_cast<std::int64_t>(reduction_percent) +
+                        profile.packet.penetration_percent);
 
-                auto mitigated_damage = static_cast<std::int32_t>(
-                    (static_cast<std::int64_t>(incoming_damage) * effective_percent) / 100);
+                auto mitigated_damage = numeric::scale_non_negative(
+                    incoming_damage,
+                    static_cast<std::uint64_t>(effective_percent),
+                    100);
 
-                mitigated_damage = std::max<std::int32_t>(
+                mitigated_damage = numeric::clamp_to_int32(std::clamp<std::int64_t>(
+                    static_cast<std::int64_t>(mitigated_damage) - defense.flat_reduction,
                     0,
-                    mitigated_damage - defense.flat_reduction);
+                    std::numeric_limits<std::int32_t>::max()));
 
                 result.mitigated_damage = mitigated_damage;
 

@@ -448,18 +448,19 @@ namespace mmo
                     return result;
                 }
 
+                // ItemId identifies a live instance. Reusing it is rejected atomically,
+                // even when the template could otherwise merge into an existing stack.
+                if (contains_item_id(inventory, incoming.item_id))
+                {
+                    result.status = AddStatus::duplicated_item_id;
+                    return result;
+                }
+
                 Inventory candidate = inventory;
 
                 if (!definition->stack.stackable)
                 {
                     incoming.quantity = 1;
-
-                    if (contains_item_id(candidate, incoming.item_id))
-                    {
-                        result.status = AddStatus::duplicated_item_id;
-                        result.quantity_remaining = incoming.quantity;
-                        return result;
-                    }
 
                     if (!has_slot_capacity_for_new_slot(candidate))
                     {
@@ -528,14 +529,6 @@ namespace mmo
 
                 if (remaining > 0)
                 {
-                    if (contains_item_id(candidate, incoming.item_id))
-                    {
-                        result.status = added > 0 ? AddStatus::partially_added : AddStatus::duplicated_item_id;
-                        result.quantity_added = added;
-                        result.quantity_remaining = remaining;
-                        return result;
-                    }
-
                     if (has_slot_capacity_for_new_slot(candidate))
                     {
                         auto new_stack = incoming;
@@ -552,7 +545,7 @@ namespace mmo
 
                 if (validation == ValidationIssue::weight_limit_exceeded)
                 {
-                    result.status = added > 0 ? AddStatus::partially_added : AddStatus::overweight;
+                    result.status = AddStatus::overweight;
                     result.quantity_added = 0;
                     result.quantity_remaining = incoming.quantity;
                     return result;
@@ -560,7 +553,7 @@ namespace mmo
 
                 if (validation == ValidationIssue::slot_limit_exceeded)
                 {
-                    result.status = added > 0 ? AddStatus::partially_added : AddStatus::full;
+                    result.status = AddStatus::full;
                     result.quantity_added = 0;
                     result.quantity_remaining = incoming.quantity;
                     return result;

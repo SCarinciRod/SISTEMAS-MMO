@@ -7,6 +7,7 @@
 #include <unordered_map>
 
 #include "damage.hpp"
+#include "numeric.hpp"
 
 namespace mmo
 {
@@ -98,9 +99,14 @@ namespace mmo
                 }
 
                 const auto resistance_percent = resistance_for(definition.resistance, packet.kind);
-                const auto effective_percent = std::max<std::int32_t>(0, 100 - resistance_percent + packet.penetration_percent);
-                const auto resolved_damage = (static_cast<std::int64_t>(packet.amount) * effective_percent) / 100;
-                return static_cast<std::int32_t>(std::max<std::int64_t>(resolved_damage, 0));
+                const auto effective_percent = std::max<std::int64_t>(
+                    0,
+                    100 - static_cast<std::int64_t>(resistance_percent) +
+                        packet.penetration_percent);
+                return numeric::scale_non_negative(
+                    packet.amount,
+                    static_cast<std::uint64_t>(effective_percent),
+                    100);
             }
 
             class Catalog

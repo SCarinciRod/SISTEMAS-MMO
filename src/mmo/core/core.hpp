@@ -16,6 +16,7 @@
 #include "error.hpp"
 #include "id.hpp"
 #include "material.hpp"
+#include "numeric.hpp"
 #include "recovery.hpp"
 #include "stat.hpp"
 #include "status.hpp"
@@ -25,4 +26,3 @@
 #include "zone.hpp"
 #include "time.hpp"
 #include "types.hpp"
-

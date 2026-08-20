@@ -5,6 +5,7 @@
 #include <cstdint>
 #include <optional>
 #include <limits>
+#include <string>
 #include <string_view>
 #include <unordered_map>
 #include <vector>
@@ -58,8 +59,8 @@ namespace mmo
             struct Identity
             {
                 id::ItemTemplateId item_template_id{ id::invalid_item_template_id };
-                std::string_view name{};
-                std::string_view description{};
+                std::string name{};
+                std::string description{};
             };
 
             struct StackRule

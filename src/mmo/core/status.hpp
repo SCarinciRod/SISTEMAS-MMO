@@ -3,12 +3,14 @@
 #include <algorithm>
 #include <chrono>
 #include <cstdint>
+#include <limits>
 #include <optional>
 #include <string_view>
 #include <unordered_map>
 #include <vector>
 
 #include "id.hpp"
+#include "numeric.hpp"
 #include "stat.hpp"
 #include "time.hpp"
 
@@ -158,6 +160,7 @@ namespace mmo
                 std::uint32_t stacks{ 1 };
                 time::TimePoint applied_at{};
                 std::optional<time::TimePoint> expires_at{};
+                std::optional<time::Milliseconds> tick_interval{};
                 std::optional<time::TimePoint> next_tick_at{};
                 std::optional<id::EntityId> source_entity_id{};
                 std::optional<id::SpeciesId> source_species_id{};
@@ -186,6 +189,13 @@ namespace mmo
             {
                 Modifiers modifiers{};
                 std::uint32_t shield_absorb_percent_of_max_hp{ 0 };
+            };
+
+            struct PeriodicTotals
+            {
+                std::int64_t health_delta{ 0 };
+                std::int64_t mana_delta{ 0 };
+                std::uint64_t applications{ 0 };
             };
 
             [[nodiscard]] inline auto make_instance(
@@ -229,8 +239,9 @@ namespace mmo
                     instance.expires_at = now + definition.duration.value();
                 }
 
-                if (definition.tick_interval.has_value())
+                if (definition.tick_interval.has_value() && definition.tick_interval->count() > 0)
                 {
+                    instance.tick_interval = definition.tick_interval;
                     instance.next_tick_at = now + definition.tick_interval.value();
                 }
 
@@ -248,7 +259,12 @@ namespace mmo
                 meter.kind = definition.kind;
                 meter.current = 0;
                 meter.threshold = std::max<std::uint32_t>(1, definition.build_up_threshold);
-                meter.capacity = std::max<std::uint32_t>(meter.threshold, (meter.threshold * std::max<std::uint32_t>(1, definition.build_up_cap_percent)) / 100);
+                meter.capacity = std::max(
+                    meter.threshold,
+                    numeric::scale_non_negative(
+                        meter.threshold,
+                        std::max<std::uint32_t>(1, definition.build_up_cap_percent),
+                        100));
                 meter.decay_per_second = definition.build_up_decay_per_second;
                 meter.decay_delay = definition.build_up_decay_delay;
                 meter.applied_at = now;
@@ -501,32 +517,32 @@ namespace mmo
                 Modifiers result = lhs;
                 result.primary_delta = stat::add(result.primary_delta, rhs.primary_delta);
                 result.derived_delta = stat::add(result.derived_delta, rhs.derived_delta);
-                result.health_delta_per_tick += rhs.health_delta_per_tick;
-                result.mana_delta_per_tick += rhs.mana_delta_per_tick;
-                result.max_hp_percent_delta += rhs.max_hp_percent_delta;
-                result.max_mana_percent_delta += rhs.max_mana_percent_delta;
-                result.attack_percent_delta += rhs.attack_percent_delta;
-                result.attack_speed_percent_delta += rhs.attack_speed_percent_delta;
-                result.magic_attack_percent_delta += rhs.magic_attack_percent_delta;
-                result.cast_speed_percent_delta += rhs.cast_speed_percent_delta;
-                result.defense_percent_delta += rhs.defense_percent_delta;
-                result.magic_defense_percent_delta += rhs.magic_defense_percent_delta;
-                result.crit_chance_percent_delta += rhs.crit_chance_percent_delta;
-                result.crit_resist_percent_delta += rhs.crit_resist_percent_delta;
-                result.magic_crit_percent_delta += rhs.magic_crit_percent_delta;
-                result.magic_crit_res_percent_delta += rhs.magic_crit_res_percent_delta;
-                result.move_speed_percent_delta += rhs.move_speed_percent_delta;
-                result.healing_received_percent_delta += rhs.healing_received_percent_delta;
-                result.natural_regen_percent_delta += rhs.natural_regen_percent_delta;
-                result.action_speed_percent_delta += rhs.action_speed_percent_delta;
-                result.recovery_time_percent_delta += rhs.recovery_time_percent_delta;
-                result.incoming_damage_percent_delta += rhs.incoming_damage_percent_delta;
-                result.incoming_physical_damage_percent_delta += rhs.incoming_physical_damage_percent_delta;
-                result.incoming_magical_damage_percent_delta += rhs.incoming_magical_damage_percent_delta;
-                result.incoming_build_up_percent_delta += rhs.incoming_build_up_percent_delta;
-                result.build_up_threshold_percent_delta += rhs.build_up_threshold_percent_delta;
-                result.build_up_decay_per_second_percent_delta += rhs.build_up_decay_per_second_percent_delta;
-                result.positive_effect_percent_delta += rhs.positive_effect_percent_delta;
+                result.health_delta_per_tick = numeric::saturating_add(result.health_delta_per_tick, rhs.health_delta_per_tick);
+                result.mana_delta_per_tick = numeric::saturating_add(result.mana_delta_per_tick, rhs.mana_delta_per_tick);
+                result.max_hp_percent_delta = numeric::saturating_add(result.max_hp_percent_delta, rhs.max_hp_percent_delta);
+                result.max_mana_percent_delta = numeric::saturating_add(result.max_mana_percent_delta, rhs.max_mana_percent_delta);
+                result.attack_percent_delta = numeric::saturating_add(result.attack_percent_delta, rhs.attack_percent_delta);
+                result.attack_speed_percent_delta = numeric::saturating_add(result.attack_speed_percent_delta, rhs.attack_speed_percent_delta);
+                result.magic_attack_percent_delta = numeric::saturating_add(result.magic_attack_percent_delta, rhs.magic_attack_percent_delta);
+                result.cast_speed_percent_delta = numeric::saturating_add(result.cast_speed_percent_delta, rhs.cast_speed_percent_delta);
+                result.defense_percent_delta = numeric::saturating_add(result.defense_percent_delta, rhs.defense_percent_delta);
+                result.magic_defense_percent_delta = numeric::saturating_add(result.magic_defense_percent_delta, rhs.magic_defense_percent_delta);
+                result.crit_chance_percent_delta = numeric::saturating_add(result.crit_chance_percent_delta, rhs.crit_chance_percent_delta);
+                result.crit_resist_percent_delta = numeric::saturating_add(result.crit_resist_percent_delta, rhs.crit_resist_percent_delta);
+                result.magic_crit_percent_delta = numeric::saturating_add(result.magic_crit_percent_delta, rhs.magic_crit_percent_delta);
+                result.magic_crit_res_percent_delta = numeric::saturating_add(result.magic_crit_res_percent_delta, rhs.magic_crit_res_percent_delta);
+                result.move_speed_percent_delta = numeric::saturating_add(result.move_speed_percent_delta, rhs.move_speed_percent_delta);
+                result.healing_received_percent_delta = numeric::saturating_add(result.healing_received_percent_delta, rhs.healing_received_percent_delta);
+                result.natural_regen_percent_delta = numeric::saturating_add(result.natural_regen_percent_delta, rhs.natural_regen_percent_delta);
+                result.action_speed_percent_delta = numeric::saturating_add(result.action_speed_percent_delta, rhs.action_speed_percent_delta);
+                result.recovery_time_percent_delta = numeric::saturating_add(result.recovery_time_percent_delta, rhs.recovery_time_percent_delta);
+                result.incoming_damage_percent_delta = numeric::saturating_add(result.incoming_damage_percent_delta, rhs.incoming_damage_percent_delta);
+                result.incoming_physical_damage_percent_delta = numeric::saturating_add(result.incoming_physical_damage_percent_delta, rhs.incoming_physical_damage_percent_delta);
+                result.incoming_magical_damage_percent_delta = numeric::saturating_add(result.incoming_magical_damage_percent_delta, rhs.incoming_magical_damage_percent_delta);
+                result.incoming_build_up_percent_delta = numeric::saturating_add(result.incoming_build_up_percent_delta, rhs.incoming_build_up_percent_delta);
+                result.build_up_threshold_percent_delta = numeric::saturating_add(result.build_up_threshold_percent_delta, rhs.build_up_threshold_percent_delta);
+                result.build_up_decay_per_second_percent_delta = numeric::saturating_add(result.build_up_decay_per_second_percent_delta, rhs.build_up_decay_per_second_percent_delta);
+                result.positive_effect_percent_delta = numeric::saturating_add(result.positive_effect_percent_delta, rhs.positive_effect_percent_delta);
                 result.suppress_movement = result.suppress_movement || rhs.suppress_movement;
                 result.suppress_skill_usage = result.suppress_skill_usage || rhs.suppress_skill_usage;
                 result.suppress_action_execution = result.suppress_action_execution || rhs.suppress_action_execution;
@@ -534,8 +550,54 @@ namespace mmo
                 result.break_on_magical_hit = result.break_on_magical_hit || rhs.break_on_magical_hit;
                 result.guaranteed_critical_hit = result.guaranteed_critical_hit || rhs.guaranteed_critical_hit;
                 result.negative_status_immunity = result.negative_status_immunity || rhs.negative_status_immunity;
-                result.break_damage_bonus_percent += rhs.break_damage_bonus_percent;
+                result.break_damage_bonus_percent = numeric::saturating_add(result.break_damage_bonus_percent, rhs.break_damage_bonus_percent);
                 return result;
+            }
+
+            inline auto accumulate_periodic_delta(
+                std::int64_t& total,
+                std::int32_t delta,
+                std::uint64_t applications) -> void
+            {
+                if (delta == 0 || applications == 0)
+                {
+                    return;
+                }
+
+                const auto signed_delta = static_cast<std::int64_t>(delta);
+                const auto magnitude = static_cast<std::uint64_t>(
+                    signed_delta < 0 ? -signed_delta : signed_delta);
+                const auto maximum = std::numeric_limits<std::int64_t>::max();
+
+                std::int64_t contribution{};
+                if (applications > static_cast<std::uint64_t>(maximum) / magnitude)
+                {
+                    contribution = signed_delta < 0
+                        ? std::numeric_limits<std::int64_t>::min()
+                        : maximum;
+                }
+                else
+                {
+                    contribution = static_cast<std::int64_t>(magnitude * applications);
+                    if (signed_delta < 0)
+                    {
+                        contribution = -contribution;
+                    }
+                }
+
+                if (contribution > 0 && total > maximum - contribution)
+                {
+                    total = maximum;
+                }
+                else if (contribution < 0 &&
+                         total < std::numeric_limits<std::int64_t>::min() - contribution)
+                {
+                    total = std::numeric_limits<std::int64_t>::min();
+                }
+                else
+                {
+                    total += contribution;
+                }
             }
 
             [[nodiscard]] inline auto make_poison_definition() -> Definition
@@ -815,9 +877,14 @@ namespace mmo
 
                         if (instance.stacking_mode == StackingMode::stack)
                         {
-                            current.stacks = std::clamp(current.stacks + instance.stacks, 1u, instance.max_stacks);
+                            const auto maximum_stacks = std::max(1u, instance.max_stacks);
+                            current.stacks = std::clamp(
+                                numeric::saturating_add(current.stacks, instance.stacks),
+                                1u,
+                                maximum_stacks);
                             current.applied_at = instance.applied_at;
                             current.expires_at = instance.expires_at;
+                            current.tick_interval = instance.tick_interval;
                             current.next_tick_at = instance.next_tick_at;
                             current.source_entity_id = instance.source_entity_id;
                             current.source_species_id = instance.source_species_id;
@@ -834,6 +901,7 @@ namespace mmo
                         current.stacks = std::max(current.stacks, instance.stacks);
                         current.applied_at = instance.applied_at;
                         current.expires_at = instance.expires_at;
+                        current.tick_interval = instance.tick_interval;
                         current.next_tick_at = instance.next_tick_at;
                         current.source_entity_id = instance.source_entity_id;
                         current.source_species_id = instance.source_species_id;
@@ -866,10 +934,19 @@ namespace mmo
                     auto meter = ensure_meter(definition, now, source_entity_id, source_species_id, source_template_id);
                     advance_meter(meter, now, build_up_decay_per_second_percent_delta);
 
-                    const auto safe_threshold_percent = std::max<std::int32_t>(0, 100 + build_up_threshold_percent_delta);
-                    const auto effective_threshold = std::max<std::uint32_t>(1, static_cast<std::uint32_t>((meter.threshold * safe_threshold_percent) / 100));
+                    const auto safe_threshold_percent = static_cast<std::uint64_t>(
+                        std::max<std::int64_t>(
+                            0,
+                            100 + static_cast<std::int64_t>(build_up_threshold_percent_delta)));
+                    const auto effective_threshold = std::max<std::uint32_t>(
+                        1,
+                        static_cast<std::uint32_t>(std::min<std::uint64_t>(
+                            std::numeric_limits<std::uint32_t>::max(),
+                            (static_cast<std::uint64_t>(meter.threshold) * safe_threshold_percent) / 100)));
 
-                    meter.current = std::min(meter.capacity, meter.current + amount);
+                    meter.current = std::min(
+                        meter.capacity,
+                        numeric::saturating_add(meter.current, amount));
                     meter.last_updated_at = now;
 
                     if (meter.current < effective_threshold)
@@ -1012,6 +1089,66 @@ namespace mmo
                     return !removed_instances.empty() || decay_changed;
                 }
 
+                [[nodiscard]] auto consume_periodic(time::TimePoint now) -> PeriodicTotals
+                {
+                    PeriodicTotals totals{};
+
+                    for (auto& instance : instances_)
+                    {
+                        if (!instance.tick_interval.has_value() ||
+                            instance.tick_interval->count() <= 0 ||
+                            !instance.next_tick_at.has_value())
+                        {
+                            continue;
+                        }
+
+                        const auto tick_limit = instance.expires_at.has_value()
+                            ? std::min(now, *instance.expires_at)
+                            : now;
+
+                        if (*instance.next_tick_at > tick_limit)
+                        {
+                            continue;
+                        }
+
+                        const auto elapsed = std::chrono::duration_cast<time::Milliseconds>(
+                            tick_limit - *instance.next_tick_at);
+                        const auto applications = static_cast<std::uint64_t>(
+                            elapsed.count() / instance.tick_interval->count()) + 1;
+
+                        auto effective_modifiers = instance.modifiers;
+                        for (const auto& stage : instance.stack_stages)
+                        {
+                            if (instance.stacks >= stage.minimum_stacks)
+                            {
+                                effective_modifiers = add_modifiers(
+                                    effective_modifiers,
+                                    stage.modifiers);
+                            }
+                        }
+
+                        accumulate_periodic_delta(
+                            totals.health_delta,
+                            effective_modifiers.health_delta_per_tick,
+                            applications);
+                        accumulate_periodic_delta(
+                            totals.mana_delta,
+                            effective_modifiers.mana_delta_per_tick,
+                            applications);
+                        if (applications > std::numeric_limits<std::uint64_t>::max() - totals.applications)
+                        {
+                            totals.applications = std::numeric_limits<std::uint64_t>::max();
+                        }
+                        else
+                        {
+                            totals.applications += applications;
+                        }
+                        *instance.next_tick_at += *instance.tick_interval * applications;
+                    }
+
+                    return totals;
+                }
+
                 [[nodiscard]] auto aggregate() const -> Totals
                 {
                     Totals totals{};
@@ -1023,7 +1160,9 @@ namespace mmo
                         {
                             for (const auto& layer : instance.shield_layers)
                             {
-                                totals.shield_absorb_percent_of_max_hp += layer.absorb_percent_of_max_hp;
+                                totals.shield_absorb_percent_of_max_hp = numeric::saturating_add(
+                                    totals.shield_absorb_percent_of_max_hp,
+                                    layer.absorb_percent_of_max_hp);
                                 shield_layers.push_back(&layer);
                             }
 
@@ -1124,7 +1263,12 @@ namespace mmo
 
                     auto& meter = *meter_it;
                     meter.threshold = std::max<std::uint32_t>(1, definition.build_up_threshold);
-                    meter.capacity = std::max<std::uint32_t>(meter.threshold, (meter.threshold * std::max<std::uint32_t>(1, definition.build_up_cap_percent)) / 100);
+                    meter.capacity = std::max(
+                        meter.threshold,
+                        numeric::scale_non_negative(
+                            meter.threshold,
+                            std::max<std::uint32_t>(1, definition.build_up_cap_percent),
+                            100));
                     meter.decay_per_second = definition.build_up_decay_per_second;
                     meter.decay_delay = definition.build_up_decay_delay;
                     meter.source_entity_id = source_entity_id;
@@ -1148,9 +1292,24 @@ namespace mmo
                     }
 
                     const auto decay_window = elapsed - meter.decay_delay.value();
-                    const auto safe_decay_percent = std::max<std::int32_t>(0, 100 + build_up_decay_per_second_percent_delta);
-                    const auto effective_decay_per_second = static_cast<std::uint32_t>((meter.decay_per_second * safe_decay_percent) / 100);
-                    const auto decay_amount = static_cast<std::uint32_t>((decay_window.count() * effective_decay_per_second) / 1000);
+                    const auto safe_decay_percent = static_cast<std::uint64_t>(
+                        std::max<std::int64_t>(
+                            0,
+                            100 + static_cast<std::int64_t>(build_up_decay_per_second_percent_delta)));
+                    const auto effective_decay_per_second = std::min<std::uint64_t>(
+                        std::numeric_limits<std::uint32_t>::max(),
+                        (static_cast<std::uint64_t>(meter.decay_per_second) * safe_decay_percent) / 100);
+                    const auto decay_window_milliseconds = static_cast<std::uint64_t>(
+                        decay_window.count());
+                    const auto maximum_decay = static_cast<std::uint64_t>(
+                        std::numeric_limits<std::uint32_t>::max());
+                    const auto maximum_window_before_saturation = effective_decay_per_second == 0
+                        ? std::numeric_limits<std::uint64_t>::max()
+                        : (maximum_decay * 1000) / effective_decay_per_second;
+                    const auto decay_amount = decay_window_milliseconds > maximum_window_before_saturation
+                        ? std::numeric_limits<std::uint32_t>::max()
+                        : static_cast<std::uint32_t>(
+                            (decay_window_milliseconds * effective_decay_per_second) / 1000);
                     if (decay_amount == 0)
                     {
                         return false;
