@@ -9,7 +9,6 @@
 #include "mmo/core/config.hpp"
 #include "mmo/core/item.hpp"
 #include "mmo/core/logger.hpp"
-#include "mmo/core/runtime.hpp"
 #include "mmo/core/time.hpp"
 #include "mmo/world/world.hpp"
 
@@ -33,7 +32,9 @@ namespace mmo
             std::uint64_t events_applied{ 0 };
             std::uint64_t events_queued{ 0 };
             std::uint64_t events_rejected{ 0 };
+            std::uint64_t active_zone_ticks{ 0 };
             std::uint64_t entities_processed{ 0 };
+            std::uint64_t entities_skipped{ 0 };
             std::uint64_t load_recalculations{ 0 };
             std::uint64_t late_ticks{ 0 };
             std::uint64_t ticks_skipped{ 0 };
@@ -83,7 +84,9 @@ namespace mmo
             loop_stats.events_applied += tick_stats.events_applied;
             loop_stats.events_queued += tick_stats.events_queued;
             loop_stats.events_rejected += tick_stats.events_rejected;
+            loop_stats.active_zone_ticks += tick_stats.active_zones;
             loop_stats.entities_processed += tick_stats.entities_considered;
+            loop_stats.entities_skipped += tick_stats.entities_skipped;
             loop_stats.load_recalculations += tick_stats.load_recalculations;
             loop_stats.status_sweeps += tick_stats.status_sweeps;
             loop_stats.status_changes += tick_stats.status_changes;
@@ -135,7 +138,7 @@ namespace mmo
 
         // Main tick loop: events, entity updates, and status processing per tick.
         [[nodiscard]] inline auto run_loop(
-            core::runtime::World& world,
+            mmo::world::World& world,
             const core::item::Catalog& catalog,
             const LoopConfig& config,
             core::log::Logger& logger) -> LoopStats

@@ -4,6 +4,7 @@
 #include <chrono>
 #include <cstddef>
 #include <cstdint>
+#include <map>
 #include <optional>
 #include "experience.hpp"
 #include "item.hpp"
@@ -13,8 +14,7 @@
 #include "status.hpp"
 #include "time.hpp"
 #include <string_view>
-#include <unordered_map>
-#include <unordered_set>
+#include <set>
 #include <vector>
 #include "id.hpp"
 #include "action.hpp"
@@ -24,6 +24,11 @@
 
 namespace mmo
 {
+    namespace world
+    {
+        struct World;
+    }
+
     namespace core
     {
         namespace entity
@@ -349,8 +354,8 @@ namespace mmo
                 }
 
             private:
-                std::unordered_map<id::EntityTemplateId, Blueprint> blueprints_;
-                std::unordered_map<id::SpeciesId, std::vector<id::EntityTemplateId>> species_index_;
+                std::map<id::EntityTemplateId, Blueprint> blueprints_;
+                std::map<id::SpeciesId, std::vector<id::EntityTemplateId>> species_index_;
 
                 auto unlink_from_species(id::SpeciesId species_id, id::EntityTemplateId template_id) -> void
                 {
@@ -380,7 +385,9 @@ namespace mmo
 
             class Table
             {
-            public:
+            private:
+                friend struct mmo::world::World;
+
                 auto spawn(
                     id::EntityId entity_id,
                     const Blueprint& blueprint,
@@ -446,6 +453,7 @@ namespace mmo
                     return true;
                 }
 
+            public:
                 [[nodiscard]] auto find(id::EntityId entity_id) -> Record*
                 {
                     auto record_it = records_.find(entity_id);
@@ -468,6 +476,7 @@ namespace mmo
                     return &record_it->second;
                 }
 
+            private:
                 auto move_to_zone(id::EntityId entity_id, id::ZoneId zone_id) -> bool
                 {
                     if (zone_id == id::invalid_zone_id)
@@ -493,6 +502,7 @@ namespace mmo
                     return true;
                 }
 
+            public:
                 auto mark_damage(id::EntityId entity_id, time::TimePoint when) -> bool
                 {
                     auto record_it = records_.find(entity_id);
@@ -931,7 +941,9 @@ namespace mmo
 
                 [[nodiscard]] auto process_periodic_statuses(
                     id::EntityId entity_id,
-                    time::TimePoint now) -> PeriodicStatusResult
+                    time::TimePoint now,
+                    std::uint64_t max_applications_per_status =
+                        std::numeric_limits<std::uint64_t>::max()) -> PeriodicStatusResult
                 {
                     PeriodicStatusResult result{};
                     auto record_it = records_.find(entity_id);
@@ -942,7 +954,9 @@ namespace mmo
 
                     result.entity_found = true;
                     auto& record = record_it->second;
-                    const auto totals = record.combat.status_effects.consume_periodic(now);
+                    const auto totals = record.combat.status_effects.consume_periodic(
+                        now,
+                        max_applications_per_status);
                     result.applications = totals.applications;
 
                     auto remaining_health_delta = totals.health_delta;
@@ -1268,8 +1282,8 @@ namespace mmo
                 }
 
             private:
-                std::unordered_map<id::EntityId, Record> records_;
-                std::unordered_map<id::ZoneId, std::unordered_set<id::EntityId>> zone_index_;
+                std::map<id::EntityId, Record> records_;
+                std::map<id::ZoneId, std::set<id::EntityId>> zone_index_;
 
                 auto adjust_health_record(
                     Record& record,

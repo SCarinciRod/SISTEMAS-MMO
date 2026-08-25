@@ -18,12 +18,14 @@ namespace
         return mmo::core::time::TimePoint{};
     }
 
-    auto make_blueprint() -> mmo::core::entity::Blueprint
+    auto make_blueprint(
+        mmo::core::entity::Type type = mmo::core::entity::Type::player)
+        -> mmo::core::entity::Blueprint
     {
         mmo::core::entity::Blueprint blueprint{};
         blueprint.template_id = static_cast<mmo::core::id::EntityTemplateId>(1);
         blueprint.species_id = static_cast<mmo::core::id::SpeciesId>(1);
-        blueprint.type = mmo::core::entity::Type::player;
+        blueprint.type = type;
         blueprint.display_name = "Simulation Entity";
         blueprint.base_primary = mmo::core::stat::Primary{ 12, 12, 8, 6, 5, 7, 4 };
         blueprint.level = 1;
@@ -31,17 +33,18 @@ namespace
     }
 
     auto spawn_entity(
-        mmo::core::runtime::World& world,
+        mmo::world::World& world,
         mmo::core::id::EntityId entity_id,
-        mmo::core::id::ZoneId zone_id = static_cast<mmo::core::id::ZoneId>(1)) -> void
+        mmo::core::id::ZoneId zone_id = static_cast<mmo::core::id::ZoneId>(1),
+        mmo::core::entity::Type type = mmo::core::entity::Type::player) -> void
     {
         test::require(
-            world.entities.spawn(entity_id, make_blueprint(), zone_id, epoch()),
+            world.spawn_entity(entity_id, make_blueprint(type), zone_id, epoch()),
             "simulation entity should spawn");
     }
 
     auto apply_poison(
-        mmo::core::runtime::World& world,
+        mmo::world::World& world,
         mmo::core::id::EntityId entity_id) -> void
     {
         const auto poison = mmo::core::status::make_instance(
@@ -62,7 +65,9 @@ namespace
         totals.events_applied += tick.events_applied;
         totals.events_queued += tick.events_queued;
         totals.events_rejected += tick.events_rejected;
+        totals.active_zones += tick.active_zones;
         totals.entities_considered += tick.entities_considered;
+        totals.entities_skipped += tick.entities_skipped;
         totals.load_recalculations += tick.load_recalculations;
         totals.status_sweeps += tick.status_sweeps;
         totals.status_changes += tick.status_changes;
@@ -78,7 +83,9 @@ namespace
         test::require_equal(expected.events_applied, actual.events_applied, std::string(label).append(" events applied"));
         test::require_equal(expected.events_queued, actual.events_queued, std::string(label).append(" events queued"));
         test::require_equal(expected.events_rejected, actual.events_rejected, std::string(label).append(" events rejected"));
+        test::require_equal(expected.active_zones, actual.active_zones, std::string(label).append(" active zones"));
         test::require_equal(expected.entities_considered, actual.entities_considered, std::string(label).append(" entities considered"));
+        test::require_equal(expected.entities_skipped, actual.entities_skipped, std::string(label).append(" entities skipped"));
         test::require_equal(expected.load_recalculations, actual.load_recalculations, std::string(label).append(" load recalculations"));
         test::require_equal(expected.status_sweeps, actual.status_sweeps, std::string(label).append(" status sweeps"));
         test::require_equal(expected.status_changes, actual.status_changes, std::string(label).append(" status changes"));
@@ -89,8 +96,8 @@ namespace
     }
 
     auto require_equivalent_worlds(
-        const mmo::core::runtime::World& expected,
-        const mmo::core::runtime::World& actual,
+        const mmo::world::World& expected,
+        const mmo::world::World& actual,
         std::uint32_t zone_count) -> void
     {
         const auto expected_ids = mmo::world::list_entity_ids_in_simulation_order(expected);
@@ -144,8 +151,21 @@ namespace
             const auto* actual_zone = actual.zones.get(zone_id);
             test::require(expected_zone != nullptr && actual_zone != nullptr, "equivalent zone should exist");
             test::require_equal(expected_zone->last_tick, actual_zone->last_tick, "zone last tick");
-            test::require_equal(expected_zone->active, actual_zone->active, "zone active state");
+            test::require_equal(
+                expected_zone->wake_requested,
+                actual_zone->wake_requested,
+                "zone explicit wake state");
+            test::require_equal(expected_zone->player_count, actual_zone->player_count, "zone player count");
+            test::require_equal(expected_zone->entity_count, actual_zone->entity_count, "zone entity count");
+            test::require_equal(
+                expected_zone->is_active(),
+                actual_zone->is_active(),
+                "zone active state");
         }
+
+        test::require(
+            expected.active_zone_ids() == actual.active_zone_ids(),
+            "active zone indexes should match");
 
         test::require_equal(expected.scheduler.size(), actual.scheduler.size(), "pending event count");
         test::require_equal(expected.event_outbox.size(), actual.event_outbox.size(), "event outbox size");
@@ -161,7 +181,7 @@ namespace
 
     auto test_empty_tick(std::string& details) -> void
     {
-        mmo::core::runtime::World world{};
+        mmo::world::World world{};
         const mmo::core::item::Catalog items{};
         const auto stats = mmo::world::step(
             world,
@@ -177,7 +197,7 @@ namespace
 
     auto test_due_event_exactly_once(std::string& details) -> void
     {
-        mmo::core::runtime::World world{};
+        mmo::world::World world{};
         const mmo::core::item::Catalog items{};
         mmo::core::event::Event event{};
         event.type = mmo::core::event::Type::region_notice;
@@ -205,7 +225,7 @@ namespace
 
     auto test_future_event_remains_pending(std::string& details) -> void
     {
-        mmo::core::runtime::World world{};
+        mmo::world::World world{};
         const mmo::core::item::Catalog items{};
         mmo::core::event::Event event{};
         event.type = mmo::core::event::Type::region_notice;
@@ -225,7 +245,7 @@ namespace
 
     auto test_dirty_load_recalculates_once(std::string& details) -> void
     {
-        mmo::core::runtime::World world{};
+        mmo::world::World world{};
         const mmo::core::item::Catalog items{};
         spawn_entity(world, static_cast<mmo::core::id::EntityId>(1));
 
@@ -248,7 +268,7 @@ namespace
 
     auto test_periodic_status_cadence(std::string& details) -> void
     {
-        mmo::core::runtime::World world{};
+        mmo::world::World world{};
         const mmo::core::item::Catalog items{};
         constexpr auto entity_id = static_cast<mmo::core::id::EntityId>(1);
         spawn_entity(world, entity_id);
@@ -280,7 +300,7 @@ namespace
 
     auto test_periodic_resource_invariants(std::string& details) -> void
     {
-        mmo::core::runtime::World world{};
+        mmo::world::World world{};
         const mmo::core::item::Catalog items{};
         constexpr auto entity_id = static_cast<mmo::core::id::EntityId>(1);
         spawn_entity(world, entity_id);
@@ -318,7 +338,7 @@ namespace
 
     auto test_status_expiration_boundary(std::string& details) -> void
     {
-        mmo::core::runtime::World world{};
+        mmo::world::World world{};
         const mmo::core::item::Catalog items{};
         constexpr auto entity_id = static_cast<mmo::core::id::EntityId>(1);
         spawn_entity(world, entity_id);
@@ -354,8 +374,8 @@ namespace
 
     auto test_canonical_entity_traversal(std::string& details) -> void
     {
-        mmo::core::runtime::World first{};
-        mmo::core::runtime::World second{};
+        mmo::world::World first{};
+        mmo::world::World second{};
         const mmo::core::item::Catalog items{};
         for (const auto id : { 30u, 10u, 20u })
         {
@@ -381,9 +401,9 @@ namespace
     }
 
     auto build_repeated_world(const std::vector<mmo::core::id::EntityId>& ids)
-        -> mmo::core::runtime::World
+        -> mmo::world::World
     {
-        mmo::core::runtime::World world{};
+        mmo::world::World world{};
         for (const auto entity_id : ids)
         {
             const auto zone_id = static_cast<mmo::core::id::ZoneId>((entity_id % 4) + 1);
@@ -449,6 +469,280 @@ namespace
         test::require_equal(static_cast<std::size_t>(1), first.scheduler.size(), "future event remains");
         details = "worlds=2 entities_per_world=128 ticks=100 entity_considerations=25600";
     }
+
+    auto test_authoritative_spatial_mutations(std::string& details) -> void
+    {
+        mmo::world::World world{};
+        constexpr auto player_id = static_cast<mmo::core::id::EntityId>(10);
+        constexpr auto monster_id = static_cast<mmo::core::id::EntityId>(20);
+        constexpr auto first_zone = static_cast<mmo::core::id::ZoneId>(10);
+        constexpr auto second_zone = static_cast<mmo::core::id::ZoneId>(20);
+
+        spawn_entity(
+            world,
+            monster_id,
+            second_zone,
+            mmo::core::entity::Type::monster);
+        spawn_entity(world, player_id, first_zone);
+
+        const auto* first = world.zones.get(first_zone);
+        const auto* second = world.zones.get(second_zone);
+        test::require(first != nullptr && second != nullptr, "spawned zones should exist");
+        test::require_equal(static_cast<std::uint64_t>(1), first->entity_count, "first zone entities");
+        test::require_equal(static_cast<std::uint64_t>(1), first->player_count, "first zone players");
+        test::require(first->is_active(), "player zone should be active");
+        test::require(!second->is_active(), "monster-only zone should sleep");
+        test::require(world.has_consistent_spatial_state(), "spawned spatial state");
+
+        test::require(
+            world.move_entity_to_zone(player_id, second_zone, epoch()),
+            "player migration should succeed");
+        first = world.zones.get(first_zone);
+        second = world.zones.get(second_zone);
+        test::require(first != nullptr && second != nullptr, "migrated zones should exist");
+        test::require_equal(static_cast<std::uint64_t>(0), first->entity_count, "source entities after move");
+        test::require(!first->is_active(), "empty source zone should sleep");
+        test::require_equal(static_cast<std::uint64_t>(2), second->entity_count, "destination entities after move");
+        test::require_equal(static_cast<std::uint64_t>(1), second->player_count, "destination players after move");
+        test::require(second->is_active(), "destination with player should be active");
+        test::require(world.has_consistent_spatial_state(), "migrated spatial state");
+
+        test::require(world.erase_entity(player_id, epoch()), "player erase should succeed");
+        second = world.zones.get(second_zone);
+        test::require(second != nullptr, "destination zone should remain known");
+        test::require_equal(static_cast<std::uint64_t>(1), second->entity_count, "destination entities after erase");
+        test::require_equal(static_cast<std::uint64_t>(0), second->player_count, "destination players after erase");
+        test::require(!second->is_active(), "monster-only destination should sleep again");
+        test::require(world.active_zone_ids().empty(), "no active zones should remain");
+        test::require(world.has_consistent_spatial_state(), "erased spatial state");
+        details = "spawn/move/erase populations consistent; active_zones=0";
+    }
+
+    auto test_sparse_active_set(std::string& details) -> void
+    {
+        mmo::world::World world{};
+        const mmo::core::item::Catalog items{};
+        constexpr auto active_zone = static_cast<mmo::core::id::ZoneId>(1);
+        constexpr auto sleeping_zone = static_cast<mmo::core::id::ZoneId>(2);
+        spawn_entity(world, static_cast<mmo::core::id::EntityId>(100), active_zone);
+        spawn_entity(
+            world,
+            static_cast<mmo::core::id::EntityId>(1),
+            sleeping_zone,
+            mmo::core::entity::Type::monster);
+
+        const auto stats = mmo::world::step(
+            world,
+            items,
+            mmo::world::TickContext{ 7, epoch() });
+
+        test::require_equal(static_cast<std::uint64_t>(1), stats.active_zones, "active zone count");
+        test::require_equal(static_cast<std::uint64_t>(1), stats.entities_considered, "active entities");
+        test::require_equal(static_cast<std::uint64_t>(1), stats.entities_skipped, "sleeping entities");
+        test::require_equal(static_cast<std::uint64_t>(1), stats.status_sweeps, "active status sweeps");
+        test::require_equal(
+            static_cast<mmo::core::time::TickCount>(7),
+            world.zones.get(active_zone)->last_tick,
+            "active zone tick");
+        test::require_equal(
+            static_cast<mmo::core::time::TickCount>(0),
+            world.zones.get(sleeping_zone)->last_tick,
+            "sleeping zone tick");
+        details = "known=2 active=1 considered=1 skipped=1";
+    }
+
+    auto test_canonical_active_order(std::string& details) -> void
+    {
+        mmo::world::World first{};
+        mmo::world::World second{};
+        constexpr auto first_zone = static_cast<mmo::core::id::ZoneId>(10);
+        constexpr auto second_zone = static_cast<mmo::core::id::ZoneId>(20);
+
+        spawn_entity(first, 30, first_zone, mmo::core::entity::Type::monster);
+        spawn_entity(first, 20, first_zone);
+        spawn_entity(first, 1, second_zone);
+
+        spawn_entity(second, 1, second_zone);
+        spawn_entity(second, 20, first_zone);
+        spawn_entity(second, 30, first_zone, mmo::core::entity::Type::monster);
+
+        const std::vector<mmo::core::id::EntityId> expected{ 20, 30, 1 };
+        test::require(
+            mmo::world::list_active_entity_ids_in_simulation_order(first) == expected,
+            "first active order should be zone/entity canonical");
+        test::require(
+            mmo::world::list_active_entity_ids_in_simulation_order(second) == expected,
+            "second active order should ignore insertion order");
+        details = "canonical_order=(zone 10: 20,30),(zone 20: 1)";
+    }
+
+    auto test_wake_and_sleep_events_change_same_tick_set(std::string& details) -> void
+    {
+        mmo::world::World world{};
+        const mmo::core::item::Catalog items{};
+        constexpr auto zone_id = static_cast<mmo::core::id::ZoneId>(5);
+        spawn_entity(
+            world,
+            static_cast<mmo::core::id::EntityId>(1),
+            zone_id,
+            mmo::core::entity::Type::monster);
+
+        mmo::core::event::Event wake{};
+        wake.type = mmo::core::event::Type::zone_wake;
+        wake.due_at = epoch();
+        wake.zone_id = zone_id;
+        test::require(world.scheduler.try_schedule(wake), "wake event should schedule");
+        const auto awake = mmo::world::step(
+            world,
+            items,
+            mmo::world::TickContext{ 4, epoch() });
+        test::require_equal(static_cast<std::uint64_t>(1), awake.events_applied, "wake applied");
+        test::require_equal(static_cast<std::uint64_t>(1), awake.entities_considered, "wake same tick entity");
+        test::require(world.should_tick_full(zone_id), "woken zone should be active");
+
+        auto sleep = wake;
+        sleep.type = mmo::core::event::Type::zone_sleep;
+        sleep.due_at = epoch() + mmo::core::time::Milliseconds{ 1 };
+        test::require(world.scheduler.try_schedule(sleep), "sleep event should schedule");
+        const auto asleep = mmo::world::step(
+            world,
+            items,
+            mmo::world::TickContext{ 5, sleep.due_at });
+        test::require_equal(static_cast<std::uint64_t>(1), asleep.events_applied, "sleep applied");
+        test::require_equal(static_cast<std::uint64_t>(0), asleep.entities_considered, "sleep same tick entity");
+        test::require_equal(static_cast<std::uint64_t>(1), asleep.entities_skipped, "sleep skipped entity");
+        test::require(!world.should_tick_full(zone_id), "slept zone should be inactive");
+        details = "wake considered=1; sleep considered=0";
+    }
+
+    auto test_player_rejects_sleep(std::string& details) -> void
+    {
+        mmo::world::World world{};
+        const mmo::core::item::Catalog items{};
+        constexpr auto zone_id = static_cast<mmo::core::id::ZoneId>(6);
+        spawn_entity(world, static_cast<mmo::core::id::EntityId>(1), zone_id);
+
+        mmo::core::event::Event sleep{};
+        sleep.type = mmo::core::event::Type::zone_sleep;
+        sleep.due_at = epoch();
+        sleep.zone_id = zone_id;
+        test::require(world.scheduler.try_schedule(sleep), "player-zone sleep should schedule");
+        const auto stats = mmo::world::step(
+            world,
+            items,
+            mmo::world::TickContext{ 1, epoch() });
+
+        test::require_equal(static_cast<std::uint64_t>(1), stats.events_rejected, "sleep rejection");
+        test::require_equal(static_cast<std::size_t>(1), world.rejected_events.size(), "rejected outbox");
+        test::require_equal(static_cast<std::uint64_t>(1), stats.entities_considered, "player zone remains active");
+        test::require(world.should_tick_full(zone_id), "player must keep zone active");
+        details = "sleep_rejected=1 active_entities=1";
+    }
+
+    auto test_sleep_wake_status_catch_up_is_bounded(std::string& details) -> void
+    {
+        mmo::world::World world{};
+        const mmo::core::item::Catalog items{};
+        constexpr auto entity_id = static_cast<mmo::core::id::EntityId>(1);
+        constexpr auto zone_id = static_cast<mmo::core::id::ZoneId>(7);
+        spawn_entity(world, entity_id, zone_id, mmo::core::entity::Type::monster);
+        apply_poison(world, entity_id);
+        const auto initial_health = world.entities.find(entity_id)->resources.health_current;
+
+        const auto sleeping = mmo::world::step(
+            world,
+            items,
+            mmo::world::TickContext{
+                159,
+                epoch() + mmo::core::time::Milliseconds{ 7999 }
+            });
+        test::require_equal(static_cast<std::uint64_t>(0), sleeping.status_periodic_applications, "sleeping periodic work");
+        test::require_equal(static_cast<std::uint64_t>(1), sleeping.entities_skipped, "sleeping status entity");
+
+        mmo::core::event::Event wake{};
+        wake.type = mmo::core::event::Type::zone_wake;
+        wake.due_at = epoch() + mmo::core::time::Milliseconds{ 8000 };
+        wake.zone_id = zone_id;
+        test::require(world.scheduler.try_schedule(wake), "status wake should schedule");
+        const auto awakened = mmo::world::step(
+            world,
+            items,
+            mmo::world::TickContext{ 160, wake.due_at });
+
+        test::require_equal(
+            mmo::world::max_periodic_catch_up_applications_per_status,
+            awakened.status_periodic_applications,
+            "bounded periodic catch-up");
+        test::require_equal(static_cast<std::uint64_t>(1), awakened.status_changes, "absolute expiration sweep");
+        test::require_equal(
+            initial_health - 32,
+            world.entities.find(entity_id)->resources.health_current,
+            "bounded catch-up damage");
+        test::require(
+            world.entities.find(entity_id)->combat.status_effects.find(mmo::core::status::Kind::poison) == nullptr,
+            "expired poison should be removed on wake");
+        details = "due=8 applied_cap=4 expired=1";
+    }
+
+    auto test_sparse_simulation_scale(std::string& details) -> void
+    {
+        constexpr std::uint32_t active_entities = 64;
+        constexpr std::uint32_t sleeping_entities = 960;
+        constexpr std::uint32_t tick_count = 100;
+        mmo::world::World world{};
+        const mmo::core::item::Catalog items{};
+
+        spawn_entity(world, static_cast<mmo::core::id::EntityId>(1));
+        for (std::uint32_t value = 2; value <= active_entities; ++value)
+        {
+            spawn_entity(
+                world,
+                static_cast<mmo::core::id::EntityId>(value),
+                static_cast<mmo::core::id::ZoneId>(1),
+                mmo::core::entity::Type::monster);
+        }
+
+        for (std::uint32_t offset = 0; offset < sleeping_entities; ++offset)
+        {
+            const auto entity_id = static_cast<mmo::core::id::EntityId>(
+                active_entities + offset + 1);
+            const auto zone_id = static_cast<mmo::core::id::ZoneId>(
+                2 + (offset % 15));
+            spawn_entity(
+                world,
+                entity_id,
+                zone_id,
+                mmo::core::entity::Type::monster);
+        }
+
+        mmo::world::TickStats totals{};
+        for (std::uint32_t tick = 0; tick < tick_count; ++tick)
+        {
+            const auto stats = mmo::world::step(
+                world,
+                items,
+                mmo::world::TickContext{
+                    tick,
+                    epoch() + mmo::core::time::Milliseconds{ 50 * tick }
+                });
+            accumulate_stats(totals, stats);
+        }
+
+        test::require_equal(
+            static_cast<std::uint64_t>(active_entities) * tick_count,
+            totals.entities_considered,
+            "scaled active work");
+        test::require_equal(
+            static_cast<std::uint64_t>(sleeping_entities) * tick_count,
+            totals.entities_skipped,
+            "scaled sleeping work avoided");
+        test::require_equal(
+            static_cast<std::uint64_t>(tick_count),
+            totals.active_zones,
+            "scaled active zone work");
+        test::require(world.has_consistent_spatial_state(), "scaled spatial state");
+        details = "known=1024 active=64 sleeping=960 ticks=100 considered=6400 skipped=96000";
+    }
 }
 
 int main()
@@ -463,5 +757,12 @@ int main()
     results.push_back(test::run_test("simulation.status_expiration", test_status_expiration_boundary));
     results.push_back(test::run_test("simulation.canonical_traversal", test_canonical_entity_traversal));
     results.push_back(test::run_test("simulation.repeated_identical_worlds", test_repeated_simulation_is_identical));
+    results.push_back(test::run_test("simulation.authoritative_spatial_mutations", test_authoritative_spatial_mutations));
+    results.push_back(test::run_test("simulation.sparse_active_set", test_sparse_active_set));
+    results.push_back(test::run_test("simulation.canonical_active_order", test_canonical_active_order));
+    results.push_back(test::run_test("simulation.wake_sleep_same_tick", test_wake_and_sleep_events_change_same_tick_set));
+    results.push_back(test::run_test("simulation.player_rejects_sleep", test_player_rejects_sleep));
+    results.push_back(test::run_test("simulation.sleep_wake_status_catch_up", test_sleep_wake_status_catch_up_is_bounded));
+    results.push_back(test::run_test("simulation.sparse_scale", test_sparse_simulation_scale));
     return test::report_results("Simulation integration", results, std::cout);
 }

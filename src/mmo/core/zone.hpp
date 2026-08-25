@@ -1,13 +1,20 @@
 #pragma once
 
 #include <cstdint>
-#include <unordered_map>
+#include <limits>
+#include <map>
+#include <vector>
 
 #include "id.hpp"
 #include "time.hpp"
 
 namespace mmo
 {
+    namespace world
+    {
+        struct World;
+    }
+
     namespace core
     {
         namespace zone
@@ -15,99 +22,142 @@ namespace mmo
             struct State
             {
                 id::ZoneId zone_id{ id::invalid_zone_id };
-                bool active{ false };
-                std::uint32_t player_count{ 0 };
-                std::uint32_t entity_count{ 0 };
+                bool wake_requested{ false };
+                std::uint64_t player_count{ 0 };
+                std::uint64_t entity_count{ 0 };
                 time::TickCount last_tick{ 0 };
                 time::TimePoint last_player_activity{};
+
+                [[nodiscard]] auto is_active() const noexcept -> bool
+                {
+                    return player_count > 0 || wake_requested;
+                }
             };
 
             class Table
             {
             public:
+                [[nodiscard]] auto get(id::ZoneId zone_id) const -> const State*
+                {
+                    const auto zone_it = zones_.find(zone_id);
+                    return zone_it == zones_.end() ? nullptr : &zone_it->second;
+                }
+
+                [[nodiscard]] auto list_ids() const -> std::vector<id::ZoneId>
+                {
+                    std::vector<id::ZoneId> ids;
+                    ids.reserve(zones_.size());
+                    for (const auto& entry : zones_)
+                    {
+                        ids.push_back(entry.first);
+                    }
+
+                    return ids;
+                }
+
+            private:
+                friend struct mmo::world::World;
+
+                std::map<id::ZoneId, State> zones_;
+
                 auto ensure(id::ZoneId zone_id) -> State&
                 {
                     auto insert_result = zones_.emplace(zone_id, State{});
-                    auto& it = insert_result.first;
-                    const bool inserted = insert_result.second;
-                    if (inserted)
+                    auto& state = insert_result.first->second;
+                    if (insert_result.second)
                     {
-                        it->second.zone_id = zone_id;
+                        state.zone_id = zone_id;
                     }
 
-                    return it->second;
+                    return state;
                 }
 
-                auto get(id::ZoneId zone_id) -> State*
+                [[nodiscard]] auto can_remove_entity(
+                    id::ZoneId zone_id,
+                    bool is_player) const -> bool
                 {
-                    auto zone_it = zones_.find(zone_id);
-                    if (zone_it == zones_.end())
-                    {
-                        return nullptr;
-                    }
-
-                    return &zone_it->second;
+                    const auto* state = get(zone_id);
+                    return state != nullptr &&
+                        state->entity_count > 0 &&
+                        (!is_player || state->player_count > 0);
                 }
 
-                auto get(id::ZoneId zone_id) const -> const State*
+                [[nodiscard]] auto can_add_entity(
+                    id::ZoneId zone_id,
+                    bool is_player) const -> bool
                 {
-                    auto zone_it = zones_.find(zone_id);
-                    if (zone_it == zones_.end())
-                    {
-                        return nullptr;
-                    }
-
-                    return &zone_it->second;
-                }
-
-                auto set_player_count(id::ZoneId zone_id, std::uint32_t count, time::TimePoint now) -> State&
-                {
-                    auto& zone_state = ensure(zone_id);
-                    zone_state.player_count = count;
-                    zone_state.active = count > 0;
-
-                    if (count > 0)
-                    {
-                        zone_state.last_player_activity = now;
-                    }
-
-                    return zone_state;
-                }
-
-                auto set_entity_count(id::ZoneId zone_id, std::uint32_t count) -> State&
-                {
-                    auto& zone_state = ensure(zone_id);
-                    zone_state.entity_count = count;
-                    return zone_state;
-                }
-
-                auto set_active(id::ZoneId zone_id, bool active) -> State&
-                {
-                    auto& zone_state = ensure(zone_id);
-                    zone_state.active = active;
-                    return zone_state;
-                }
-
-                auto mark_tick(id::ZoneId zone_id, time::TickCount tick) -> State&
-                {
-                    auto& zone_state = ensure(zone_id);
-                    zone_state.last_tick = tick;
-                    return zone_state;
-                }
-
-                [[nodiscard]] auto should_tick_full(id::ZoneId zone_id) const -> bool
-                {
-                    auto zone_it = zones_.find(zone_id);
-                    if (zone_it == zones_.end())
+                    if (zone_id == id::invalid_zone_id)
                     {
                         return false;
                     }
 
-                    return zone_it->second.player_count > 0;
+                    const auto* state = get(zone_id);
+                    if (state == nullptr)
+                    {
+                        return true;
+                    }
+
+                    return state->entity_count != std::numeric_limits<std::uint64_t>::max() &&
+                        (!is_player ||
+                            state->player_count != std::numeric_limits<std::uint64_t>::max());
                 }
 
-            private:
-                std::unordered_map<id::ZoneId, State> zones_;
+                auto add_entity(
+                    id::ZoneId zone_id,
+                    bool is_player,
+                    time::TimePoint now) -> void
+                {
+                    auto& state = ensure(zone_id);
+                    ++state.entity_count;
+                    if (is_player)
+                    {
+                        ++state.player_count;
+                        state.last_player_activity = now;
+                    }
+                }
+
+                auto remove_entity(
+                    id::ZoneId zone_id,
+                    bool is_player,
+                    time::TimePoint now) -> bool
+                {
+                    if (!can_remove_entity(zone_id, is_player))
+                    {
+                        return false;
+                    }
+
+                    auto& state = zones_.find(zone_id)->second;
+                    --state.entity_count;
+                    if (is_player)
+                    {
+                        --state.player_count;
+                        state.last_player_activity = now;
+                    }
+
+                    return true;
+                }
+
+                auto wake(id::ZoneId zone_id) -> void
+                {
+                    ensure(zone_id).wake_requested = true;
+                }
+
+                auto sleep(id::ZoneId zone_id) -> bool
+                {
+                    auto& state = ensure(zone_id);
+                    if (state.player_count > 0)
+                    {
+                        return false;
+                    }
+
+                    state.wake_requested = false;
+                    return true;
+                }
+
+                auto mark_tick(id::ZoneId zone_id, time::TickCount tick) -> void
+                {
+                    ensure(zone_id).last_tick = tick;
+                }
             };
         }
     }
