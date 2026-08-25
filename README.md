@@ -38,7 +38,8 @@ O `core` deve ser a camada mais neutra do servidor. Ele não deve depender de re
 - `core/zone.hpp` -> runtime zone state.
 - `core/event.hpp` -> delayed event scheduler.
 - `core/runtime.hpp` -> aggregate world state.
-- `server/loop.hpp` -> fixed-step simulation clock, bounded catch-up, and phase metrics.
+- `world/world.hpp` -> deterministic headless simulation step and logical tick contracts.
+- `server/loop.hpp` -> wall-clock pacing, bounded catch-up, and phase metrics around the world step.
 
 For now these stay in `core` because there is no persistence layer or external content pipeline yet. When that appears, species and evolution profiles are the first candidates to move into a content/data layer, while runtime stays in `core`.
 
@@ -233,6 +234,7 @@ Targets atuais:
 - `mmo_persistence`: implementação opcional de persistência/conteúdo;
 - `mmo_server`: entrypoint mínimo do servidor;
 - `mmo_unit_tests`: testes determinísticos e isolados, inicialmente para `event::Scheduler`;
+- `mmo_simulation_tests`: integration tests do kernel headless com relógio lógico fixo;
 - `mmo_lua_disabled_tests`: contrato do adapter indisponível, criado somente com `MMO_ENABLE_LUA=OFF`;
 - `mmo_lua_integration_tests`: Lua real, conteúdo e catálogo, criado somente com `MMO_ENABLE_LUA=ON`;
 - `mmo_stress_tests`: testes de integração, regressão e carga em migração incremental.
@@ -242,6 +244,7 @@ O CTest executa os testes unitários e usa `MMO_STRESS_LEVEL=smoke` na suíte de
 ```bash
 ctest --test-dir build -L unit --output-on-failure
 ctest --test-dir build -L integration --output-on-failure
+ctest --test-dir build -L simulation --output-on-failure
 ctest --test-dir build -L stress --output-on-failure
 ```
 

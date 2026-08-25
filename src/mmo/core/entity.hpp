@@ -159,6 +159,12 @@ namespace mmo
 
             using Record = Contract;
 
+            struct PeriodicStatusResult
+            {
+                bool entity_found{ false };
+                std::uint64_t applications{ 0 };
+            };
+
             // Load/encumbrance calculations derived from inventory weight.
             [[nodiscard]] inline auto calculate_carried_weight(
                 const item::Catalog& catalog,
@@ -923,6 +929,80 @@ namespace mmo
                     return instance;
                 }
 
+                [[nodiscard]] auto process_periodic_statuses(
+                    id::EntityId entity_id,
+                    time::TimePoint now) -> PeriodicStatusResult
+                {
+                    PeriodicStatusResult result{};
+                    auto record_it = records_.find(entity_id);
+                    if (record_it == records_.end())
+                    {
+                        return result;
+                    }
+
+                    result.entity_found = true;
+                    auto& record = record_it->second;
+                    const auto totals = record.combat.status_effects.consume_periodic(now);
+                    result.applications = totals.applications;
+
+                    auto remaining_health_delta = totals.health_delta;
+                    while (remaining_health_delta != 0)
+                    {
+                        std::int64_t bounded_delta{};
+                        if (remaining_health_delta > 0)
+                        {
+                            bounded_delta = std::min<std::int64_t>(
+                                remaining_health_delta,
+                                static_cast<std::int64_t>(record.stats.current_derived.max_hp) -
+                                    record.resources.health_current);
+                        }
+                        else
+                        {
+                            const auto available =
+                                static_cast<std::int64_t>(record.resources.health_current) +
+                                record.resources.shield_current;
+                            const auto requested_damage = remaining_health_delta ==
+                                    std::numeric_limits<std::int64_t>::min()
+                                ? std::numeric_limits<std::int64_t>::max()
+                                : -remaining_health_delta;
+                            const auto bounded_damage = std::min<std::int64_t>(
+                                { requested_damage,
+                                  available,
+                                  std::numeric_limits<std::int32_t>::max() });
+                            bounded_delta = -bounded_damage;
+                        }
+
+                        if (bounded_delta == 0)
+                        {
+                            break;
+                        }
+
+                        adjust_health_record(
+                            record,
+                            static_cast<std::int32_t>(bounded_delta),
+                            now);
+                        remaining_health_delta -= bounded_delta;
+                    }
+
+                    if (totals.mana_delta != 0)
+                    {
+                        const auto minimum_delta = -static_cast<std::int64_t>(
+                            record.resources.mana_current);
+                        const auto maximum_delta = static_cast<std::int64_t>(
+                            record.stats.current_derived.max_mana) - record.resources.mana_current;
+                        const auto bounded_delta = std::clamp(
+                            totals.mana_delta,
+                            minimum_delta,
+                            maximum_delta);
+
+                        record.resources.mana_current = numeric::clamp_to_int32(
+                            static_cast<std::int64_t>(record.resources.mana_current) +
+                                bounded_delta);
+                    }
+
+                    return result;
+                }
+
                 auto sweep_statuses(id::EntityId entity_id, time::TimePoint now) -> bool
                 {
                     auto record_it = records_.find(entity_id);
@@ -1027,72 +1107,7 @@ namespace mmo
                         return false;
                     }
 
-                    bool shield_broken = false;
-
-                    auto effective_delta = static_cast<std::int64_t>(delta);
-
-                    if (effective_delta < 0)
-                    {
-                        auto damage = -effective_delta;
-                        const auto shield_current = std::max<std::int64_t>(
-                            0,
-                            record_it->second.resources.shield_current);
-                        const auto absorbed = std::min(shield_current, damage);
-
-                        if (absorbed > 0)
-                        {
-                            record_it->second.resources.shield_current = numeric::clamp_to_int32(
-                                shield_current - absorbed);
-                            damage -= absorbed;
-                        }
-
-                        if (record_it->second.resources.shield_current <= 0 &&
-                            record_it->second.combat.status_effects.contains(status::Kind::shield))
-                        {
-                            shield_broken = record_it->second.combat.status_effects.remove(status::Kind::shield);
-                            record_it->second.resources.shield_current = 0;
-                        }
-
-                        if (damage == 0)
-                        {
-                            if (shield_broken)
-                            {
-                                refresh_record(record_it->second);
-                            }
-
-                            return true;
-                        }
-
-                        effective_delta = -damage;
-                    }
-
-                    record_it->second.resources.health_current = numeric::clamp_to_int32(
-                        std::clamp<std::int64_t>(
-                            static_cast<std::int64_t>(record_it->second.resources.health_current) +
-                                effective_delta,
-                            0,
-                            record_it->second.stats.current_derived.max_hp));
-
-                    if (record_it->second.resources.health_current <= 0)
-                    {
-                        const bool was_alive = record_it->second.lifecycle.alive;
-
-                        record_it->second.lifecycle.alive = false;
-
-                        if (was_alive)
-                        {
-                            record_it->second.lifecycle.death_at = time::now();
-                            record_it->second.lifecycle.killer_entity_id.reset();
-                            record_it->second.lifecycle.killing_source = damage::Source{};
-                            record_it->second.lifecycle.killing_trace.reset();
-                        }
-                    }
-
-                    if (shield_broken)
-                    {
-                        refresh_record(record_it->second);
-                    }
-
+                    adjust_health_record(record_it->second, delta, time::now());
                     return true;
                 }
 
@@ -1255,6 +1270,76 @@ namespace mmo
             private:
                 std::unordered_map<id::EntityId, Record> records_;
                 std::unordered_map<id::ZoneId, std::unordered_set<id::EntityId>> zone_index_;
+
+                auto adjust_health_record(
+                    Record& record,
+                    std::int32_t delta,
+                    time::TimePoint change_time) -> void
+                {
+                    bool shield_broken = false;
+                    auto effective_delta = static_cast<std::int64_t>(delta);
+
+                    if (effective_delta < 0)
+                    {
+                        auto damage = -effective_delta;
+                        const auto shield_current = std::max<std::int64_t>(
+                            0,
+                            record.resources.shield_current);
+                        const auto absorbed = std::min(shield_current, damage);
+
+                        if (absorbed > 0)
+                        {
+                            record.resources.shield_current = numeric::clamp_to_int32(
+                                shield_current - absorbed);
+                            damage -= absorbed;
+                        }
+
+                        if (record.resources.shield_current <= 0 &&
+                            record.combat.status_effects.contains(status::Kind::shield))
+                        {
+                            shield_broken = record.combat.status_effects.remove(status::Kind::shield);
+                            record.resources.shield_current = 0;
+                        }
+
+                        if (damage == 0)
+                        {
+                            if (shield_broken)
+                            {
+                                refresh_record(record);
+                            }
+
+                            return;
+                        }
+
+                        effective_delta = -damage;
+                    }
+
+                    record.resources.health_current = numeric::clamp_to_int32(
+                        std::clamp<std::int64_t>(
+                            static_cast<std::int64_t>(record.resources.health_current) +
+                                effective_delta,
+                            0,
+                            record.stats.current_derived.max_hp));
+
+                    if (record.resources.health_current <= 0)
+                    {
+                        const bool was_alive = record.lifecycle.alive;
+                        record.lifecycle.alive = false;
+
+                        if (was_alive)
+                        {
+                            record.lifecycle.death_at = change_time;
+                            record.lifecycle.killer_entity_id.reset();
+                            record.lifecycle.killing_source = damage::Source{};
+                            record.lifecycle.killing_trace.reset();
+                        }
+                    }
+
+                    if (shield_broken)
+                    {
+                        refresh_record(record);
+                    }
+                }
 
                 // Recalculate derived stats and clamps from active status modifiers.
                 auto refresh_record(Record& record) -> void

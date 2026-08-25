@@ -2672,10 +2672,9 @@ int main() {
 
         require_equal(
             static_cast<std::uint64_t>(0),
-            mmo::server::apply_periodic_status_effects(
-                world,
+            world.entities.process_periodic_statuses(
                 entity_id,
-                now + mmo::core::time::Milliseconds{ 999 }),
+                now + mmo::core::time::Milliseconds{ 999 }).applications,
             "periodic effect before first deadline");
         require_equal(
             initial_health,
@@ -2684,10 +2683,9 @@ int main() {
 
         require_equal(
             static_cast<std::uint64_t>(1),
-            mmo::server::apply_periodic_status_effects(
-                world,
+            world.entities.process_periodic_statuses(
                 entity_id,
-                now + mmo::core::time::Milliseconds{ 1000 }),
+                now + mmo::core::time::Milliseconds{ 1000 }).applications,
             "periodic first deadline");
         require_equal(
             initial_health - 8,
@@ -2696,18 +2694,16 @@ int main() {
 
         require_equal(
             static_cast<std::uint64_t>(0),
-            mmo::server::apply_periodic_status_effects(
-                world,
+            world.entities.process_periodic_statuses(
                 entity_id,
-                now + mmo::core::time::Milliseconds{ 1000 }),
+                now + mmo::core::time::Milliseconds{ 1000 }).applications,
             "periodic deadline must be consumed once");
 
         require_equal(
             static_cast<std::uint64_t>(2),
-            mmo::server::apply_periodic_status_effects(
-                world,
+            world.entities.process_periodic_statuses(
                 entity_id,
-                now + mmo::core::time::Milliseconds{ 3500 }),
+                now + mmo::core::time::Milliseconds{ 3500 }).applications,
             "periodic catch-up count");
         require_equal(
             initial_health - 24,
@@ -2716,10 +2712,9 @@ int main() {
 
         require_equal(
             static_cast<std::uint64_t>(5),
-            mmo::server::apply_periodic_status_effects(
-                world,
+            world.entities.process_periodic_statuses(
                 entity_id,
-                now + mmo::core::time::Milliseconds{ 8000 }),
+                now + mmo::core::time::Milliseconds{ 8000 }).applications,
             "periodic applications through expiration boundary");
         require_equal(
             initial_health - 64,
@@ -2732,10 +2727,9 @@ int main() {
             "expired periodic status should sweep");
         require_equal(
             static_cast<std::uint64_t>(0),
-            mmo::server::apply_periodic_status_effects(
-                world,
+            world.entities.process_periodic_statuses(
                 entity_id,
-                now + mmo::core::time::Milliseconds{ 9000 }),
+                now + mmo::core::time::Milliseconds{ 9000 }).applications,
             "expired status must not tick again");
 
         details.append("ticks=8 damage=64 catch_up=2");

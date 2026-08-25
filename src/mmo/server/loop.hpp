@@ -11,6 +11,7 @@
 #include "mmo/core/logger.hpp"
 #include "mmo/core/runtime.hpp"
 #include "mmo/core/time.hpp"
+#include "mmo/world/world.hpp"
 
 namespace mmo
 {
@@ -74,82 +75,62 @@ namespace mmo
                 : 0;
         }
 
-        // Consumes only due periodic status applications before sweeping statuses.
-        [[nodiscard]] inline auto apply_periodic_status_effects(
-            core::runtime::World& world,
-            core::id::EntityId entity_id,
-            core::time::TimePoint now) -> std::uint64_t
+        inline auto aggregate_tick_stats(
+            LoopStats& loop_stats,
+            const mmo::world::TickStats& tick_stats) -> void
         {
-            auto* record = world.entities.find(entity_id);
-            if (record == nullptr)
+            loop_stats.events_processed += tick_stats.events_processed;
+            loop_stats.events_applied += tick_stats.events_applied;
+            loop_stats.events_queued += tick_stats.events_queued;
+            loop_stats.events_rejected += tick_stats.events_rejected;
+            loop_stats.entities_processed += tick_stats.entities_considered;
+            loop_stats.load_recalculations += tick_stats.load_recalculations;
+            loop_stats.status_sweeps += tick_stats.status_sweeps;
+            loop_stats.status_changes += tick_stats.status_changes;
+            loop_stats.status_periodic_effects += tick_stats.status_periodic_applications;
+        }
+
+        namespace detail
+        {
+            class LoopTickObserver final : public mmo::world::TickObserver
             {
-                return 0;
-            }
-
-            const auto totals = record->combat.status_effects.consume_periodic(now);
-
-            auto remaining_health_delta = totals.health_delta;
-            while (remaining_health_delta != 0)
-            {
-                record = world.entities.find(entity_id);
-                if (record == nullptr)
+            public:
+                explicit LoopTickObserver(LoopStats& stats)
+                    : stats_(stats)
                 {
-                    break;
                 }
 
-                std::int64_t bounded_delta{};
-                if (remaining_health_delta > 0)
+                auto phase_started(mmo::world::TickPhase) -> void override
                 {
-                    bounded_delta = std::min<std::int64_t>(
-                        remaining_health_delta,
-                        static_cast<std::int64_t>(record->stats.current_derived.max_hp) -
-                            record->resources.health_current);
-                }
-                else
-                {
-                    const auto available =
-                        static_cast<std::int64_t>(record->resources.health_current) +
-                        record->resources.shield_current;
-                    const auto requested_damage = remaining_health_delta ==
-                            std::numeric_limits<std::int64_t>::min()
-                        ? std::numeric_limits<std::int64_t>::max()
-                        : -remaining_health_delta;
-                    const auto bounded_damage = std::min<std::int64_t>(
-                        { requested_damage,
-                          available,
-                          std::numeric_limits<std::int32_t>::max() });
-                    bounded_delta = -bounded_damage;
+                    phase_started_at_ = core::time::now();
                 }
 
-                if (bounded_delta == 0)
+                auto phase_finished(mmo::world::TickPhase phase) -> void override
                 {
-                    break;
+                    const auto elapsed = std::chrono::duration_cast<core::time::Nanoseconds>(
+                        core::time::now() - phase_started_at_).count();
+                    const auto safe_elapsed = static_cast<std::uint64_t>(
+                        std::max<core::time::Nanoseconds::rep>(0, elapsed));
+
+                    switch (phase)
+                    {
+                        case mmo::world::TickPhase::scheduled_events:
+                            stats_.event_phase_total_ns += safe_elapsed;
+                            break;
+                        case mmo::world::TickPhase::entity_maintenance:
+                            stats_.entity_phase_total_ns += safe_elapsed;
+                            break;
+                        case mmo::world::TickPhase::periodic_statuses:
+                        case mmo::world::TickPhase::status_sweep:
+                            stats_.status_phase_total_ns += safe_elapsed;
+                            break;
+                    }
                 }
 
-                world.entities.adjust_health(
-                    entity_id,
-                    static_cast<std::int32_t>(bounded_delta));
-                remaining_health_delta -= bounded_delta;
-            }
-
-            record = world.entities.find(entity_id);
-            if (record != nullptr && totals.mana_delta != 0)
-            {
-                const auto minimum_delta = -static_cast<std::int64_t>(
-                    record->resources.mana_current);
-                const auto maximum_delta = static_cast<std::int64_t>(
-                    record->stats.current_derived.max_mana) - record->resources.mana_current;
-                const auto bounded_delta = std::clamp(
-                    totals.mana_delta,
-                    minimum_delta,
-                    maximum_delta);
-
-                world.entities.adjust_mana(
-                    entity_id,
-                    static_cast<std::int32_t>(bounded_delta));
-            }
-
-            return totals.applications;
+            private:
+                LoopStats& stats_;
+                core::time::TimePoint phase_started_at_{};
+            };
         }
 
         // Main tick loop: events, entity updates, and status processing per tick.
@@ -218,67 +199,13 @@ namespace mmo
 
                 try
                 {
-                    const auto event_phase_started_at = core::time::now();
-                    const auto event_stats = core::runtime::dispatch_ready_events(world, scheduled_at);
-                    stats.events_processed += event_stats.total();
-                    stats.events_applied += event_stats.applied;
-                    stats.events_queued += event_stats.queued;
-                    stats.events_rejected += event_stats.rejected;
-                    stats.event_phase_total_ns += static_cast<std::uint64_t>(
-                        std::max<core::time::Nanoseconds::rep>(
-                            0,
-                            std::chrono::duration_cast<core::time::Nanoseconds>(
-                                core::time::now() - event_phase_started_at).count()));
-
-                    const auto ids = world.entities.list_ids();
-                    stats.entities_processed += ids.size();
-
-                    const auto entity_phase_started_at = core::time::now();
-                    for (const auto entity_id : ids)
-                    {
-                        auto* record = world.entities.find(entity_id);
-
-                        if (record == nullptr)
-                        {
-                            continue;
-                        }
-
-                        if (world.entities.sync_inventory_load_if_dirty(entity_id, catalog))
-                        {
-                            ++stats.load_recalculations;
-                            record = world.entities.find(entity_id);
-                            if (record == nullptr)
-                            {
-                                continue;
-                            }
-                        }
-
-                        world.zones.mark_tick(record->placement.zone_id(), simulation_tick);
-                    }
-                    stats.entity_phase_total_ns += static_cast<std::uint64_t>(
-                        std::max<core::time::Nanoseconds::rep>(
-                            0,
-                            std::chrono::duration_cast<core::time::Nanoseconds>(
-                                core::time::now() - entity_phase_started_at).count()));
-
-                    const auto status_phase_started_at = core::time::now();
-                    for (const auto entity_id : ids)
-                    {
-                        stats.status_periodic_effects +=
-                            apply_periodic_status_effects(world, entity_id, scheduled_at);
-
-                        ++stats.status_sweeps;
-
-                        if (world.entities.sweep_statuses(entity_id, scheduled_at))
-                        {
-                            ++stats.status_changes;
-                        }
-                    }
-                    stats.status_phase_total_ns += static_cast<std::uint64_t>(
-                        std::max<core::time::Nanoseconds::rep>(
-                            0,
-                            std::chrono::duration_cast<core::time::Nanoseconds>(
-                                core::time::now() - status_phase_started_at).count()));
+                    detail::LoopTickObserver phase_observer{ stats };
+                    const auto tick_stats = mmo::world::step(
+                        world,
+                        catalog,
+                        mmo::world::TickContext{ simulation_tick, scheduled_at },
+                        &phase_observer);
+                    aggregate_tick_stats(stats, tick_stats);
                 }
                 catch (const std::exception& ex)
                 {

@@ -147,3 +147,13 @@ O caminho seguro é este:
 - O contrato ainda é transitório porque `Table::find` expõe `Record*`. Código que alterar `Record::inventory` diretamente deve chamar `mark_inventory_load_dirty`; a remoção completa dessa escape hatch pertence ao próximo incremento de mutabilidade controlada.
 - O relógio de simulação usa o índice absoluto do tick, evitando o drift de somar `1000 / tick_rate` em milissegundos. Em 60 Hz, o offset do tick 60 é exatamente 1 segundo.
 - A política de atraso mantém no máximo quatro ticks vencidos por padrão e contabiliza os descartados. Tempo total/máximo de tick e tempos acumulados das fases de evento, entidade e status ficam disponíveis sem introduzir concorrência.
+
+## P3 deterministic simulation kernel
+
+- Current traversal remains global: every `world::step` copies all entity IDs and processes all entities, so the baseline work is `O(total entities)` before status-specific costs.
+- Canonical ordering adds an `O(N log N)` sort on every tick. This is intentionally transitional: correctness and reproducibility take priority over active-set optimization.
+- Hash containers remain appropriate for lookup, but their incidental iteration order is never allowed to determine gameplay order.
+- `TickContext::simulation_time` is the simulation clock used by events and statuses. Wall clock remains in `server::run_loop` only for pacing and instrumentation.
+- Periodic resource mutation is owned by `entity::Table`; `mmo::world` no longer obtains a mutable `Record*` to consume status state directly.
+- The kernel is single-threaded in this phase. No locks, jobs, concurrent mutation, or scheduler parallelism were introduced.
+- Future optimization: authoritative zone activity semantics plus a persistent deterministic active simulation index, avoiding the global copy/sort without weakening ordering guarantees.
