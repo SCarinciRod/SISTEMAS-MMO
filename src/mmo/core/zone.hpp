@@ -12,7 +12,7 @@ namespace mmo
 {
     namespace world
     {
-        struct World;
+        class World;
     }
 
     namespace core
@@ -56,7 +56,7 @@ namespace mmo
                 }
 
             private:
-                friend struct mmo::world::World;
+                friend class mmo::world::World;
 
                 std::map<id::ZoneId, State> zones_;
 

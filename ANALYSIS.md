@@ -143,15 +143,15 @@ O caminho seguro é este:
 ## Consolidação P1 do loop
 
 - Antes, `server::run_loop` recalculava o peso completo de cada inventário em todo tick: custo estrutural $O(ticks \times entidades \times itens)$ mesmo sem mutação.
-- Agora `Load::inventory_dirty` invalida esse valor. Spawn ou mutação explícita causa uma sincronização; ticks seguintes reutilizam a carga limpa. `LoopStats::load_recalculations` permite verificar a hipótese (regressão de referência: `1/0/1` para carga inicial, três ticks limpos e nova invalidação).
-- O contrato ainda é transitório porque `Table::find` expõe `Record*`. Código que alterar `Record::inventory` diretamente deve chamar `mark_inventory_load_dirty`; a remoção completa dessa escape hatch pertence ao próximo incremento de mutabilidade controlada.
+- Agora `Load::inventory_dirty` invalida esse valor. Spawn causa uma sincronização no primeiro tick; comandos de inventário sincronizam a carga no momento da mutação e ticks seguintes reutilizam o valor limpo. A regressão de referência é `1/0/0` para carga inicial, ticks limpos e uma mutação autoritativa.
+- O bridge público `Table::mark_inventory_load_dirty(EntityId)` foi removido. `Table::find` devolve somente `const Record*`, portanto inventário vivo não pode mais ser alterado por essa rota.
 - O relógio de simulação usa o índice absoluto do tick, evitando o drift de somar `1000 / tick_rate` em milissegundos. Em 60 Hz, o offset do tick 60 é exatamente 1 segundo.
 - A política de atraso mantém no máximo quatro ticks vencidos por padrão e contabiliza os descartados. Tempo total/máximo de tick e tempos acumulados das fases de evento, entidade e status ficam disponíveis sem introduzir concorrência.
 
 ## P3 deterministic simulation kernel
 
-- Current traversal remains global: every `world::step` copies all entity IDs and processes all entities, so the baseline work is `O(total entities)` before status-specific costs.
-- Canonical ordering adds an `O(N log N)` sort on every tick. This is intentionally transitional: correctness and reproducibility take priority over active-set optimization.
+- The P3 baseline traversal was global: every `world::step` copied all entity IDs and processed all entities before P4 introduced the sparse active set.
+- The P3 canonical ordering used an `O(N log N)` sort on every tick. P4 replaced it with ordered zone/entity indexes while preserving determinism.
 - Hash containers remain appropriate for lookup, but their incidental iteration order is never allowed to determine gameplay order.
 - `TickContext::simulation_time` is the simulation clock used by events and statuses. Wall clock remains in `server::run_loop` only for pacing and instrumentation.
 - Periodic resource mutation is owned by `entity::Table`; `mmo::world` no longer obtains a mutable `Record*` to consume status state directly.
@@ -167,4 +167,14 @@ O caminho seguro é este:
 - Functional scale case: 1,024 known entities, 64 active, 960 sleeping, 100 ticks. The kernel performs 6,400 entity considerations and records 96,000 skipped considerations instead of polling 102,400 entities. The observed local duration was 11 ms in the MinGW Debug test run; this is diagnostic context, not a universal SLA.
 - Tradeoff: ordered trees allocate per node and have weaker cache locality than flat storage. This increment chooses explicit ordering and worst-case guarantees; a future measured optimization may use sorted flat indexes while preserving the same contracts.
 - Sleep/wake policy: due events remain global; full entity maintenance pauses in sleeping zones; absolute status deadlines remain authoritative; periodic catch-up is capped at four applications per status per step to bound wake cost.
-- Remaining escape hatch: `entity::Table::find` still exposes mutable non-placement state for legacy tests and callers. Placement itself is protected, but identity/inventory mutation should move behind explicit world/entity commands in a later isolated increment.
+- P5 removed the remaining live-record escape hatch; `entity::Table::find` and `World::find_entity` expose only `const Record*`.
+
+## P5 enforced World authority boundary
+
+- Before: callers could replace or mutate `World` entity, zone, scheduler, and output containers; `Table::find` exposed mutable live records; `adjust_health` captured wall clock; scheduling could bypass the validated World boundary; outputs had no consumption lifecycle.
+- After: aggregate storage is private, reads are const queries, entity/spatial writes are named World operations, health mutation receives logical time, normal scheduling is validated, and normal/rejected outputs have ordered swap-based drains.
+- No mutable live `Record*` call sites remain. Identity remains a simple data contract, but external code cannot mutate the live identity and desynchronize zone player counts or activity.
+- The active-set semantics and ordered `std::map`/`std::set` indexes are unchanged. Active traversal still materializes a temporary entity-ID vector, and `entity_ids_in_zone` still copies each zone's IDs; optimize only after measurement.
+- `event::Event` still represents both scheduled input and emitted output. Separating `ScheduledEvent`, `DomainEvent`, and authoritative commands belongs to the next model stage.
+- `server::run_loop` still catches exceptions from a tick and advances. Allocation failures from ordered containers/vectors, status/output growth, or an external `TickObserver` can occur after part of a tick has mutated state. Continuing can therefore expose a partially advanced tick. A future policy should fail fast or mark the World faulted and recover from a known snapshot; P5 intentionally does not change loop behavior.
+- Next stage: P6 deterministic authoritative command pipeline. Commands should be introduced only now that direct mutation routes are closed, otherwise a queue would order one write path while uncontrolled writes could still bypass it.

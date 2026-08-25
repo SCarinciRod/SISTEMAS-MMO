@@ -2,6 +2,7 @@
 
 #include <cstdint>
 #include <map>
+#include <optional>
 #include <set>
 #include <vector>
 
@@ -15,17 +16,150 @@ namespace mmo
 {
     namespace world
     {
-        struct World
+        struct TickContext;
+        struct TickStats;
+        class TickObserver;
+        class World;
+
+        [[nodiscard]] auto step(
+            World& world,
+            const core::item::Catalog& items,
+            const TickContext& context,
+            TickObserver* observer) -> TickStats;
+
+        class World
         {
-            core::entity::Table entities;
-            core::zone::Table zones;
-            core::event::Scheduler scheduler;
+        public:
+            [[nodiscard]] auto find_entity(core::id::EntityId entity_id) const
+                -> const core::entity::Record*
+            {
+                return entities_.find(entity_id);
+            }
 
-            // Domain events leave the scheduler through this observable boundary.
-            std::vector<core::event::Event> event_outbox;
+            [[nodiscard]] auto find_zone(core::id::ZoneId zone_id) const
+                -> const core::zone::State*
+            {
+                return zones_.get(zone_id);
+            }
 
-            // Invalid events and failed state transitions are retained for diagnosis/retry.
-            std::vector<core::event::Event> rejected_events;
+            [[nodiscard]] auto list_entity_ids() const
+                -> std::vector<core::id::EntityId>
+            {
+                return entities_.list_ids();
+            }
+
+            [[nodiscard]] auto entity_ids_in_zone(core::id::ZoneId zone_id) const
+                -> std::vector<core::id::EntityId>
+            {
+                return entities_.ids_in_zone(zone_id);
+            }
+
+            [[nodiscard]] auto entity_count() const noexcept -> std::size_t
+            {
+                return entities_.size();
+            }
+
+            [[nodiscard]] auto pending_event_count() const noexcept -> std::size_t
+            {
+                return scheduler_.size();
+            }
+
+            [[nodiscard]] auto event_queue_empty() const noexcept -> bool
+            {
+                return scheduler_.empty();
+            }
+
+            [[nodiscard]] auto next_event_due() const
+                -> std::optional<core::time::TimePoint>
+            {
+                return scheduler_.next_due();
+            }
+
+            [[nodiscard]] auto pending_events() const noexcept
+                -> const std::vector<core::event::Event>&
+            {
+                return event_outbox_;
+            }
+
+            [[nodiscard]] auto pending_rejected_events() const noexcept
+                -> const std::vector<core::event::Event>&
+            {
+                return rejected_events_;
+            }
+
+            [[nodiscard]] auto drain_events() -> std::vector<core::event::Event>
+            {
+                std::vector<core::event::Event> drained;
+                drained.swap(event_outbox_);
+                return drained;
+            }
+
+            [[nodiscard]] auto drain_rejected_events() -> std::vector<core::event::Event>
+            {
+                std::vector<core::event::Event> drained;
+                drained.swap(rejected_events_);
+                return drained;
+            }
+
+            [[nodiscard]] auto try_schedule_event(const core::event::Event& event) -> bool
+            {
+                return scheduler_.try_schedule(event);
+            }
+
+            auto apply_status(
+                core::id::EntityId entity_id,
+                const core::status::Instance& instance) -> bool
+            {
+                return entities_.apply_status(entity_id, instance);
+            }
+
+            auto adjust_health(
+                core::id::EntityId entity_id,
+                std::int32_t delta,
+                core::time::TimePoint simulation_time) -> bool
+            {
+                return entities_.adjust_health(entity_id, delta, simulation_time);
+            }
+
+            auto adjust_mana(core::id::EntityId entity_id, std::int32_t delta) -> bool
+            {
+                return entities_.adjust_mana(entity_id, delta);
+            }
+
+            auto apply_damage(
+                core::id::EntityId entity_id,
+                const core::combat::DamageProfile& profile,
+                core::time::TimePoint simulation_time)
+                -> std::optional<core::combat::DamageResult>
+            {
+                return entities_.apply_damage(entity_id, profile, simulation_time);
+            }
+
+            auto apply_damage(
+                core::id::EntityId entity_id,
+                const core::combat::DamageProfile& profile,
+                const core::combat::DefenseProfile& defense,
+                core::time::TimePoint simulation_time)
+                -> std::optional<core::combat::DamageResult>
+            {
+                return entities_.apply_damage(entity_id, profile, defense, simulation_time);
+            }
+
+            auto add_inventory_item(
+                core::id::EntityId entity_id,
+                const core::item::Catalog& catalog,
+                core::item::Instance instance) -> core::inventory::AddResult
+            {
+                return entities_.add_inventory_item(entity_id, catalog, instance);
+            }
+
+            [[nodiscard]] auto validate_inventory(
+                core::id::EntityId entity_id,
+                const core::item::Catalog& catalog) const
+                -> core::inventory::ValidationIssue
+            {
+                return entities_.validate_inventory(entity_id, catalog);
+            }
 
             auto spawn_entity(
                 core::id::EntityId entity_id,
@@ -34,13 +168,13 @@ namespace mmo
                 core::time::TimePoint now) -> bool
             {
                 const bool is_player = blueprint.type == core::entity::Type::player;
-                if (!zones.can_add_entity(zone_id, is_player) ||
-                    !entities.spawn(entity_id, blueprint, zone_id, now))
+                if (!zones_.can_add_entity(zone_id, is_player) ||
+                    !entities_.spawn(entity_id, blueprint, zone_id, now))
                 {
                     return false;
                 }
 
-                zones.add_entity(zone_id, is_player, now);
+                zones_.add_entity(zone_id, is_player, now);
                 refresh_zone_activity(zone_id);
                 return true;
             }
@@ -49,8 +183,7 @@ namespace mmo
                 core::id::EntityId entity_id,
                 core::time::TimePoint now) -> bool
             {
-                const auto& entity_view = entities;
-                const auto* record = entity_view.find(entity_id);
+                const auto* record = entities_.find(entity_id);
                 if (record == nullptr)
                 {
                     return false;
@@ -58,13 +191,13 @@ namespace mmo
 
                 const auto zone_id = record->placement.zone_id();
                 const bool is_player = record->identity.type == core::entity::Type::player;
-                if (!zones.can_remove_entity(zone_id, is_player) ||
-                    !entities.erase(entity_id))
+                if (!zones_.can_remove_entity(zone_id, is_player) ||
+                    !entities_.erase(entity_id))
                 {
                     return false;
                 }
 
-                if (!zones.remove_entity(zone_id, is_player, now))
+                if (!zones_.remove_entity(zone_id, is_player, now))
                 {
                     return false;
                 }
@@ -78,8 +211,7 @@ namespace mmo
                 core::id::ZoneId destination_zone_id,
                 core::time::TimePoint now) -> bool
             {
-                const auto& entity_view = entities;
-                const auto* record = entity_view.find(entity_id);
+                const auto* record = entities_.find(entity_id);
                 if (record == nullptr ||
                     destination_zone_id == core::id::invalid_zone_id)
                 {
@@ -93,20 +225,20 @@ namespace mmo
                 }
 
                 const bool is_player = record->identity.type == core::entity::Type::player;
-                if (!zones.can_remove_entity(source_zone_id, is_player) ||
-                    !zones.can_add_entity(destination_zone_id, is_player) ||
-                    !entities.move_to_zone(entity_id, destination_zone_id))
+                if (!zones_.can_remove_entity(source_zone_id, is_player) ||
+                    !zones_.can_add_entity(destination_zone_id, is_player) ||
+                    !entities_.move_to_zone(entity_id, destination_zone_id))
                 {
                     return false;
                 }
 
-                if (!zones.remove_entity(source_zone_id, is_player, now))
+                if (!zones_.remove_entity(source_zone_id, is_player, now))
                 {
-                    entities.move_to_zone(entity_id, source_zone_id);
+                    entities_.move_to_zone(entity_id, source_zone_id);
                     return false;
                 }
 
-                zones.add_entity(destination_zone_id, is_player, now);
+                zones_.add_entity(destination_zone_id, is_player, now);
                 refresh_zone_activity(source_zone_id);
                 refresh_zone_activity(destination_zone_id);
                 return true;
@@ -119,14 +251,14 @@ namespace mmo
                     return false;
                 }
 
-                zones.wake(zone_id);
+                zones_.wake(zone_id);
                 refresh_zone_activity(zone_id);
                 return true;
             }
 
             auto sleep_zone(core::id::ZoneId zone_id) -> bool
             {
-                if (zone_id == core::id::invalid_zone_id || !zones.sleep(zone_id))
+                if (zone_id == core::id::invalid_zone_id || !zones_.sleep(zone_id))
                 {
                     return false;
                 }
@@ -146,19 +278,9 @@ namespace mmo
                 return active_zone_ids_;
             }
 
-            auto mark_zone_tick(
-                core::id::ZoneId zone_id,
-                core::time::TickCount tick) -> void
-            {
-                if (should_tick_full(zone_id))
-                {
-                    zones.mark_tick(zone_id, tick);
-                }
-            }
-
             [[nodiscard]] auto has_consistent_spatial_state() const -> bool
             {
-                if (!entities.has_consistent_indexes())
+                if (!entities_.has_consistent_indexes())
                 {
                     return false;
                 }
@@ -170,9 +292,9 @@ namespace mmo
                 };
 
                 std::map<core::id::ZoneId, Population> populations;
-                for (const auto entity_id : entities.list_ids())
+                for (const auto entity_id : entities_.list_ids())
                 {
-                    const auto* record = entities.find(entity_id);
+                    const auto* record = entities_.find(entity_id);
                     if (record == nullptr)
                     {
                         return false;
@@ -186,9 +308,9 @@ namespace mmo
                     }
                 }
 
-                for (const auto zone_id : zones.list_ids())
+                for (const auto zone_id : zones_.list_ids())
                 {
-                    const auto* state = zones.get(zone_id);
+                    const auto* state = zones_.get(zone_id);
                     if (state == nullptr)
                     {
                         return false;
@@ -210,7 +332,7 @@ namespace mmo
 
                 for (const auto zone_id : active_zone_ids_)
                 {
-                    if (zones.get(zone_id) == nullptr)
+                    if (zones_.get(zone_id) == nullptr)
                     {
                         return false;
                     }
@@ -220,11 +342,51 @@ namespace mmo
             }
 
         private:
+            enum class EventDispatchOutcome : std::uint8_t
+            {
+                applied,
+                queued,
+                rejected
+            };
+
+            struct EventDispatchStats
+            {
+                std::size_t applied{ 0 };
+                std::size_t queued{ 0 };
+                std::size_t rejected{ 0 };
+
+                [[nodiscard]] auto total() const noexcept -> std::size_t
+                {
+                    return applied + queued + rejected;
+                }
+            };
+
+            core::entity::Table entities_;
+            core::zone::Table zones_;
+            core::event::Scheduler scheduler_;
+            std::vector<core::event::Event> event_outbox_;
+            std::vector<core::event::Event> rejected_events_;
             std::set<core::id::ZoneId> active_zone_ids_;
+
+            friend auto step(
+                World& world,
+                const core::item::Catalog& items,
+                const TickContext& context,
+                TickObserver* observer) -> TickStats;
+
+            auto mark_zone_tick(
+                core::id::ZoneId zone_id,
+                core::time::TickCount tick) -> void
+            {
+                if (should_tick_full(zone_id))
+                {
+                    zones_.mark_tick(zone_id, tick);
+                }
+            }
 
             auto refresh_zone_activity(core::id::ZoneId zone_id) -> void
             {
-                const auto* state = zones.get(zone_id);
+                const auto* state = zones_.get(zone_id);
                 if (state != nullptr && state->is_active())
                 {
                     active_zone_ids_.insert(zone_id);
@@ -234,99 +396,78 @@ namespace mmo
                     active_zone_ids_.erase(zone_id);
                 }
             }
-        };
 
-        enum class EventDispatchOutcome : std::uint8_t
-        {
-            applied,
-            queued,
-            rejected
-        };
-
-        struct EventDispatchStats
-        {
-            std::size_t applied{ 0 };
-            std::size_t queued{ 0 };
-            std::size_t rejected{ 0 };
-
-            [[nodiscard]] auto total() const noexcept -> std::size_t
+            [[nodiscard]] auto dispatch_event_internal(
+                const core::event::Event& scheduled_event) -> EventDispatchOutcome
             {
-                return applied + queued + rejected;
-            }
-        };
+                if (!core::event::is_valid(scheduled_event))
+                {
+                    rejected_events_.push_back(scheduled_event);
+                    return EventDispatchOutcome::rejected;
+                }
 
-        [[nodiscard]] inline auto dispatch_event(
-            World& world,
-            const core::event::Event& scheduled_event) -> EventDispatchOutcome
-        {
-            if (!core::event::is_valid(scheduled_event))
-            {
-                world.rejected_events.push_back(scheduled_event);
+                switch (scheduled_event.type)
+                {
+                    case core::event::Type::migration_completed:
+                        if (move_entity_to_zone(
+                                scheduled_event.entity_id,
+                                scheduled_event.zone_id,
+                                scheduled_event.due_at))
+                        {
+                            return EventDispatchOutcome::applied;
+                        }
+                        break;
+
+                    case core::event::Type::zone_wake:
+                        if (wake_zone(scheduled_event.zone_id))
+                        {
+                            return EventDispatchOutcome::applied;
+                        }
+                        break;
+
+                    case core::event::Type::zone_sleep:
+                        if (sleep_zone(scheduled_event.zone_id))
+                        {
+                            return EventDispatchOutcome::applied;
+                        }
+                        break;
+
+                    case core::event::Type::evolution_due:
+                    case core::event::Type::region_notice:
+                    default:
+                        event_outbox_.push_back(scheduled_event);
+                        return EventDispatchOutcome::queued;
+                }
+
+                rejected_events_.push_back(scheduled_event);
                 return EventDispatchOutcome::rejected;
             }
 
-            switch (scheduled_event.type)
+            [[nodiscard]] auto dispatch_ready_events_internal(
+                core::time::TimePoint now) -> EventDispatchStats
             {
-                case core::event::Type::migration_completed:
-                    if (world.move_entity_to_zone(
-                            scheduled_event.entity_id,
-                            scheduled_event.zone_id,
-                            scheduled_event.due_at))
-                    {
-                        return EventDispatchOutcome::applied;
-                    }
-                    break;
+                const auto ready_events = scheduler_.pop_ready(now);
+                EventDispatchStats stats{};
 
-                case core::event::Type::zone_wake:
-                    if (world.wake_zone(scheduled_event.zone_id))
-                    {
-                        return EventDispatchOutcome::applied;
-                    }
-                    break;
-
-                case core::event::Type::zone_sleep:
-                    if (world.sleep_zone(scheduled_event.zone_id))
-                    {
-                        return EventDispatchOutcome::applied;
-                    }
-                    break;
-
-                case core::event::Type::evolution_due:
-                case core::event::Type::region_notice:
-                default:
-                    world.event_outbox.push_back(scheduled_event);
-                    return EventDispatchOutcome::queued;
-            }
-
-            world.rejected_events.push_back(scheduled_event);
-            return EventDispatchOutcome::rejected;
-        }
-
-        [[nodiscard]] inline auto dispatch_ready_events(
-            World& world,
-            core::time::TimePoint now) -> EventDispatchStats
-        {
-            const auto ready_events = world.scheduler.pop_ready(now);
-            EventDispatchStats stats{};
-
-            for (const auto& scheduled_event : ready_events)
-            {
-                switch (dispatch_event(world, scheduled_event))
+                for (const auto& scheduled_event : ready_events)
                 {
-                    case EventDispatchOutcome::applied:
-                        ++stats.applied;
-                        break;
-                    case EventDispatchOutcome::queued:
-                        ++stats.queued;
-                        break;
-                    case EventDispatchOutcome::rejected:
-                        ++stats.rejected;
-                        break;
+                    switch (dispatch_event_internal(scheduled_event))
+                    {
+                        case EventDispatchOutcome::applied:
+                            ++stats.applied;
+                            break;
+                        case EventDispatchOutcome::queued:
+                            ++stats.queued;
+                            break;
+                        case EventDispatchOutcome::rejected:
+                            ++stats.rejected;
+                            break;
+                    }
                 }
-            }
 
-            return stats;
-        }
+                return stats;
+            }
+        };
 
         struct TickContext
         {
@@ -370,7 +511,7 @@ namespace mmo
         [[nodiscard]] inline auto list_entity_ids_in_simulation_order(
             const World& world) -> std::vector<core::id::EntityId>
         {
-            return world.entities.list_ids();
+            return world.list_entity_ids();
         }
 
         // Canonical active order is (ZoneId, EntityId); both indexes are ordered trees.
@@ -380,7 +521,7 @@ namespace mmo
             std::vector<core::id::EntityId> ids;
             for (const auto zone_id : world.active_zone_ids())
             {
-                const auto zone_ids = world.entities.ids_in_zone(zone_id);
+                const auto zone_ids = world.entity_ids_in_zone(zone_id);
                 ids.insert(ids.end(), zone_ids.begin(), zone_ids.end());
             }
 
@@ -416,7 +557,7 @@ namespace mmo
             TickStats stats{};
 
             detail::notify_phase_started(observer, TickPhase::scheduled_events);
-            const auto event_stats = dispatch_ready_events(world, context.simulation_time);
+            const auto event_stats = world.dispatch_ready_events_internal(context.simulation_time);
             stats.events_processed = event_stats.total();
             stats.events_applied = event_stats.applied;
             stats.events_queued = event_stats.queued;
@@ -426,7 +567,7 @@ namespace mmo
             const auto ids = list_active_entity_ids_in_simulation_order(world);
             stats.active_zones = world.active_zone_ids().size();
             stats.entities_considered = ids.size();
-            stats.entities_skipped = world.entities.size() - ids.size();
+            stats.entities_skipped = world.entities_.size() - ids.size();
 
             detail::notify_phase_started(observer, TickPhase::entity_maintenance);
             for (const auto zone_id : world.active_zone_ids())
@@ -435,7 +576,7 @@ namespace mmo
             }
             for (const auto entity_id : ids)
             {
-                if (world.entities.sync_inventory_load_if_dirty(entity_id, items))
+                if (world.entities_.sync_inventory_load_if_dirty(entity_id, items))
                 {
                     ++stats.load_recalculations;
                 }
@@ -445,7 +586,7 @@ namespace mmo
             detail::notify_phase_started(observer, TickPhase::periodic_statuses);
             for (const auto entity_id : ids)
             {
-                const auto periodic = world.entities.process_periodic_statuses(
+                const auto periodic = world.entities_.process_periodic_statuses(
                     entity_id,
                     context.simulation_time,
                     max_periodic_catch_up_applications_per_status);
@@ -457,7 +598,7 @@ namespace mmo
             for (const auto entity_id : ids)
             {
                 ++stats.status_sweeps;
-                if (world.entities.sweep_statuses(entity_id, context.simulation_time))
+                if (world.entities_.sweep_statuses(entity_id, context.simulation_time))
                 {
                     ++stats.status_changes;
                 }
