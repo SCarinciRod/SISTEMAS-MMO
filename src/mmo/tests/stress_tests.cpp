@@ -267,13 +267,6 @@ namespace
         return config;
     }
 
-    template <typename WorldT>
-    auto world_event_scheduler(WorldT& world) -> decltype(auto)
-    {
-        return (world.scheduler);
-    }
-
-
     template <typename Fn>
     auto run_test(std::string_view name, mmo::core::log::Logger& logger, Fn&& fn) -> TestResult
     {
@@ -424,6 +417,29 @@ namespace
         return inventory;
     }
 
+    auto populate_world_inventory(
+        mmo::world::World& world,
+        mmo::core::id::EntityId entity_id,
+        const mmo::core::item::Catalog& catalog,
+        std::uint32_t items_per_entity,
+        std::uint32_t requested_quantity,
+        std::uint64_t item_id_base = 0) -> void
+    {
+        const auto inventory = build_inventory(
+            catalog,
+            items_per_entity,
+            requested_quantity,
+            item_id_base);
+
+        for (const auto& instance : inventory.items)
+        {
+            const auto result = world.add_inventory_item(entity_id, catalog, instance);
+            require(
+                result.quantity_remaining == 0,
+                "failed to populate world inventory through authority boundary");
+        }
+    }
+
     auto expected_inventory_weight_from_instances(
         const mmo::core::item::Catalog& catalog,
         const mmo::core::entity::Inventory& inventory) -> std::uint64_t
@@ -560,7 +576,7 @@ namespace
             profile.packet.source = mmo::core::damage::make_entity_source(source_entity_id);
         }
 
-        return world.entities.apply_damage(
+        return world.apply_damage(
             target_entity_id,
             profile,
             mmo::core::time::now()).has_value();
@@ -1403,19 +1419,17 @@ int main() {
         require(
             world.spawn_entity(900001, make_stress_blueprint(), 1, now),
             "numeric boundary entity spawn");
-        auto* record = world.entities.find(900001);
+        const auto* record = world.find_entity(900001);
         require(record != nullptr, "numeric boundary entity lookup");
 
-        record->resources.shield_current = int32_max;
-        const auto health_before = record->resources.health_current;
-        require(world.entities.adjust_health(900001, int32_min), "minimum health delta adjustment");
-        require_equal(0, record->resources.shield_current, "minimum health delta consumes shield");
-        require_equal(health_before - 1, record->resources.health_current, "minimum health delta remainder");
-        require(world.entities.adjust_health(900001, int32_max), "maximum health delta adjustment");
+        require(world.adjust_health(900001, int32_min, now), "minimum health delta adjustment");
+        require_equal(0, record->resources.health_current, "minimum health delta lower clamp");
+        require(record->lifecycle.death_at == now, "minimum health delta logical death time");
+        require(world.adjust_health(900001, int32_max, now), "maximum health delta adjustment");
         require_equal(record->stats.current_derived.max_hp, record->resources.health_current, "health upper clamp");
-        require(world.entities.adjust_mana(900001, int32_min), "minimum mana delta adjustment");
+        require(world.adjust_mana(900001, int32_min), "minimum mana delta adjustment");
         require_equal(0, record->resources.mana_current, "mana lower clamp");
-        require(world.entities.adjust_mana(900001, int32_max), "maximum mana delta adjustment");
+        require(world.adjust_mana(900001, int32_max), "maximum mana delta adjustment");
         require_equal(record->stats.current_derived.max_mana, record->resources.mana_current, "mana upper clamp");
 
         details.append("signed_unsigned_resources_damage=covered");
@@ -1661,6 +1675,7 @@ int main() {
 
     push_result(run_test("stress.runtime_event_dispatch_exactly_once", logger, [&](std::string& details) {
         mmo::world::World world{};
+        const mmo::core::item::Catalog items{};
         const auto now = mmo::core::time::now();
         constexpr auto entity_id = static_cast<mmo::core::id::EntityId>(1);
         constexpr auto source_zone = static_cast<mmo::core::id::ZoneId>(10);
@@ -1689,31 +1704,37 @@ int main() {
         future_notice.due_at = now + mmo::core::time::Milliseconds{ 1 };
         future_notice.counter = 100;
 
-        require(world.scheduler.try_schedule(migration), "migration should schedule");
-        require(world.scheduler.try_schedule(wake), "zone wake should schedule");
-        require(world.scheduler.try_schedule(notice), "notice should schedule");
-        require(world.scheduler.try_schedule(future_notice), "future notice should schedule");
+        require(world.try_schedule_event(migration), "migration should schedule");
+        require(world.try_schedule_event(wake), "zone wake should schedule");
+        require(world.try_schedule_event(notice), "notice should schedule");
+        require(world.try_schedule_event(future_notice), "future notice should schedule");
 
-        const auto first_dispatch = mmo::world::dispatch_ready_events(world, now);
+        const auto first_dispatch = mmo::world::step(
+            world,
+            items,
+            mmo::world::TickContext{ 0, now });
 
-        require_equal(static_cast<std::size_t>(3), first_dispatch.total(), "first dispatch total");
-        require_equal(static_cast<std::size_t>(2), first_dispatch.applied, "first dispatch applied");
-        require_equal(static_cast<std::size_t>(1), first_dispatch.queued, "first dispatch queued");
-        require_equal(static_cast<std::size_t>(0), first_dispatch.rejected, "first dispatch rejected");
-        require_equal(static_cast<std::size_t>(1), world.scheduler.size(), "future event retained");
-        require_equal(static_cast<std::size_t>(1), world.event_outbox.size(), "domain outbox count");
-        require_equal(static_cast<std::uint32_t>(99), world.event_outbox.front().counter, "outbox payload");
+        require_equal(static_cast<std::uint64_t>(3), first_dispatch.events_processed, "first dispatch total");
+        require_equal(static_cast<std::uint64_t>(2), first_dispatch.events_applied, "first dispatch applied");
+        require_equal(static_cast<std::uint64_t>(1), first_dispatch.events_queued, "first dispatch queued");
+        require_equal(static_cast<std::uint64_t>(0), first_dispatch.events_rejected, "first dispatch rejected");
+        require_equal(static_cast<std::size_t>(1), world.pending_event_count(), "future event retained");
+        require_equal(static_cast<std::size_t>(1), world.pending_events().size(), "domain outbox count");
+        require_equal(static_cast<std::uint32_t>(99), world.pending_events().front().counter, "outbox payload");
 
-        const auto* entity = world.entities.find(entity_id);
+        const auto* entity = world.find_entity(entity_id);
         require(entity != nullptr, "migrated entity should exist");
         require_equal(destination_zone, entity->placement.zone_id(), "migration destination");
 
-        const auto* zone = world.zones.get(destination_zone);
+        const auto* zone = world.find_zone(destination_zone);
         require(zone != nullptr && zone->is_active(), "zone wake should activate destination");
 
-        const auto duplicate_dispatch = mmo::world::dispatch_ready_events(world, now);
-        require_equal(static_cast<std::size_t>(0), duplicate_dispatch.total(), "events must dispatch once");
-        require_equal(static_cast<std::size_t>(1), world.event_outbox.size(), "outbox must not duplicate");
+        const auto duplicate_dispatch = mmo::world::step(
+            world,
+            items,
+            mmo::world::TickContext{ 1, now });
+        require_equal(static_cast<std::uint64_t>(0), duplicate_dispatch.events_processed, "events must dispatch once");
+        require_equal(static_cast<std::size_t>(1), world.pending_events().size(), "outbox must not duplicate");
 
         details.append("applied=2 queued=1 future=1");
     }));
@@ -1995,7 +2016,7 @@ int main() {
 
             world.spawn_entity(entity_id, blueprint, 1, now);
 
-            auto* record = world.entities.find(entity_id);
+            const auto* record = world.find_entity(entity_id);
             require(record != nullptr, "spawned entity was not found");
 
             require(record->resources.health_current > 0, "spawned entity should have positive hp");
@@ -2026,17 +2047,17 @@ int main() {
         require(world.has_consistent_spatial_state(), "spawned spatial state inconsistent");
 
         require(world.move_entity_to_zone(first_entity, second_zone, now), "zone move failed");
-        require(world.entities.ids_in_zone(first_zone).empty(), "old zone retained moved entity");
+        require(world.entity_ids_in_zone(first_zone).empty(), "old zone retained moved entity");
         require_equal(
             static_cast<std::size_t>(2),
-            world.entities.ids_in_zone(second_zone).size(),
+            world.entity_ids_in_zone(second_zone).size(),
             "destination zone entity count");
         require(world.has_consistent_spatial_state(), "spatial state inconsistent after move");
 
         require(world.move_entity_to_zone(first_entity, second_zone, now), "idempotent zone move failed");
         require_equal(
             static_cast<std::size_t>(2),
-            world.entities.ids_in_zone(second_zone).size(),
+            world.entity_ids_in_zone(second_zone).size(),
             "idempotent move duplicated index entry");
         require(
             !world.move_entity_to_zone(first_entity, mmo::core::id::invalid_zone_id, now),
@@ -2065,7 +2086,7 @@ int main() {
 
         world.spawn_entity(entity_id, blueprint, 1, now);
 
-        auto* record = world.entities.find(entity_id);
+        const auto* record = world.find_entity(entity_id);
         require(record != nullptr, "entity contract target not found");
 
         const auto* equipment_definition =
@@ -2081,17 +2102,23 @@ int main() {
             return instance;
         };
 
-        record->inventory.items.push_back(make_equipment_instance(static_cast<mmo::core::id::ItemId>(1)));
-        record->inventory.items.push_back(make_equipment_instance(static_cast<mmo::core::id::ItemId>(1)));
+        mmo::core::entity::Inventory invalid_inventory{};
+        invalid_inventory.items.push_back(make_equipment_instance(static_cast<mmo::core::id::ItemId>(1)));
+        invalid_inventory.items.push_back(make_equipment_instance(static_cast<mmo::core::id::ItemId>(1)));
 
         require_equal(
             mmo::core::inventory::ValidationIssue::duplicated_item_id,
-            world.entities.validate_inventory(entity_id, catalog),
-            "entity inventory wrapper duplicate");
+            mmo::core::entity::validate_inventory(catalog, invalid_inventory),
+            "standalone inventory duplicate");
+
+        require_equal(
+            mmo::core::inventory::ValidationIssue::none,
+            world.validate_inventory(entity_id, catalog),
+            "world inventory remains valid");
 
         require_equal(
             mmo::core::inventory::ValidationIssue::invalid_item_id,
-            world.entities.validate_inventory(static_cast<mmo::core::id::EntityId>(9999), catalog),
+            world.validate_inventory(static_cast<mmo::core::id::EntityId>(9999), catalog),
             "missing entity inventory validation");
 
         const auto hp_before = record->resources.health_current;
@@ -2101,7 +2128,7 @@ int main() {
         zero_profile.packet.amount = 0;
 
         require(
-            world.entities.apply_damage(entity_id, zero_profile, now).has_value(),
+            world.apply_damage(entity_id, zero_profile, now).has_value(),
             "zero damage should still resolve against a valid entity");
 
         require_equal(hp_before, record->resources.health_current, "zero damage should not change hp");
@@ -2110,14 +2137,14 @@ int main() {
         negative_profile.packet.amount = -10;
 
         require(
-            world.entities.apply_damage(entity_id, negative_profile, now).has_value(),
+            world.apply_damage(entity_id, negative_profile, now).has_value(),
             "negative damage should still resolve against a valid entity");
 
         require_equal(hp_before, record->resources.health_current, "negative damage should not change hp");
         require(record->lifecycle.last_damage_at.has_value(), "damage should record last_damage_at");
 
         require(
-            world.entities.apply_damage(
+            world.apply_damage(
                 static_cast<mmo::core::id::EntityId>(9999),
                 zero_profile,
                 now) == std::nullopt,
@@ -2145,7 +2172,7 @@ int main() {
 
             world.spawn_entity(entity_id, blueprint, 1, now);
 
-            auto* before = world.entities.find(entity_id);
+            const auto* before = world.find_entity(entity_id);
             require(before != nullptr, "combat entity not found before damage");
 
             const auto hp_before = before->resources.health_current;
@@ -2168,7 +2195,7 @@ int main() {
                 apply_combat_damage_to_entity(world, entity_id, packet, entity_id),
                 "damage application failed");
 
-            auto* after = world.entities.find(entity_id);
+            const auto* after = world.find_entity(entity_id);
             require(after != nullptr, "combat entity not found after damage");
 
             const auto expected_hp =
@@ -2229,7 +2256,7 @@ int main() {
 
         world.spawn_entity(target_id, blueprint, 1, now);
 
-        auto* target = world.entities.find(target_id);
+        const auto* target = world.find_entity(target_id);
         require(target != nullptr, "target entity not found");
 
         const auto hp_start = target->resources.health_current;
@@ -2263,7 +2290,7 @@ int main() {
             }
         }
 
-        target = world.entities.find(target_id);
+        target = world.find_entity(target_id);
         require(target != nullptr, "target entity not found after source damage");
 
         require_equal(
@@ -2314,7 +2341,7 @@ int main() {
 
             world.spawn_entity(target_id, blueprint, 1, now);
 
-            auto* record = world.entities.find(target_id);
+            const auto* record = world.find_entity(target_id);
             require(record != nullptr, "many target entity not found");
 
             expected_hp_by_entity[static_cast<std::uint64_t>(target_id)] =
@@ -2387,7 +2414,7 @@ int main() {
         for (std::uint32_t target = 1; target <= stress_config.combat_entity_count; ++target)
         {
             const auto target_id = static_cast<mmo::core::id::EntityId>(target);
-            auto* record = world.entities.find(target_id);
+            const auto* record = world.find_entity(target_id);
 
             require(record != nullptr, "many target entity missing after damage");
 
@@ -2448,7 +2475,7 @@ int main() {
 
         world.spawn_entity(target_id, blueprint, 1, now);
 
-        auto* target = world.entities.find(target_id);
+        const auto* target = world.find_entity(target_id);
         require(target != nullptr, "target not found before lethal damage");
 
         mmo::core::damage::Packet first_lethal{};
@@ -2459,7 +2486,7 @@ int main() {
             apply_combat_damage_to_entity(world, target_id, first_lethal, killer_a),
             "first lethal damage failed");
 
-        target = world.entities.find(target_id);
+        target = world.find_entity(target_id);
         require(target != nullptr, "target not found after lethal damage");
 
         require(!target->lifecycle.alive, "target should be dead after lethal damage");
@@ -2482,7 +2509,7 @@ int main() {
 
         static_cast<void>(overkill_result);
 
-        target = world.entities.find(target_id);
+        target = world.find_entity(target_id);
         require(target != nullptr, "target not found after overkill attempt");
 
         require(!target->lifecycle.alive, "dead target became alive unexpectedly");
@@ -2606,7 +2633,7 @@ int main() {
 
         world.spawn_entity(entity_id, blueprint, 1, now);
 
-        auto* record = world.entities.find(entity_id);
+        const auto* record = world.find_entity(entity_id);
         require(record != nullptr, "status immunity target not found");
 
         const auto catalog = mmo::core::status::make_status_catalog();
@@ -2618,9 +2645,9 @@ int main() {
             entity_id);
 
         require(bless.has_value(), "bless status should instantiate");
-        require(world.entities.apply_status(entity_id, bless.value()), "bless status should apply");
+        require(world.apply_status(entity_id, bless.value()), "bless status should apply");
 
-        record = world.entities.find(entity_id);
+        record = world.find_entity(entity_id);
         require(record != nullptr, "status immunity target missing after bless");
 
         require(
@@ -2642,10 +2669,10 @@ int main() {
         require(poison.has_value(), "poison status should instantiate");
 
         require(
-            !world.entities.apply_status(entity_id, poison.value()),
+            !world.apply_status(entity_id, poison.value()),
             "poison should be blocked by immunity");
 
-        record = world.entities.find(entity_id);
+        record = world.find_entity(entity_id);
         require(record != nullptr, "status immunity target missing after poison attempt");
 
         require(
@@ -2657,11 +2684,12 @@ int main() {
 
     push_result(run_test("stress.status_periodic_cadence_and_catch_up", logger, [&](std::string& details) {
         mmo::world::World world{};
+        const mmo::core::item::Catalog items{};
         const auto now = mmo::core::time::now();
         constexpr auto entity_id = static_cast<mmo::core::id::EntityId>(1);
 
         world.spawn_entity(entity_id, make_stress_blueprint(), 1, now);
-        auto* record = world.entities.find(entity_id);
+        const auto* record = world.find_entity(entity_id);
         require(record != nullptr, "periodic status target not found");
         const auto initial_health = record->resources.health_current;
 
@@ -2671,71 +2699,98 @@ int main() {
             now,
             1,
             entity_id);
-        require(world.entities.apply_status(entity_id, poison), "periodic poison should apply");
+        require(world.apply_status(entity_id, poison), "periodic poison should apply");
 
+        const auto before = mmo::world::step(
+            world,
+            items,
+            mmo::world::TickContext{
+                0,
+                now + mmo::core::time::Milliseconds{ 999 }
+            });
         require_equal(
             static_cast<std::uint64_t>(0),
-            world.entities.process_periodic_statuses(
-                entity_id,
-                now + mmo::core::time::Milliseconds{ 999 }).applications,
+            before.status_periodic_applications,
             "periodic effect before first deadline");
         require_equal(
             initial_health,
-            world.entities.find(entity_id)->resources.health_current,
+            world.find_entity(entity_id)->resources.health_current,
             "health before first periodic deadline");
 
+        const auto first = mmo::world::step(
+            world,
+            items,
+            mmo::world::TickContext{
+                1,
+                now + mmo::core::time::Milliseconds{ 1000 }
+            });
         require_equal(
             static_cast<std::uint64_t>(1),
-            world.entities.process_periodic_statuses(
-                entity_id,
-                now + mmo::core::time::Milliseconds{ 1000 }).applications,
+            first.status_periodic_applications,
             "periodic first deadline");
         require_equal(
             initial_health - 8,
-            world.entities.find(entity_id)->resources.health_current,
+            world.find_entity(entity_id)->resources.health_current,
             "health after first periodic deadline");
 
+        const auto repeated = mmo::world::step(
+            world,
+            items,
+            mmo::world::TickContext{
+                2,
+                now + mmo::core::time::Milliseconds{ 1000 }
+            });
         require_equal(
             static_cast<std::uint64_t>(0),
-            world.entities.process_periodic_statuses(
-                entity_id,
-                now + mmo::core::time::Milliseconds{ 1000 }).applications,
+            repeated.status_periodic_applications,
             "periodic deadline must be consumed once");
 
+        const auto catch_up = mmo::world::step(
+            world,
+            items,
+            mmo::world::TickContext{
+                3,
+                now + mmo::core::time::Milliseconds{ 3500 }
+            });
         require_equal(
             static_cast<std::uint64_t>(2),
-            world.entities.process_periodic_statuses(
-                entity_id,
-                now + mmo::core::time::Milliseconds{ 3500 }).applications,
+            catch_up.status_periodic_applications,
             "periodic catch-up count");
         require_equal(
             initial_health - 24,
-            world.entities.find(entity_id)->resources.health_current,
+            world.find_entity(entity_id)->resources.health_current,
             "health after periodic catch-up");
 
+        const auto expiration = mmo::world::step(
+            world,
+            items,
+            mmo::world::TickContext{
+                4,
+                now + mmo::core::time::Milliseconds{ 8000 }
+            });
         require_equal(
-            static_cast<std::uint64_t>(5),
-            world.entities.process_periodic_statuses(
-                entity_id,
-                now + mmo::core::time::Milliseconds{ 8000 }).applications,
-            "periodic applications through expiration boundary");
+            mmo::world::max_periodic_catch_up_applications_per_status,
+            expiration.status_periodic_applications,
+            "bounded periodic applications through expiration boundary");
         require_equal(
-            initial_health - 64,
-            world.entities.find(entity_id)->resources.health_current,
-            "health after all periodic applications");
-        require(
-            world.entities.sweep_statuses(
-                entity_id,
-                now + mmo::core::time::Milliseconds{ 8000 }),
-            "expired periodic status should sweep");
+            initial_health - 56,
+            world.find_entity(entity_id)->resources.health_current,
+            "health after bounded periodic applications");
+        require_equal(static_cast<std::uint64_t>(1), expiration.status_changes, "expired periodic status sweep");
+
+        const auto expired = mmo::world::step(
+            world,
+            items,
+            mmo::world::TickContext{
+                5,
+                now + mmo::core::time::Milliseconds{ 9000 }
+            });
         require_equal(
             static_cast<std::uint64_t>(0),
-            world.entities.process_periodic_statuses(
-                entity_id,
-                now + mmo::core::time::Milliseconds{ 9000 }).applications,
+            expired.status_periodic_applications,
             "expired status must not tick again");
 
-        details.append("ticks=8 damage=64 catch_up=2");
+        details.append("ticks=7 damage=56 catch_up=2 bounded_expiration=4");
     }));
 
     push_result(run_test("stress.fixed_timestep_contract", logger, [&](std::string& details) {
@@ -2762,7 +2817,6 @@ int main() {
 
         mmo::world::World world{};
         auto catalog = build_item_catalog();
-        auto& scheduler = world_event_scheduler(world);
         require(
             world.spawn_entity(800001, make_stress_blueprint(), 1, mmo::core::time::now()),
             "fixed timestep entity spawn");
@@ -2771,7 +2825,7 @@ int main() {
         event.type = mmo::core::event::Type::region_notice;
         event.due_at = mmo::core::time::now() + mmo::core::time::Milliseconds{ 50 };
         event.zone_id = 1;
-        require(scheduler.try_schedule(event), "fixed timestep event schedule");
+        require(world.try_schedule_event(event), "fixed timestep event schedule");
 
         mmo::server::LoopConfig config{};
         config.tick_rate = 20;
@@ -2792,17 +2846,15 @@ int main() {
             clean_stats.load_recalculations,
             "clean inventory load must not recalculate per tick");
 
-        require(
-            world.entities.mark_inventory_load_dirty(800001),
-            "explicit inventory dirty mark");
+        populate_world_inventory(world, 800001, catalog, 1, 1, 8'000'000);
         config.max_ticks = 2;
-        const auto dirty_stats = mmo::server::run_loop(world, catalog, config, logger);
+        const auto mutation_stats = mmo::server::run_loop(world, catalog, config, logger);
         require_equal(
-            static_cast<std::uint64_t>(1),
-            dirty_stats.load_recalculations,
-            "dirty inventory load recalculates exactly once");
+            static_cast<std::uint64_t>(0),
+            mutation_stats.load_recalculations,
+            "authoritative inventory mutation synchronizes load eagerly");
 
-        details.append("rate=60 exact_second=true catch_up_limit=4 load_syncs=1/0/1");
+        details.append("rate=60 exact_second=true catch_up_limit=4 load_syncs=1/0/0");
     }));
 
     push_result_with_budget(run_test("stress.world_loop_mixed_entity_states", logger, [&](std::string& details) {
@@ -2825,18 +2877,18 @@ int main() {
 
             world.spawn_entity(entity_id, blueprint, 1, now);
 
-            auto* record = world.entities.find(entity_id);
+            const auto* record = world.find_entity(entity_id);
             require(record != nullptr, "mixed world entity not found after spawn");
 
             if ((i % 2) == 0)
             {
-                record->inventory = build_inventory(
+                populate_world_inventory(
+                    world,
+                    entity_id,
                     catalog,
                     8,
                     1,
                     static_cast<std::uint64_t>(i) * 10000ull);
-
-                mmo::core::entity::sync_load(*record, catalog);
                 ++with_inventory;
             }
 
@@ -2851,7 +2903,7 @@ int main() {
                     entity_id);
 
                 require(
-                    world.entities.apply_status(entity_id, poison),
+                    world.apply_status(entity_id, poison),
                     "poison status should apply in mixed world");
 
                 ++with_status;
@@ -2883,7 +2935,7 @@ int main() {
         for (std::uint32_t i = 1; i <= entity_count; ++i)
         {
             const auto entity_id = static_cast<mmo::core::id::EntityId>(i);
-            auto* record = world.entities.find(entity_id);
+            const auto* record = world.find_entity(entity_id);
 
             require(record != nullptr, "mixed world entity missing after loop");
 
@@ -2935,6 +2987,9 @@ int main() {
 
         const auto blueprint = make_stress_blueprint();
         const auto now = mmo::core::time::now();
+        const auto world_items_per_entity = std::min<std::uint32_t>(
+            stress_config.world_items_per_entity,
+            mmo::core::entity::Inventory{}.limits.max_slots);
 
         for (std::uint32_t i = 1; i <= stress_config.world_entity_count; ++i)
         {
@@ -2942,16 +2997,16 @@ int main() {
 
             world.spawn_entity(entity_id, blueprint, 1, now);
 
-            auto* record = world.entities.find(entity_id);
+            const auto* record = world.find_entity(entity_id);
             require(record != nullptr, "spawned world entity was not found");
 
-            record->inventory = build_inventory(
+            populate_world_inventory(
+                world,
+                entity_id,
                 catalog,
-                stress_config.world_items_per_entity,
+                world_items_per_entity,
                 10,
                 static_cast<std::uint64_t>(i) * 100000ull);
-
-            mmo::core::entity::sync_load(*record, catalog);
 
             auto poison_def = mmo::core::status::make_poison_definition();
 
@@ -2961,14 +3016,12 @@ int main() {
                 1,
                 entity_id);
 
-            const auto status_applied = world.entities.apply_status(entity_id, poison);
+            const auto status_applied = world.apply_status(entity_id, poison);
 
             require(
                 status_applied,
                 "world core poison status should apply");
         }
-
-        auto& scheduler = world_event_scheduler(world);
 
         const std::uint32_t core_event_count =
             std::min<std::uint32_t>(
@@ -2984,13 +3037,13 @@ int main() {
             event.counter = i;
 
             require(
-                scheduler.try_schedule(event),
+                world.try_schedule_event(event),
                 "world core due event should schedule");
         }
 
         require_equal(
             static_cast<std::size_t>(core_event_count),
-            scheduler.size(),
+            world.pending_event_count(),
             "world core initial event count");
 
         mmo::server::LoopConfig config{};
@@ -3034,7 +3087,7 @@ int main() {
             "world loop core should process scheduled due events");
 
         require(
-            scheduler.empty(),
+            world.event_queue_empty(),
             "world loop core scheduler should be empty after processing due events");
 
         require(
@@ -3053,12 +3106,12 @@ int main() {
         for (std::uint32_t i = 1; i <= stress_config.world_entity_count; ++i)
         {
             const auto entity_id = static_cast<mmo::core::id::EntityId>(i);
-            auto* record = world.entities.find(entity_id);
+            const auto* record = world.find_entity(entity_id);
 
             require(record != nullptr, "entity missing after world loop");
 
             require_equal(
-                static_cast<std::size_t>(stress_config.world_items_per_entity),
+                static_cast<std::size_t>(world_items_per_entity),
                 record->inventory.items.size(),
                 "inventory item count changed after world loop");
 
@@ -3098,7 +3151,7 @@ int main() {
         details.append(std::to_string(static_cast<std::uint64_t>(stats.events_processed)));
 
         details.append(" remaining_events=");
-        details.append(std::to_string(scheduler.size()));
+        details.append(std::to_string(world.pending_event_count()));
 
         details.append(" status_sweeps=");
         details.append(std::to_string(static_cast<std::uint64_t>(stats.status_sweeps)));
@@ -3142,7 +3195,7 @@ int main() {
                 1,
                 entity_id);
 
-            const auto applied = world.entities.apply_status(entity_id, poison);
+            const auto applied = world.apply_status(entity_id, poison);
 
             require(applied, "poison status was not applied");
         }
@@ -3208,8 +3261,6 @@ int main() {
         mmo::world::World world{};
         auto catalog = build_item_catalog();
 
-        auto& scheduler = world_event_scheduler(world);
-
         const auto now = mmo::core::time::now();
 
         const std::uint32_t event_count =
@@ -3224,13 +3275,13 @@ int main() {
             event.counter = i;
 
             require(
-                scheduler.try_schedule(event),
+                world.try_schedule_event(event),
                 "world loop due event should schedule");
         }
 
         require_equal(
             static_cast<std::size_t>(event_count),
-            scheduler.size(),
+            world.pending_event_count(),
             "world event scheduler initial size");
 
         mmo::server::LoopConfig config{};
@@ -3251,7 +3302,7 @@ int main() {
             "world loop should process due events");
 
         require(
-            scheduler.empty(),
+            world.event_queue_empty(),
             "world event scheduler should be empty after due events are processed");
 
         details.append("scheduled_due_events=");
@@ -3259,14 +3310,12 @@ int main() {
         details.append(" events_processed=");
         details.append(std::to_string(static_cast<std::uint64_t>(stats.events_processed)));
         details.append(" remaining_events=");
-        details.append(std::to_string(scheduler.size()));
+        details.append(std::to_string(world.pending_event_count()));
     }));
 
     push_result(run_test("stress.world_loop_keeps_future_events_pending", logger, [&](std::string& details) {
         mmo::world::World world{};
         auto catalog = build_item_catalog();
-
-        auto& scheduler = world_event_scheduler(world);
 
         const auto now = mmo::core::time::now();
 
@@ -3281,13 +3330,13 @@ int main() {
             event.counter = i;
 
             require(
-                scheduler.try_schedule(event),
+                world.try_schedule_event(event),
                 "future world event should schedule");
         }
 
         require_equal(
             static_cast<std::size_t>(event_count),
-            scheduler.size(),
+            world.pending_event_count(),
             "future event scheduler initial size");
 
         mmo::server::LoopConfig config{};
@@ -3309,7 +3358,7 @@ int main() {
 
         require_equal(
             static_cast<std::size_t>(event_count),
-            scheduler.size(),
+            world.pending_event_count(),
             "future events should remain pending");
 
         details.append("future_events=");
@@ -3317,14 +3366,12 @@ int main() {
         details.append(" events_processed=");
         details.append(std::to_string(static_cast<std::uint64_t>(stats.events_processed)));
         details.append(" remaining_events=");
-        details.append(std::to_string(scheduler.size()));
+        details.append(std::to_string(world.pending_event_count()));
     }));
 
     push_result(run_test("stress.world_loop_mixed_entities_status_and_events", logger, [&](std::string& details) {
         mmo::world::World world{};
         auto catalog = build_item_catalog();
-
-        auto& scheduler = world_event_scheduler(world);
 
         const auto blueprint = make_stress_blueprint();
         const auto now = mmo::core::time::now();
@@ -3341,18 +3388,18 @@ int main() {
 
             world.spawn_entity(entity_id, blueprint, 1, now);
 
-            auto* record = world.entities.find(entity_id);
+            const auto* record = world.find_entity(entity_id);
             require(record != nullptr, "mixed event world entity not found");
 
             if ((i % 2) == 0)
             {
-                record->inventory = build_inventory(
+                populate_world_inventory(
+                    world,
+                    entity_id,
                     catalog,
                     8,
                     1,
                     static_cast<std::uint64_t>(i) * 10000ull);
-
-                mmo::core::entity::sync_load(*record, catalog);
             }
 
             if ((i % 3) == 0)
@@ -3361,7 +3408,7 @@ int main() {
                 auto poison = mmo::core::status::make_instance(poison_def, now, 1, entity_id);
 
                 require(
-                    world.entities.apply_status(entity_id, poison),
+                    world.apply_status(entity_id, poison),
                     "mixed event world poison should apply");
             }
         }
@@ -3375,13 +3422,13 @@ int main() {
             event.counter = i;
 
             require(
-                scheduler.try_schedule(event),
+                world.try_schedule_event(event),
                 "mixed world due event should schedule");
         }
 
         require_equal(
             static_cast<std::size_t>(event_count),
-            scheduler.size(),
+            world.pending_event_count(),
             "mixed world initial event count");
 
         mmo::server::LoopConfig config{};
@@ -3411,13 +3458,13 @@ int main() {
             "mixed events world loop should process status sweeps");
 
         require(
-            scheduler.empty(),
+            world.event_queue_empty(),
             "mixed events world scheduler should be empty after due events");
 
         for (std::uint32_t i = 1; i <= entity_count; ++i)
         {
             const auto entity_id = static_cast<mmo::core::id::EntityId>(i);
-            auto* record = world.entities.find(entity_id);
+            const auto* record = world.find_entity(entity_id);
 
             require(record != nullptr, "mixed events world entity missing after loop");
 

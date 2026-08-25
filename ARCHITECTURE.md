@@ -120,6 +120,16 @@ Future skill fusion should reuse the same skill catalog and relation model inste
 - The persistent active-zone index is an ordered `std::set<ZoneId>`. Full simulation order is the stable pair `(ZoneId, EntityId)` and requires no global per-tick sort.
 - Optional phase observation lets the server retain wall-clock phase metrics without feeding those measurements back into gameplay decisions.
 
+## World Authority Boundary
+
+- `World` is the aggregate root for live entities, zones, scheduling, and simulation outputs. Those containers are private and cannot be replaced or mutated independently by callers.
+- Read access is intentionally broad but const: `find_entity`, `find_zone`, canonical ID queries, queue counts, deadlines, and pending-output views form the read model.
+- Write access is explicit: entity state changes, spatial changes, wake/sleep, and scheduling cross named `World` operations. There is no generic mutable-record callback or mutable table/scheduler view.
+- `entity::Table::find` returns `const Record*` even for a non-const table. This protects identity and all state that participates in cross-table invariants while leaving local table operations responsible for their own writes.
+- Gameplay timestamps are dependencies of the write operation. In particular, `adjust_health` requires simulation time and never derives `death_at` from wall clock.
+- `World::try_schedule_event` is the normal scheduling boundary and always uses event validation. Scheduler state is observable only through read-only queries.
+- Normal and rejected outputs follow producer/consumer ownership. `drain_events` and `drain_rejected_events` preserve order, transfer the current batch, and leave the corresponding World queue empty.
+
 ## Zone Activity Semantics
 
 - A zone receives a full tick when `player_count > 0` or an explicit wake request is present. `State::is_active()` is the only logical definition; the ordered active index is a validated acceleration structure for it.
@@ -133,13 +143,13 @@ Future skill fusion should reuse the same skill catalog and relation model inste
 
 ## Runtime Invariants
 
-- A due scheduled event is never treated as processed merely because it was removed from the scheduler. Infrastructure events mutate world state; domain events enter `World::event_outbox`; invalid or failed transitions enter `World::rejected_events`.
+- A due scheduled event is never treated as processed merely because it was removed from the scheduler. Infrastructure events mutate world state; domain events enter the normal output queue; invalid or failed transitions enter the rejected output queue.
 - Periodic status effects use their own `tick_interval`, advance `next_tick_at` after consumption, and catch up deterministically through the expiration boundary.
 - Item identity text is owned by `item::Definition`. Content adapters must not publish `string_view` values backed by temporary or reallocating storage.
 - The Lua item loader parses and validates the complete source before publishing definitions. A failed atomic load preserves the previous catalog and existing IDs are never overwritten.
 - The Lua adapter calls `luaL_openlibs`; repository Lua files are trusted content with access to the standard Lua libraries, not untrusted sandboxed scripts.
 - Entity placement can only be changed by `mmo::world::World`; entity membership, zone population, player population, and the active-zone index must agree after spawn, move, erase, wake, sleep, and migration events.
-- Inventory commands update load authoritatively. Transitional code that mutates `Record::inventory` directly must call `mark_inventory_load_dirty`; the simulation step recalculates a dirty load once and never polls clean inventory weight.
+- Inventory commands update load authoritatively and synchronize derived load after a committed mutation. Live inventory is no longer externally mutable, so no public dirty-flag escape hatch is required.
 - Resource, damage, stat, stack, and modifier arithmetic saturates at the destination type instead of relying on signed overflow or narrowing casts.
 - The server loop derives simulation deadlines from `(epoch, tick index, rate)`, so fractional tick durations do not accumulate drift, then passes each deadline explicitly to `world::step`.
 - A paced loop keeps at most `LoopConfig::max_catch_up_ticks` overdue steps. Older steps are explicitly counted in `LoopStats::ticks_skipped`; lag, total/max tick work, and event/entity/status phase time are observable.

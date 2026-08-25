@@ -26,7 +26,7 @@ namespace mmo
 {
     namespace world
     {
-        struct World;
+        class World;
     }
 
     namespace core
@@ -386,7 +386,7 @@ namespace mmo
             class Table
             {
             private:
-                friend struct mmo::world::World;
+                friend class mmo::world::World;
 
                 auto spawn(
                     id::EntityId entity_id,
@@ -454,17 +454,6 @@ namespace mmo
                 }
 
             public:
-                [[nodiscard]] auto find(id::EntityId entity_id) -> Record*
-                {
-                    auto record_it = records_.find(entity_id);
-                    if (record_it == records_.end())
-                    {
-                        return nullptr;
-                    }
-
-                    return &record_it->second;
-                }
-
                 [[nodiscard]] auto find(id::EntityId entity_id) const -> const Record*
                 {
                     auto record_it = records_.find(entity_id);
@@ -537,19 +526,6 @@ namespace mmo
                     }
 
                     refresh_record(record_it->second);
-                    return true;
-                }
-
-                // Transitional bridge for adapters that still mutate Record::inventory directly.
-                auto mark_inventory_load_dirty(id::EntityId entity_id) -> bool
-                {
-                    auto record_it = records_.find(entity_id);
-                    if (record_it == records_.end())
-                    {
-                        return false;
-                    }
-
-                    mmo::core::entity::mark_inventory_load_dirty(record_it->second);
                     return true;
                 }
 
@@ -1113,7 +1089,10 @@ namespace mmo
                 }
 
                 // Raw health adjustments with shield handling and death flagging.
-                auto adjust_health(id::EntityId entity_id, std::int32_t delta) -> bool
+                auto adjust_health(
+                    id::EntityId entity_id,
+                    std::int32_t delta,
+                    time::TimePoint simulation_time) -> bool
                 {
                     auto record_it = records_.find(entity_id);
                     if (record_it == records_.end())
@@ -1121,7 +1100,7 @@ namespace mmo
                         return false;
                     }
 
-                    adjust_health_record(record_it->second, delta, time::now());
+                    adjust_health_record(record_it->second, delta, simulation_time);
                     return true;
                 }
 

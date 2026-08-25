@@ -6,6 +6,8 @@ All notable code and architecture updates for `SISTEMAS-MMO` are recorded here.
 
 ### Added
 
+- Read-only World queries, validated event scheduling, and ordered drain operations for normal and rejected simulation outputs.
+- Authority-boundary regressions for const entity lookup, logical health timestamps, scheduler validation, output drain ordering, rejected-output consumption, and spatial identity consistency.
 - `mmo::world::World` as the authoritative runtime aggregate for spatial mutations, zone population, active-zone indexing, and event dispatch.
 - Deterministic sparse simulation tests for authoritative spawn/move/erase, canonical active order, wake/sleep, rejected player-zone sleep, bounded status catch-up, and active-set scale.
 - `world::TickContext`, `world::TickStats`, and a deterministic headless `world::step` with explicit logical time and canonical entity traversal.
@@ -50,6 +52,8 @@ All notable code and architecture updates for `SISTEMAS-MMO` are recorded here.
 
 ### Changed
 
+- `mmo::world::World` now keeps entity, zone, scheduler, and output storage private; live mutation crosses explicit World operations.
+- `entity::Table::find` now returns only `const Record*`, `adjust_health` requires simulation time, and the public inventory-dirty escape hatch was removed.
 - Entity, zone, and zone-membership storage now uses ordered `std::map`/`std::set` indexes with worst-case `O(log N)` lookup and mutation; the active hot path is canonical `(ZoneId, EntityId)` without a global per-tick sort.
 - Spatial `entity::Table` mutations are private to `mmo::world::World`; player presence and explicit wake requests now share one zone-activity definition, and sleep with players is rejected.
 - Sleeping zones skip full entity work. Periodic status catch-up on wake is bounded to four applications per status before absolute-time expiration is swept.
@@ -67,7 +71,7 @@ All notable code and architecture updates for `SISTEMAS-MMO` are recorded here.
 - Inventory addition is atomic on rejection and reports partial success only when a partial stack was actually committed.
 - Health, mana, damage, derived stats, status modifiers, stacks, and build-up calculations now clamp or saturate at numeric boundaries.
 - The server loop now uses drift-free tick deadlines, deterministic simulation time, bounded catch-up, explicit skipped/late tick counters, and total/max/per-phase timing metrics.
-- Inventory load uses a dirty flag, replacing full inventory-weight recalculation on every tick; direct transitional mutations have an explicit invalidation API.
+- Inventory load uses a dirty flag for initial synchronization, while committed inventory commands synchronize derived load without exposing a direct invalidation API.
 
 - Removed `accuracy` and `evasion` from the core stat model; action recovery now relies on the remaining stat biases plus hit/whiff outcome.
 - `core/recovery.hpp` now follows the action contract and computes animation and recovery from stats, action weight, and hit/whiff outcome.

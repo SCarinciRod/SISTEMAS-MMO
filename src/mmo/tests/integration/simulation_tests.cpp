@@ -7,7 +7,19 @@
 #include <limits>
 #include <string>
 #include <string_view>
+#include <type_traits>
+#include <utility>
 #include <vector>
+
+static_assert(std::is_same_v<
+    decltype(std::declval<mmo::core::entity::Table&>().find(
+        std::declval<mmo::core::id::EntityId>())),
+    const mmo::core::entity::Record*>);
+
+static_assert(std::is_same_v<
+    decltype(std::declval<mmo::world::World&>().find_entity(
+        std::declval<mmo::core::id::EntityId>())),
+    const mmo::core::entity::Record*>);
 
 namespace
 {
@@ -53,7 +65,7 @@ namespace
             1,
             entity_id);
         test::require(
-            world.entities.apply_status(entity_id, poison),
+            world.apply_status(entity_id, poison),
             "simulation poison should apply");
     }
 
@@ -106,8 +118,8 @@ namespace
 
         for (const auto entity_id : expected_ids)
         {
-            const auto* expected_record = expected.entities.find(entity_id);
-            const auto* actual_record = actual.entities.find(entity_id);
+            const auto* expected_record = expected.find_entity(entity_id);
+            const auto* actual_record = actual.find_entity(entity_id);
             test::require(expected_record != nullptr && actual_record != nullptr, "equivalent entity should exist");
             test::require_equal(expected_record->placement.zone_id(), actual_record->placement.zone_id(), "zone id");
             test::require_equal(expected_record->resources.health_current, actual_record->resources.health_current, "health");
@@ -147,8 +159,8 @@ namespace
         for (std::uint32_t zone = 1; zone <= zone_count; ++zone)
         {
             const auto zone_id = static_cast<mmo::core::id::ZoneId>(zone);
-            const auto* expected_zone = expected.zones.get(zone_id);
-            const auto* actual_zone = actual.zones.get(zone_id);
+            const auto* expected_zone = expected.find_zone(zone_id);
+            const auto* actual_zone = actual.find_zone(zone_id);
             test::require(expected_zone != nullptr && actual_zone != nullptr, "equivalent zone should exist");
             test::require_equal(expected_zone->last_tick, actual_zone->last_tick, "zone last tick");
             test::require_equal(
@@ -167,14 +179,17 @@ namespace
             expected.active_zone_ids() == actual.active_zone_ids(),
             "active zone indexes should match");
 
-        test::require_equal(expected.scheduler.size(), actual.scheduler.size(), "pending event count");
-        test::require_equal(expected.event_outbox.size(), actual.event_outbox.size(), "event outbox size");
-        test::require_equal(expected.rejected_events.size(), actual.rejected_events.size(), "rejected event size");
-        for (std::size_t index = 0; index < expected.event_outbox.size(); ++index)
+        test::require_equal(expected.pending_event_count(), actual.pending_event_count(), "pending event count");
+        test::require_equal(expected.pending_events().size(), actual.pending_events().size(), "event outbox size");
+        test::require_equal(
+            expected.pending_rejected_events().size(),
+            actual.pending_rejected_events().size(),
+            "rejected event size");
+        for (std::size_t index = 0; index < expected.pending_events().size(); ++index)
         {
             test::require_equal(
-                expected.event_outbox[index].counter,
-                actual.event_outbox[index].counter,
+                expected.pending_events()[index].counter,
+                actual.pending_events()[index].counter,
                 "event outbox counter");
         }
     }
@@ -204,7 +219,7 @@ namespace
         event.due_at = epoch();
         event.zone_id = static_cast<mmo::core::id::ZoneId>(1);
         event.counter = 77;
-        test::require(world.scheduler.try_schedule(event), "due event should schedule");
+        test::require(world.try_schedule_event(event), "due event should schedule");
 
         const auto first = mmo::world::step(
             world,
@@ -218,8 +233,8 @@ namespace
         test::require_equal(static_cast<std::uint64_t>(1), first.events_processed, "first event processing");
         test::require_equal(static_cast<std::uint64_t>(1), first.events_queued, "first event queued");
         test::require_equal(static_cast<std::uint64_t>(0), second.events_processed, "event not repeated");
-        test::require(world.scheduler.empty(), "due scheduler should be empty");
-        test::require_equal(static_cast<std::size_t>(1), world.event_outbox.size(), "outbox exactly once");
+        test::require(world.event_queue_empty(), "due scheduler should be empty");
+        test::require_equal(static_cast<std::size_t>(1), world.pending_events().size(), "outbox exactly once");
         details = "processed=1 repeated=0";
     }
 
@@ -231,7 +246,7 @@ namespace
         event.type = mmo::core::event::Type::region_notice;
         event.due_at = epoch() + mmo::core::time::Milliseconds{ 100 };
         event.zone_id = static_cast<mmo::core::id::ZoneId>(1);
-        test::require(world.scheduler.try_schedule(event), "future event should schedule");
+        test::require(world.try_schedule_event(event), "future event should schedule");
 
         const auto stats = mmo::world::step(
             world,
@@ -239,8 +254,98 @@ namespace
             mmo::world::TickContext{ 0, epoch() + mmo::core::time::Milliseconds{ 99 } });
 
         test::require_equal(static_cast<std::uint64_t>(0), stats.events_processed, "future event processing");
-        test::require_equal(static_cast<std::size_t>(1), world.scheduler.size(), "future event pending");
+        test::require_equal(static_cast<std::size_t>(1), world.pending_event_count(), "future event pending");
+        test::require(world.next_event_due() == event.due_at, "future deadline should be observable");
         details = "processed=0 pending=1";
+    }
+
+    auto test_validated_scheduler_boundary(std::string& details) -> void
+    {
+        mmo::world::World world{};
+        mmo::core::event::Event invalid{};
+        invalid.type = mmo::core::event::Type::migration_completed;
+        invalid.due_at = epoch();
+
+        test::require(!world.try_schedule_event(invalid), "invalid event should be rejected before scheduling");
+        test::require(world.event_queue_empty(), "invalid event must not enter normal queue");
+        test::require(!world.next_event_due().has_value(), "invalid event must not create a deadline");
+        details = "invalid_migration queued=0";
+    }
+
+    auto test_event_drain_preserves_order(std::string& details) -> void
+    {
+        mmo::world::World world{};
+        const mmo::core::item::Catalog items{};
+
+        mmo::core::event::Event first{};
+        first.type = mmo::core::event::Type::region_notice;
+        first.due_at = epoch();
+        first.zone_id = static_cast<mmo::core::id::ZoneId>(1);
+        first.counter = 10;
+        auto second = first;
+        second.counter = 20;
+
+        test::require(world.try_schedule_event(first), "first output event should schedule");
+        test::require(world.try_schedule_event(second), "second output event should schedule");
+        const auto stats = mmo::world::step(
+            world,
+            items,
+            mmo::world::TickContext{ 0, epoch() });
+
+        test::require_equal(static_cast<std::uint64_t>(2), stats.events_queued, "queued output count");
+        const auto drained = world.drain_events();
+        test::require_equal(static_cast<std::size_t>(2), drained.size(), "first event drain size");
+        test::require_equal(static_cast<std::uint32_t>(10), drained[0].counter, "first drained event");
+        test::require_equal(static_cast<std::uint32_t>(20), drained[1].counter, "second drained event");
+        test::require(world.pending_events().empty(), "event outbox should be empty after drain");
+        test::require(world.drain_events().empty(), "second event drain should be empty");
+        details = "produced=2 drained=2 order=10,20 second_drain=0";
+    }
+
+    auto test_health_mutation_uses_simulation_time(std::string& details) -> void
+    {
+        mmo::world::World first{};
+        mmo::world::World second{};
+        constexpr auto entity_id = static_cast<mmo::core::id::EntityId>(1);
+        spawn_entity(first, entity_id);
+        spawn_entity(second, entity_id);
+        const auto logical_time = epoch() + mmo::core::time::Milliseconds{ 1234 };
+
+        test::require(
+            first.adjust_health(entity_id, std::numeric_limits<std::int32_t>::min(), logical_time),
+            "first deterministic health mutation");
+        test::require(
+            second.adjust_health(entity_id, std::numeric_limits<std::int32_t>::min(), logical_time),
+            "second deterministic health mutation");
+
+        const auto* first_record = first.find_entity(entity_id);
+        const auto* second_record = second.find_entity(entity_id);
+        test::require(first_record != nullptr && second_record != nullptr, "deterministic entities should exist");
+        test::require_equal(
+            first_record->resources.health_current,
+            second_record->resources.health_current,
+            "deterministic health");
+        test::require_equal(first_record->lifecycle.alive, second_record->lifecycle.alive, "deterministic alive state");
+        test::require(first_record->lifecycle.death_at == logical_time, "first logical death time");
+        test::require(second_record->lifecycle.death_at == logical_time, "second logical death time");
+        details = "worlds=2 hp=0 alive=false death_at=logical_time";
+    }
+
+    auto test_read_only_identity_preserves_spatial_state(std::string& details) -> void
+    {
+        mmo::world::World world{};
+        constexpr auto entity_id = static_cast<mmo::core::id::EntityId>(1);
+        constexpr auto zone_id = static_cast<mmo::core::id::ZoneId>(9);
+        spawn_entity(world, entity_id, zone_id);
+
+        const auto* record = world.find_entity(entity_id);
+        const auto* zone = world.find_zone(zone_id);
+        test::require(record != nullptr && zone != nullptr, "read-only spatial views should exist");
+        test::require_equal(mmo::core::entity::Type::player, record->identity.type, "read-only identity type");
+        test::require_equal(static_cast<std::uint64_t>(1), zone->player_count, "zone player count");
+        test::require(world.should_tick_full(zone_id), "player zone should remain active");
+        test::require(world.has_consistent_spatial_state(), "read-only access must preserve spatial state");
+        details = "lookup=const identity=player players=1 active=true";
     }
 
     auto test_dirty_load_recalculates_once(std::string& details) -> void
@@ -260,7 +365,7 @@ namespace
 
         test::require_equal(static_cast<std::uint64_t>(1), first.load_recalculations, "dirty load sync");
         test::require_equal(static_cast<std::uint64_t>(0), second.load_recalculations, "clean load reuse");
-        const auto* zone = world.zones.get(static_cast<mmo::core::id::ZoneId>(1));
+        const auto* zone = world.find_zone(static_cast<mmo::core::id::ZoneId>(1));
         test::require(zone != nullptr, "entity zone should be tracked");
         test::require_equal(static_cast<mmo::core::time::TickCount>(8), zone->last_tick, "zone tick index");
         details = "load_recalculations=1/0";
@@ -272,7 +377,7 @@ namespace
         const mmo::core::item::Catalog items{};
         constexpr auto entity_id = static_cast<mmo::core::id::EntityId>(1);
         spawn_entity(world, entity_id);
-        const auto initial_health = world.entities.find(entity_id)->resources.health_current;
+        const auto initial_health = world.find_entity(entity_id)->resources.health_current;
         apply_poison(world, entity_id);
 
         const auto before = mmo::world::step(
@@ -293,7 +398,7 @@ namespace
         test::require_equal(static_cast<std::uint64_t>(1), second.status_periodic_applications, "second deadline");
         test::require_equal(
             initial_health - 16,
-            world.entities.find(entity_id)->resources.health_current,
+            world.find_entity(entity_id)->resources.health_current,
             "periodic health delta");
         details = "before=0 deadline1=1 deadline2=1 damage=16";
     }
@@ -312,20 +417,20 @@ namespace
         lethal_definition.modifiers.health_delta_per_tick = std::numeric_limits<std::int32_t>::min();
         lethal_definition.modifiers.mana_delta_per_tick = std::numeric_limits<std::int32_t>::min();
         const auto lethal = mmo::core::status::make_instance(lethal_definition, epoch());
-        test::require(world.entities.apply_status(entity_id, lethal), "lethal periodic should apply");
+        test::require(world.apply_status(entity_id, lethal), "lethal periodic should apply");
 
         const auto shield = mmo::core::status::make_instance(
             mmo::core::status::make_shield_definition(),
             epoch());
-        test::require(world.entities.apply_status(entity_id, shield), "shield should apply");
-        test::require(world.entities.find(entity_id)->resources.shield_current > 0, "shield points expected");
+        test::require(world.apply_status(entity_id, shield), "shield should apply");
+        test::require(world.find_entity(entity_id)->resources.shield_current > 0, "shield points expected");
 
         const auto deadline = epoch() + mmo::core::time::Milliseconds{ 1000 };
         const auto stats = mmo::world::step(
             world,
             items,
             mmo::world::TickContext{ 20, deadline });
-        const auto* record = world.entities.find(entity_id);
+        const auto* record = world.find_entity(entity_id);
 
         test::require_equal(static_cast<std::uint64_t>(1), stats.status_periodic_applications, "lethal application count");
         test::require_equal(static_cast<std::int32_t>(0), record->resources.health_current, "health lower clamp");
@@ -342,13 +447,13 @@ namespace
         const mmo::core::item::Catalog items{};
         constexpr auto entity_id = static_cast<mmo::core::id::EntityId>(1);
         spawn_entity(world, entity_id);
-        const auto base_move_speed = world.entities.find(entity_id)->stats.current_derived.move_speed;
+        const auto base_move_speed = world.find_entity(entity_id)->stats.current_derived.move_speed;
         const auto haste = mmo::core::status::make_instance(
             mmo::core::status::make_haste_definition(),
             epoch());
-        test::require(world.entities.apply_status(entity_id, haste), "haste should apply");
+        test::require(world.apply_status(entity_id, haste), "haste should apply");
         test::require(
-            world.entities.find(entity_id)->stats.current_derived.move_speed > base_move_speed,
+            world.find_entity(entity_id)->stats.current_derived.move_speed > base_move_speed,
             "haste should affect derived stats");
 
         const auto before = mmo::world::step(
@@ -363,11 +468,11 @@ namespace
         test::require_equal(static_cast<std::uint64_t>(0), before.status_changes, "status before expiration");
         test::require_equal(static_cast<std::uint64_t>(1), at_deadline.status_changes, "status expiration change");
         test::require(
-            world.entities.find(entity_id)->combat.status_effects.find(mmo::core::status::Kind::haste) == nullptr,
+            world.find_entity(entity_id)->combat.status_effects.find(mmo::core::status::Kind::haste) == nullptr,
             "haste should expire at deadline");
         test::require_equal(
             base_move_speed,
-            world.entities.find(entity_id)->stats.current_derived.move_speed,
+            world.find_entity(entity_id)->stats.current_derived.move_speed,
             "derived stats after expiration");
         details = "before_deadline=active at_deadline=expired";
     }
@@ -419,12 +524,12 @@ namespace
         due.due_at = epoch() + mmo::core::time::Milliseconds{ 1000 };
         due.zone_id = static_cast<mmo::core::id::ZoneId>(1);
         due.counter = 1;
-        test::require(world.scheduler.try_schedule(due), "repeated due event should schedule");
+        test::require(world.try_schedule_event(due), "repeated due event should schedule");
 
         auto future = due;
         future.due_at = epoch() + mmo::core::time::Milliseconds{ 10000 };
         future.counter = 2;
-        test::require(world.scheduler.try_schedule(future), "repeated future event should schedule");
+        test::require(world.try_schedule_event(future), "repeated future event should schedule");
         return world;
     }
 
@@ -466,7 +571,7 @@ namespace
             static_cast<std::uint64_t>(entity_count) * tick_count,
             first_totals.entities_considered,
             "repeated entity operations");
-        test::require_equal(static_cast<std::size_t>(1), first.scheduler.size(), "future event remains");
+        test::require_equal(static_cast<std::size_t>(1), first.pending_event_count(), "future event remains");
         details = "worlds=2 entities_per_world=128 ticks=100 entity_considerations=25600";
     }
 
@@ -485,8 +590,8 @@ namespace
             mmo::core::entity::Type::monster);
         spawn_entity(world, player_id, first_zone);
 
-        const auto* first = world.zones.get(first_zone);
-        const auto* second = world.zones.get(second_zone);
+        const auto* first = world.find_zone(first_zone);
+        const auto* second = world.find_zone(second_zone);
         test::require(first != nullptr && second != nullptr, "spawned zones should exist");
         test::require_equal(static_cast<std::uint64_t>(1), first->entity_count, "first zone entities");
         test::require_equal(static_cast<std::uint64_t>(1), first->player_count, "first zone players");
@@ -497,8 +602,8 @@ namespace
         test::require(
             world.move_entity_to_zone(player_id, second_zone, epoch()),
             "player migration should succeed");
-        first = world.zones.get(first_zone);
-        second = world.zones.get(second_zone);
+        first = world.find_zone(first_zone);
+        second = world.find_zone(second_zone);
         test::require(first != nullptr && second != nullptr, "migrated zones should exist");
         test::require_equal(static_cast<std::uint64_t>(0), first->entity_count, "source entities after move");
         test::require(!first->is_active(), "empty source zone should sleep");
@@ -508,7 +613,7 @@ namespace
         test::require(world.has_consistent_spatial_state(), "migrated spatial state");
 
         test::require(world.erase_entity(player_id, epoch()), "player erase should succeed");
-        second = world.zones.get(second_zone);
+        second = world.find_zone(second_zone);
         test::require(second != nullptr, "destination zone should remain known");
         test::require_equal(static_cast<std::uint64_t>(1), second->entity_count, "destination entities after erase");
         test::require_equal(static_cast<std::uint64_t>(0), second->player_count, "destination players after erase");
@@ -542,11 +647,11 @@ namespace
         test::require_equal(static_cast<std::uint64_t>(1), stats.status_sweeps, "active status sweeps");
         test::require_equal(
             static_cast<mmo::core::time::TickCount>(7),
-            world.zones.get(active_zone)->last_tick,
+            world.find_zone(active_zone)->last_tick,
             "active zone tick");
         test::require_equal(
             static_cast<mmo::core::time::TickCount>(0),
-            world.zones.get(sleeping_zone)->last_tick,
+            world.find_zone(sleeping_zone)->last_tick,
             "sleeping zone tick");
         details = "known=2 active=1 considered=1 skipped=1";
     }
@@ -591,7 +696,7 @@ namespace
         wake.type = mmo::core::event::Type::zone_wake;
         wake.due_at = epoch();
         wake.zone_id = zone_id;
-        test::require(world.scheduler.try_schedule(wake), "wake event should schedule");
+        test::require(world.try_schedule_event(wake), "wake event should schedule");
         const auto awake = mmo::world::step(
             world,
             items,
@@ -603,7 +708,7 @@ namespace
         auto sleep = wake;
         sleep.type = mmo::core::event::Type::zone_sleep;
         sleep.due_at = epoch() + mmo::core::time::Milliseconds{ 1 };
-        test::require(world.scheduler.try_schedule(sleep), "sleep event should schedule");
+        test::require(world.try_schedule_event(sleep), "sleep event should schedule");
         const auto asleep = mmo::world::step(
             world,
             items,
@@ -626,17 +731,26 @@ namespace
         sleep.type = mmo::core::event::Type::zone_sleep;
         sleep.due_at = epoch();
         sleep.zone_id = zone_id;
-        test::require(world.scheduler.try_schedule(sleep), "player-zone sleep should schedule");
+        sleep.counter = 1;
+        auto second_sleep = sleep;
+        second_sleep.counter = 2;
+        test::require(world.try_schedule_event(sleep), "player-zone sleep should schedule");
+        test::require(world.try_schedule_event(second_sleep), "second player-zone sleep should schedule");
         const auto stats = mmo::world::step(
             world,
             items,
             mmo::world::TickContext{ 1, epoch() });
 
-        test::require_equal(static_cast<std::uint64_t>(1), stats.events_rejected, "sleep rejection");
-        test::require_equal(static_cast<std::size_t>(1), world.rejected_events.size(), "rejected outbox");
+        test::require_equal(static_cast<std::uint64_t>(2), stats.events_rejected, "sleep rejection");
+        const auto rejected = world.drain_rejected_events();
+        test::require_equal(static_cast<std::size_t>(2), rejected.size(), "rejected drain size");
+        test::require_equal(static_cast<std::uint32_t>(1), rejected[0].counter, "first rejected event");
+        test::require_equal(static_cast<std::uint32_t>(2), rejected[1].counter, "second rejected event");
+        test::require(world.pending_rejected_events().empty(), "rejected outbox should be empty after drain");
+        test::require(world.drain_rejected_events().empty(), "second rejected drain should be empty");
         test::require_equal(static_cast<std::uint64_t>(1), stats.entities_considered, "player zone remains active");
         test::require(world.should_tick_full(zone_id), "player must keep zone active");
-        details = "sleep_rejected=1 active_entities=1";
+        details = "sleep_rejected=2 drained=2 second_drain=0 active_entities=1";
     }
 
     auto test_sleep_wake_status_catch_up_is_bounded(std::string& details) -> void
@@ -647,7 +761,7 @@ namespace
         constexpr auto zone_id = static_cast<mmo::core::id::ZoneId>(7);
         spawn_entity(world, entity_id, zone_id, mmo::core::entity::Type::monster);
         apply_poison(world, entity_id);
-        const auto initial_health = world.entities.find(entity_id)->resources.health_current;
+        const auto initial_health = world.find_entity(entity_id)->resources.health_current;
 
         const auto sleeping = mmo::world::step(
             world,
@@ -663,7 +777,7 @@ namespace
         wake.type = mmo::core::event::Type::zone_wake;
         wake.due_at = epoch() + mmo::core::time::Milliseconds{ 8000 };
         wake.zone_id = zone_id;
-        test::require(world.scheduler.try_schedule(wake), "status wake should schedule");
+        test::require(world.try_schedule_event(wake), "status wake should schedule");
         const auto awakened = mmo::world::step(
             world,
             items,
@@ -676,10 +790,10 @@ namespace
         test::require_equal(static_cast<std::uint64_t>(1), awakened.status_changes, "absolute expiration sweep");
         test::require_equal(
             initial_health - 32,
-            world.entities.find(entity_id)->resources.health_current,
+            world.find_entity(entity_id)->resources.health_current,
             "bounded catch-up damage");
         test::require(
-            world.entities.find(entity_id)->combat.status_effects.find(mmo::core::status::Kind::poison) == nullptr,
+            world.find_entity(entity_id)->combat.status_effects.find(mmo::core::status::Kind::poison) == nullptr,
             "expired poison should be removed on wake");
         details = "due=8 applied_cap=4 expired=1";
     }
@@ -751,6 +865,10 @@ int main()
     results.push_back(test::run_test("simulation.empty_tick", test_empty_tick));
     results.push_back(test::run_test("simulation.due_event_exactly_once", test_due_event_exactly_once));
     results.push_back(test::run_test("simulation.future_event_pending", test_future_event_remains_pending));
+    results.push_back(test::run_test("simulation.validated_scheduler", test_validated_scheduler_boundary));
+    results.push_back(test::run_test("simulation.event_drain_order", test_event_drain_preserves_order));
+    results.push_back(test::run_test("simulation.logical_health_time", test_health_mutation_uses_simulation_time));
+    results.push_back(test::run_test("simulation.read_only_identity", test_read_only_identity_preserves_spatial_state));
     results.push_back(test::run_test("simulation.dirty_load_once", test_dirty_load_recalculates_once));
     results.push_back(test::run_test("simulation.periodic_cadence", test_periodic_status_cadence));
     results.push_back(test::run_test("simulation.periodic_resource_invariants", test_periodic_resource_invariants));
