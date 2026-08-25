@@ -542,7 +542,7 @@ namespace
     }
 
     auto apply_combat_damage_to_entity(
-        mmo::core::runtime::World& world,
+        mmo::world::World& world,
         mmo::core::id::EntityId target_entity_id,
         const mmo::core::damage::Packet& packet,
         mmo::core::id::EntityId source_entity_id = mmo::core::id::invalid_entity_id) -> bool
@@ -1398,24 +1398,24 @@ int main() {
         require_equal(int32_max, damage_result.mitigated_damage, "mitigated damage saturation");
         require_equal(int32_max - 1, damage_result.health_damage, "health damage after shield");
 
-        mmo::core::entity::Table entities{};
+        mmo::world::World world{};
         const auto now = mmo::core::time::now();
         require(
-            entities.spawn(900001, make_stress_blueprint(), 1, now),
+            world.spawn_entity(900001, make_stress_blueprint(), 1, now),
             "numeric boundary entity spawn");
-        auto* record = entities.find(900001);
+        auto* record = world.entities.find(900001);
         require(record != nullptr, "numeric boundary entity lookup");
 
         record->resources.shield_current = int32_max;
         const auto health_before = record->resources.health_current;
-        require(entities.adjust_health(900001, int32_min), "minimum health delta adjustment");
+        require(world.entities.adjust_health(900001, int32_min), "minimum health delta adjustment");
         require_equal(0, record->resources.shield_current, "minimum health delta consumes shield");
         require_equal(health_before - 1, record->resources.health_current, "minimum health delta remainder");
-        require(entities.adjust_health(900001, int32_max), "maximum health delta adjustment");
+        require(world.entities.adjust_health(900001, int32_max), "maximum health delta adjustment");
         require_equal(record->stats.current_derived.max_hp, record->resources.health_current, "health upper clamp");
-        require(entities.adjust_mana(900001, int32_min), "minimum mana delta adjustment");
+        require(world.entities.adjust_mana(900001, int32_min), "minimum mana delta adjustment");
         require_equal(0, record->resources.mana_current, "mana lower clamp");
-        require(entities.adjust_mana(900001, int32_max), "maximum mana delta adjustment");
+        require(world.entities.adjust_mana(900001, int32_max), "maximum mana delta adjustment");
         require_equal(record->stats.current_derived.max_mana, record->resources.mana_current, "mana upper clamp");
 
         details.append("signed_unsigned_resources_damage=covered");
@@ -1660,13 +1660,13 @@ int main() {
     }));
 
     push_result(run_test("stress.runtime_event_dispatch_exactly_once", logger, [&](std::string& details) {
-        mmo::core::runtime::World world{};
+        mmo::world::World world{};
         const auto now = mmo::core::time::now();
         constexpr auto entity_id = static_cast<mmo::core::id::EntityId>(1);
         constexpr auto source_zone = static_cast<mmo::core::id::ZoneId>(10);
         constexpr auto destination_zone = static_cast<mmo::core::id::ZoneId>(20);
 
-        world.entities.spawn(entity_id, make_stress_blueprint(), source_zone, now);
+        world.spawn_entity(entity_id, make_stress_blueprint(), source_zone, now);
 
         mmo::core::event::Event migration{};
         migration.type = mmo::core::event::Type::migration_completed;
@@ -1694,7 +1694,7 @@ int main() {
         require(world.scheduler.try_schedule(notice), "notice should schedule");
         require(world.scheduler.try_schedule(future_notice), "future notice should schedule");
 
-        const auto first_dispatch = mmo::core::runtime::dispatch_ready_events(world, now);
+        const auto first_dispatch = mmo::world::dispatch_ready_events(world, now);
 
         require_equal(static_cast<std::size_t>(3), first_dispatch.total(), "first dispatch total");
         require_equal(static_cast<std::size_t>(2), first_dispatch.applied, "first dispatch applied");
@@ -1709,9 +1709,9 @@ int main() {
         require_equal(destination_zone, entity->placement.zone_id(), "migration destination");
 
         const auto* zone = world.zones.get(destination_zone);
-        require(zone != nullptr && zone->active, "zone wake should activate destination");
+        require(zone != nullptr && zone->is_active(), "zone wake should activate destination");
 
-        const auto duplicate_dispatch = mmo::core::runtime::dispatch_ready_events(world, now);
+        const auto duplicate_dispatch = mmo::world::dispatch_ready_events(world, now);
         require_equal(static_cast<std::size_t>(0), duplicate_dispatch.total(), "events must dispatch once");
         require_equal(static_cast<std::size_t>(1), world.event_outbox.size(), "outbox must not duplicate");
 
@@ -1985,7 +1985,7 @@ int main() {
     // =========================================================================
 
     push_result(run_test("stress.entity_spawn_massive", logger, [&](std::string& details) {
-        mmo::core::runtime::World world{};
+        mmo::world::World world{};
         const auto blueprint = make_stress_blueprint();
         const auto now = mmo::core::time::now();
 
@@ -1993,7 +1993,7 @@ int main() {
         {
             const auto entity_id = static_cast<mmo::core::id::EntityId>(i);
 
-            world.entities.spawn(entity_id, blueprint, 1, now);
+            world.spawn_entity(entity_id, blueprint, 1, now);
 
             auto* record = world.entities.find(entity_id);
             require(record != nullptr, "spawned entity was not found");
@@ -2007,7 +2007,7 @@ int main() {
     }));
 
     push_result(run_test("stress.entity_zone_index_controlled_mutation", logger, [&](std::string& details) {
-        mmo::core::entity::Table entities{};
+        mmo::world::World world{};
         const auto blueprint = make_stress_blueprint();
         const auto now = mmo::core::time::now();
         constexpr auto first_entity = static_cast<mmo::core::id::EntityId>(1);
@@ -2016,51 +2016,54 @@ int main() {
         constexpr auto second_zone = static_cast<mmo::core::id::ZoneId>(20);
 
         require(
-            !entities.spawn(mmo::core::id::invalid_entity_id, blueprint, first_zone, now),
+            !world.spawn_entity(mmo::core::id::invalid_entity_id, blueprint, first_zone, now),
             "invalid entity id must be rejected");
         require(
-            !entities.spawn(first_entity, blueprint, mmo::core::id::invalid_zone_id, now),
+            !world.spawn_entity(first_entity, blueprint, mmo::core::id::invalid_zone_id, now),
             "invalid spawn zone must be rejected");
-        require(entities.spawn(first_entity, blueprint, first_zone, now), "first spawn failed");
-        require(entities.spawn(second_entity, blueprint, second_zone, now), "second spawn failed");
-        require(entities.has_consistent_indexes(), "spawned zone index inconsistent");
+        require(world.spawn_entity(first_entity, blueprint, first_zone, now), "first spawn failed");
+        require(world.spawn_entity(second_entity, blueprint, second_zone, now), "second spawn failed");
+        require(world.has_consistent_spatial_state(), "spawned spatial state inconsistent");
 
-        require(entities.move_to_zone(first_entity, second_zone), "zone move failed");
-        require(entities.ids_in_zone(first_zone).empty(), "old zone retained moved entity");
+        require(world.move_entity_to_zone(first_entity, second_zone, now), "zone move failed");
+        require(world.entities.ids_in_zone(first_zone).empty(), "old zone retained moved entity");
         require_equal(
             static_cast<std::size_t>(2),
-            entities.ids_in_zone(second_zone).size(),
+            world.entities.ids_in_zone(second_zone).size(),
             "destination zone entity count");
-        require(entities.has_consistent_indexes(), "zone index inconsistent after move");
+        require(world.has_consistent_spatial_state(), "spatial state inconsistent after move");
 
-        require(entities.move_to_zone(first_entity, second_zone), "idempotent zone move failed");
+        require(world.move_entity_to_zone(first_entity, second_zone, now), "idempotent zone move failed");
         require_equal(
             static_cast<std::size_t>(2),
-            entities.ids_in_zone(second_zone).size(),
+            world.entities.ids_in_zone(second_zone).size(),
             "idempotent move duplicated index entry");
         require(
-            !entities.move_to_zone(first_entity, mmo::core::id::invalid_zone_id),
+            !world.move_entity_to_zone(first_entity, mmo::core::id::invalid_zone_id, now),
             "invalid destination zone must be rejected");
         require(
-            !entities.move_to_zone(static_cast<mmo::core::id::EntityId>(999), first_zone),
+            !world.move_entity_to_zone(
+                static_cast<mmo::core::id::EntityId>(999),
+                first_zone,
+                now),
             "missing entity move must fail");
-        require(entities.has_consistent_indexes(), "rejected moves changed zone index");
+        require(world.has_consistent_spatial_state(), "rejected moves changed spatial state");
 
-        require(entities.erase(second_entity), "indexed entity erase failed");
-        require(entities.has_consistent_indexes(), "zone index inconsistent after erase");
+        require(world.erase_entity(second_entity, now), "indexed entity erase failed");
+        require(world.has_consistent_spatial_state(), "spatial state inconsistent after erase");
 
         details.append("spawn_rejections=2 moves=1 idempotent=1 erase=1");
     }));
 
 
     push_result(run_test("stress.entity_contract_edges", logger, [&](std::string& details) {
-        mmo::core::runtime::World world{};
+        mmo::world::World world{};
         auto catalog = build_item_catalog();
         const auto blueprint = make_stress_blueprint(mmo::core::entity::Type::monster);
         const auto now = mmo::core::time::now();
         const auto entity_id = static_cast<mmo::core::id::EntityId>(1);
 
-        world.entities.spawn(entity_id, blueprint, 1, now);
+        world.spawn_entity(entity_id, blueprint, 1, now);
 
         auto* record = world.entities.find(entity_id);
         require(record != nullptr, "entity contract target not found");
@@ -2128,7 +2131,7 @@ int main() {
     // =========================================================================
 
      push_result(run_test("stress.combat_damage_multiple_entities", logger, [&](std::string& details) {
-        mmo::core::runtime::World world{};
+        mmo::world::World world{};
         const auto blueprint = make_stress_blueprint(mmo::core::entity::Type::monster);
         const auto now = mmo::core::time::now();
 
@@ -2140,7 +2143,7 @@ int main() {
         {
             const auto entity_id = static_cast<mmo::core::id::EntityId>(i);
 
-            world.entities.spawn(entity_id, blueprint, 1, now);
+            world.spawn_entity(entity_id, blueprint, 1, now);
 
             auto* before = world.entities.find(entity_id);
             require(before != nullptr, "combat entity not found before damage");
@@ -2218,13 +2221,13 @@ int main() {
     }));
 
     push_result(run_test("stress.combat_damage_many_sources_single_entity", logger, [&](std::string& details) {
-        mmo::core::runtime::World world{};
+        mmo::world::World world{};
         const auto blueprint = make_stress_blueprint(mmo::core::entity::Type::monster);
         const auto now = mmo::core::time::now();
 
         const auto target_id = static_cast<mmo::core::id::EntityId>(1);
 
-        world.entities.spawn(target_id, blueprint, 1, now);
+        world.spawn_entity(target_id, blueprint, 1, now);
 
         auto* target = world.entities.find(target_id);
         require(target != nullptr, "target entity not found");
@@ -2289,7 +2292,7 @@ int main() {
     }));
 
     push_result(run_test("stress.combat_damage_many_sources_many_entities", logger, [&](std::string& details) {
-        mmo::core::runtime::World world{};
+        mmo::world::World world{};
         const auto blueprint = make_stress_blueprint(mmo::core::entity::Type::monster);
         const auto now = mmo::core::time::now();
 
@@ -2309,7 +2312,7 @@ int main() {
         {
             const auto target_id = static_cast<mmo::core::id::EntityId>(target);
 
-            world.entities.spawn(target_id, blueprint, 1, now);
+            world.spawn_entity(target_id, blueprint, 1, now);
 
             auto* record = world.entities.find(target_id);
             require(record != nullptr, "many target entity not found");
@@ -2435,7 +2438,7 @@ int main() {
     }));
 
     push_result(run_test("stress.combat_dead_entity_killer_not_overwritten", logger, [&](std::string& details) {
-        mmo::core::runtime::World world{};
+        mmo::world::World world{};
         const auto blueprint = make_stress_blueprint(mmo::core::entity::Type::monster);
         const auto now = mmo::core::time::now();
 
@@ -2443,7 +2446,7 @@ int main() {
         const auto killer_a = static_cast<mmo::core::id::EntityId>(10);
         const auto killer_b = static_cast<mmo::core::id::EntityId>(20);
 
-        world.entities.spawn(target_id, blueprint, 1, now);
+        world.spawn_entity(target_id, blueprint, 1, now);
 
         auto* target = world.entities.find(target_id);
         require(target != nullptr, "target not found before lethal damage");
@@ -2596,12 +2599,12 @@ int main() {
     // =========================================================================
 
     push_result(run_test("stress.world_status_negative_immunity", logger, [&](std::string& details) {
-        mmo::core::runtime::World world{};
+        mmo::world::World world{};
         const auto blueprint = make_stress_blueprint();
         const auto now = mmo::core::time::now();
         const auto entity_id = static_cast<mmo::core::id::EntityId>(1);
 
-        world.entities.spawn(entity_id, blueprint, 1, now);
+        world.spawn_entity(entity_id, blueprint, 1, now);
 
         auto* record = world.entities.find(entity_id);
         require(record != nullptr, "status immunity target not found");
@@ -2653,11 +2656,11 @@ int main() {
     }));
 
     push_result(run_test("stress.status_periodic_cadence_and_catch_up", logger, [&](std::string& details) {
-        mmo::core::runtime::World world{};
+        mmo::world::World world{};
         const auto now = mmo::core::time::now();
         constexpr auto entity_id = static_cast<mmo::core::id::EntityId>(1);
 
-        world.entities.spawn(entity_id, make_stress_blueprint(), 1, now);
+        world.spawn_entity(entity_id, make_stress_blueprint(), 1, now);
         auto* record = world.entities.find(entity_id);
         require(record != nullptr, "periodic status target not found");
         const auto initial_health = record->resources.health_current;
@@ -2757,11 +2760,11 @@ int main() {
             mmo::server::calculate_skipped_ticks(20, 10, 4),
             "future simulation does not skip");
 
-        mmo::core::runtime::World world{};
+        mmo::world::World world{};
         auto catalog = build_item_catalog();
         auto& scheduler = world_event_scheduler(world);
         require(
-            world.entities.spawn(800001, make_stress_blueprint(), 1, mmo::core::time::now()),
+            world.spawn_entity(800001, make_stress_blueprint(), 1, mmo::core::time::now()),
             "fixed timestep entity spawn");
 
         mmo::core::event::Event event{};
@@ -2803,7 +2806,7 @@ int main() {
     }));
 
     push_result_with_budget(run_test("stress.world_loop_mixed_entity_states", logger, [&](std::string& details) {
-        mmo::core::runtime::World world{};
+        mmo::world::World world{};
         auto catalog = build_item_catalog();
 
         const auto blueprint = make_stress_blueprint();
@@ -2820,7 +2823,7 @@ int main() {
         {
             const auto entity_id = static_cast<mmo::core::id::EntityId>(i);
 
-            world.entities.spawn(entity_id, blueprint, 1, now);
+            world.spawn_entity(entity_id, blueprint, 1, now);
 
             auto* record = world.entities.find(entity_id);
             require(record != nullptr, "mixed world entity not found after spawn");
@@ -2927,7 +2930,7 @@ int main() {
     }), read_env_u64("MMO_BUDGET_WORLD_MIXED_MS", 5000));
 
     push_result_with_budget(run_test("stress.world_loop_core", logger, [&](std::string& details) {
-        mmo::core::runtime::World world{};
+        mmo::world::World world{};
         auto catalog = build_item_catalog();
 
         const auto blueprint = make_stress_blueprint();
@@ -2937,7 +2940,7 @@ int main() {
         {
             const auto entity_id = static_cast<mmo::core::id::EntityId>(i);
 
-            world.entities.spawn(entity_id, blueprint, 1, now);
+            world.spawn_entity(entity_id, blueprint, 1, now);
 
             auto* record = world.entities.find(entity_id);
             require(record != nullptr, "spawned world entity was not found");
@@ -3113,7 +3116,7 @@ int main() {
         stress_config.level == StressLevel::high ? 15000ull : 5000ull));
 
     push_result(run_test("stress.world_loop_status_sweeps", logger, [&](std::string& details) {
-        mmo::core::runtime::World world{};
+        mmo::world::World world{};
         auto catalog = build_item_catalog();
 
         const auto blueprint = make_stress_blueprint();
@@ -3129,7 +3132,7 @@ int main() {
         {
             const auto entity_id = static_cast<mmo::core::id::EntityId>(i);
 
-            world.entities.spawn(entity_id, blueprint, 1, now);
+            world.spawn_entity(entity_id, blueprint, 1, now);
 
             auto poison_def = mmo::core::status::make_poison_definition();
 
@@ -3171,7 +3174,7 @@ int main() {
     }));
 
     push_result(run_test("stress.world_loop_empty_world", logger, [&](std::string& details) {
-        mmo::core::runtime::World world{};
+        mmo::world::World world{};
         auto catalog = build_item_catalog();
 
         mmo::server::LoopConfig config{};
@@ -3202,7 +3205,7 @@ int main() {
     }));
 
     push_result(run_test("stress.world_loop_processes_due_events", logger, [&](std::string& details) {
-        mmo::core::runtime::World world{};
+        mmo::world::World world{};
         auto catalog = build_item_catalog();
 
         auto& scheduler = world_event_scheduler(world);
@@ -3260,7 +3263,7 @@ int main() {
     }));
 
     push_result(run_test("stress.world_loop_keeps_future_events_pending", logger, [&](std::string& details) {
-        mmo::core::runtime::World world{};
+        mmo::world::World world{};
         auto catalog = build_item_catalog();
 
         auto& scheduler = world_event_scheduler(world);
@@ -3318,7 +3321,7 @@ int main() {
     }));
 
     push_result(run_test("stress.world_loop_mixed_entities_status_and_events", logger, [&](std::string& details) {
-        mmo::core::runtime::World world{};
+        mmo::world::World world{};
         auto catalog = build_item_catalog();
 
         auto& scheduler = world_event_scheduler(world);
@@ -3336,7 +3339,7 @@ int main() {
         {
             const auto entity_id = static_cast<mmo::core::id::EntityId>(i);
 
-            world.entities.spawn(entity_id, blueprint, 1, now);
+            world.spawn_entity(entity_id, blueprint, 1, now);
 
             auto* record = world.entities.find(entity_id);
             require(record != nullptr, "mixed event world entity not found");

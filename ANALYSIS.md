@@ -8,16 +8,16 @@ Atualize este documento quando uma mudança estrutural entrar no core.
 
 - `src/main.cpp` é apenas bootstrap.
 - O custo real está concentrado em `src/mmo/core`.
-- Os catálogos usam majoritariamente `unordered_map`, então buscas e inserções são baratas em média.
-- O custo alto vem de varreduras internas em status, combate, entidades, eventos e listas por índice.
+- Catálogos estáticos ainda podem usar hash para lookup, mas a ordem e a complexidade estrutural da simulação autoritativa não dependem deles.
+- Entidades, zonas e memberships usam índices ordenados; o custo alto restante vem de varreduras internas em status, combate, eventos e conteúdo realmente ativo.
 
 ## Avaliação de tempo
 
 ### Catálogos e tabelas
 
-- `action`, `skill`, `combat`, `status`, `species` e `evolution_profile` trabalham como catálogos.
-- `insert`, `find` e `erase` neles ficam em custo médio $O(1)$.
-- O pior caso continua $O(n)$ se a dispersão de hash piorar, mas esse não é o caso normal do projeto.
+- `action`, `skill`, `combat`, `status`, `species` e `evolution_profile` trabalham como catálogos de conteúdo, não como índices de ordem da simulação.
+- Alguns desses catálogos ainda usam hash internamente. Nenhuma decisão de gameplay depende da ordem de iteração, e as garantias do active set não assumem lookup médio `O(1)`.
+- Se lookup de conteúdo aparecer como gargalo medido ou requisito adversarial, esses catálogos poderão migrar separadamente para índices ordenados ou flat maps sem alterar o contrato do `World`.
 
 ### Pontos que crescem com o conteúdo ativo
 
@@ -157,3 +157,14 @@ O caminho seguro é este:
 - Periodic resource mutation is owned by `entity::Table`; `mmo::world` no longer obtains a mutable `Record*` to consume status state directly.
 - The kernel is single-threaded in this phase. No locks, jobs, concurrent mutation, or scheduler parallelism were introduced.
 - Future optimization: authoritative zone activity semantics plus a persistent deterministic active simulation index, avoiding the global copy/sort without weakening ordering guarantees.
+
+## P4 authoritative world and active simulation set
+
+- Hypothesis: most known entities do not need a full tick when their zones contain no player and have no explicit wake request.
+- Before: `world::step` copied every entity ID and sorted the complete list each tick, for `O(total entities)` traversal plus `O(N log N)` ordering.
+- Change: `mmo::world::World` now owns spatial mutations, zone populations, event dispatch, and a persistent ordered active-zone index. Entity, zone, and zone-membership tables use `std::map`/`std::set`.
+- Current hot path: iterate active zones in `ZoneId` order and their members in `EntityId` order. Traversal is `O(active zones + active entities)`; lookup and index mutation are worst-case `O(log N)` and do not rely on average-case hash behavior.
+- Functional scale case: 1,024 known entities, 64 active, 960 sleeping, 100 ticks. The kernel performs 6,400 entity considerations and records 96,000 skipped considerations instead of polling 102,400 entities. The observed local duration was 11 ms in the MinGW Debug test run; this is diagnostic context, not a universal SLA.
+- Tradeoff: ordered trees allocate per node and have weaker cache locality than flat storage. This increment chooses explicit ordering and worst-case guarantees; a future measured optimization may use sorted flat indexes while preserving the same contracts.
+- Sleep/wake policy: due events remain global; full entity maintenance pauses in sleeping zones; absolute status deadlines remain authoritative; periodic catch-up is capped at four applications per status per step to bound wake cost.
+- Remaining escape hatch: `entity::Table::find` still exposes mutable non-placement state for legacy tests and callers. Placement itself is protected, but identity/inventory mutation should move behind explicit world/entity commands in a later isolated increment.

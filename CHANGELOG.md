@@ -6,6 +6,8 @@ All notable code and architecture updates for `SISTEMAS-MMO` are recorded here.
 
 ### Added
 
+- `mmo::world::World` as the authoritative runtime aggregate for spatial mutations, zone population, active-zone indexing, and event dispatch.
+- Deterministic sparse simulation tests for authoritative spawn/move/erase, canonical active order, wake/sleep, rejected player-zone sleep, bounded status catch-up, and active-set scale.
 - `world::TickContext`, `world::TickStats`, and a deterministic headless `world::step` with explicit logical time and canonical entity traversal.
 - A dedicated `mmo_simulation_tests` integration target covering events, dirty load, periodic status cadence, expiration, resource invariants, canonical ordering, and repeated simulation.
 - A reusable internal test harness and a separate `mmo_unit_tests` target for deterministic event validation and scheduler tests.
@@ -48,6 +50,9 @@ All notable code and architecture updates for `SISTEMAS-MMO` are recorded here.
 
 ### Changed
 
+- Entity, zone, and zone-membership storage now uses ordered `std::map`/`std::set` indexes with worst-case `O(log N)` lookup and mutation; the active hot path is canonical `(ZoneId, EntityId)` without a global per-tick sort.
+- Spatial `entity::Table` mutations are private to `mmo::world::World`; player presence and explicit wake requests now share one zone-activity definition, and sleep with players is rejected.
+- Sleeping zones skip full entity work. Periodic status catch-up on wake is bounded to four applications per status before absolute-time expiration is swept.
 - `server::run_loop` now acts as the pacing adapter around `world::step` and aggregates logical tick stats while retaining wall-clock phase metrics.
 - Periodic status resource mutation now crosses an explicit `entity::Table` boundary and records periodic deaths using simulation time.
 - Lua adapter coverage moved out of the stress executable into conditional integration targets; GCC/Linux CI installs Lua 5.4 and exercises `MMO_ENABLE_LUA=ON`.

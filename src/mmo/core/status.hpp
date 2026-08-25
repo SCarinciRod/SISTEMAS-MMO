@@ -1089,7 +1089,10 @@ namespace mmo
                     return !removed_instances.empty() || decay_changed;
                 }
 
-                [[nodiscard]] auto consume_periodic(time::TimePoint now) -> PeriodicTotals
+                [[nodiscard]] auto consume_periodic(
+                    time::TimePoint now,
+                    std::uint64_t max_applications_per_status =
+                        std::numeric_limits<std::uint64_t>::max()) -> PeriodicTotals
                 {
                     PeriodicTotals totals{};
 
@@ -1113,8 +1116,15 @@ namespace mmo
 
                         const auto elapsed = std::chrono::duration_cast<time::Milliseconds>(
                             tick_limit - *instance.next_tick_at);
-                        const auto applications = static_cast<std::uint64_t>(
+                        const auto applications_due = static_cast<std::uint64_t>(
                             elapsed.count() / instance.tick_interval->count()) + 1;
+                        const auto applications = std::min(
+                            applications_due,
+                            max_applications_per_status);
+                        if (applications == 0)
+                        {
+                            continue;
+                        }
 
                         auto effective_modifiers = instance.modifiers;
                         for (const auto& stage : instance.stack_stages)

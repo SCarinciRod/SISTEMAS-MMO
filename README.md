@@ -35,13 +35,12 @@ O `core` deve ser a camada mais neutra do servidor. Ele não deve depender de re
 - `core/evolution_profile.hpp` -> evolution profiles per species.
 - `core/evolution.hpp` -> low-level evaluator for a single rule.
 - `core/entity.hpp` -> runtime entity table.
-- `core/zone.hpp` -> runtime zone state.
+- `core/zone.hpp` -> passive zone state and ordered storage.
 - `core/event.hpp` -> delayed event scheduler.
-- `core/runtime.hpp` -> aggregate world state.
-- `world/world.hpp` -> deterministic headless simulation step and logical tick contracts.
+- `world/world.hpp` -> authoritative world state, spatial mutations, active-set index, event dispatch, and deterministic headless step.
 - `server/loop.hpp` -> wall-clock pacing, bounded catch-up, and phase metrics around the world step.
 
-For now these stay in `core` because there is no persistence layer or external content pipeline yet. When that appears, species and evolution profiles are the first candidates to move into a content/data layer, while runtime stays in `core`.
+Definitions and local calculations stay in `core`. Runtime ownership and mutations that must coordinate entities, zones, and events live in `mmo::world`.
 
 Current combat baseline: the default action catalog is intentionally minimal and ships only `auto_attack` and `dodge` profiles.
 

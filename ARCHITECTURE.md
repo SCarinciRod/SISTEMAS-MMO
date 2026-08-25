@@ -25,12 +25,12 @@ This file is the working agreement for the project. Read it before making archit
 - `core/recovery.hpp`: action recovery timing calculations.
 - `core/status.hpp`: status definitions and active status tables.
 - `core/entity.hpp`: live entity state table.
-- `core/zone.hpp`: zone state and activity.
+- `core/zone.hpp`: passive zone state and ordered storage.
 - `core/event.hpp`: delayed event scheduler.
 - `core/numeric.hpp`: checked/saturating integer operations for domain boundaries.
-- `core/runtime.hpp`: aggregate world runtime.
+- `world/world.hpp`: authoritative runtime aggregate, spatial mutations, active-set index, event dispatch, and simulation step.
 
-For now these stay in `core` because there is no persistence layer or external content pipeline yet. When that exists, species data and evolution profiles are the first candidates for a content layer split, while runtime remains in `core`.
+Definitions, local state tables, and calculations stay in `core`. Cross-table runtime ownership belongs to `mmo::world`; persistence and networking remain outside both layers.
 
 ## Architectural Rules
 
@@ -110,14 +110,26 @@ Future skill fusion should reuse the same skill catalog and relation model inste
 
 ## Simulation Boundary
 
-- `mmo::core` owns state, invariants, and deterministic calculations.
-- `mmo::world` owns the stateless orchestration of one logical simulation step.
+- `mmo::core` owns local data contracts, table invariants, and deterministic calculations.
+- `mmo::world::World` owns the authoritative runtime aggregate and every mutation that must coordinate entity placement, zone population, activity, and events.
+- `mmo::world::step` owns the stateless orchestration of one logical simulation step over that aggregate.
 - `mmo::server` owns wall-clock pacing, sleep, catch-up, lifecycle, logging, and performance measurements.
 - `world::step` receives `TickContext::tick_index` and `TickContext::simulation_time`. Gameplay never derives simulation time from wall clock inside the kernel.
 - The canonical tick order is scheduled events, entity maintenance, periodic status application, then status expiration/build-up sweep.
-- Hash containers may be used for lookup, but their iteration order must not determine simulation results. The current step copies and sorts all entity IDs before traversal.
-- Per-tick sorting is a transitional correctness-first implementation. A persistent deterministic active-zone index may replace it after zone activity invariants are authoritative.
+- Entity, zone, and membership indexes use ordered trees. Lookup and mutation have deterministic worst-case `O(log N)` behavior instead of relying on average-case hash complexity.
+- The persistent active-zone index is an ordered `std::set<ZoneId>`. Full simulation order is the stable pair `(ZoneId, EntityId)` and requires no global per-tick sort.
 - Optional phase observation lets the server retain wall-clock phase metrics without feeding those measurements back into gameplay decisions.
+
+## Zone Activity Semantics
+
+- A zone receives a full tick when `player_count > 0` or an explicit wake request is present. `State::is_active()` is the only logical definition; the ordered active index is a validated acceleration structure for it.
+- Spawning, moving, and erasing entities are `mmo::world::World` operations. The corresponding `entity::Table` operations are private so entity membership, zone population, and activity cannot be updated independently.
+- A player entering wakes the destination immediately. A zone with no players sleeps automatically unless an explicit wake remains.
+- `zone_wake` activates a zone before the active set for that tick is read. `zone_sleep` deactivates an empty zone in the same tick and is rejected while any player is present.
+- Scheduled events are dispatched globally before sparse entity traversal. A sleeping zone does not need polling merely to receive a due wake, migration, or domain event.
+- Sleeping entities do not run inventory maintenance, periodic status work, status sweep, or future AI work. Absolute deadlines still use simulation time when the zone wakes.
+- Periodic catch-up is limited to four applications per status per simulation step. If an effect is already expired when the zone wakes, at most that bounded history is applied before the absolute-time sweep removes it.
+- Cooldowns represented by absolute deadlines require no catch-up loop. AI, respawn, and evolution behavior remain unimplemented and must choose explicit sleep policies when introduced.
 
 ## Runtime Invariants
 
@@ -126,7 +138,7 @@ Future skill fusion should reuse the same skill catalog and relation model inste
 - Item identity text is owned by `item::Definition`. Content adapters must not publish `string_view` values backed by temporary or reallocating storage.
 - The Lua item loader parses and validates the complete source before publishing definitions. A failed atomic load preserves the previous catalog and existing IDs are never overwritten.
 - The Lua adapter calls `luaL_openlibs`; repository Lua files are trusted content with access to the standard Lua libraries, not untrusted sandboxed scripts.
-- Entity placement can only be changed by `entity::Table`; its zone index must agree with every record after spawn, move, and erase.
+- Entity placement can only be changed by `mmo::world::World`; entity membership, zone population, player population, and the active-zone index must agree after spawn, move, erase, wake, sleep, and migration events.
 - Inventory commands update load authoritatively. Transitional code that mutates `Record::inventory` directly must call `mark_inventory_load_dirty`; the simulation step recalculates a dirty load once and never polls clean inventory weight.
 - Resource, damage, stat, stack, and modifier arithmetic saturates at the destination type instead of relying on signed overflow or narrowing casts.
 - The server loop derives simulation deadlines from `(epoch, tick index, rate)`, so fractional tick durations do not accumulate drift, then passes each deadline explicitly to `world::step`.
