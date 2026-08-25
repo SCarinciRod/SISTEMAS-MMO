@@ -80,6 +80,39 @@ add_executable(mmo_server src/main.cpp)
 target_link_libraries(mmo_server PRIVATE mmo_core mmo_persistence)
 
 if(BUILD_TESTING)
+    add_executable(mmo_unit_tests src/mmo/tests/unit/event_tests.cpp)
+    target_link_libraries(mmo_unit_tests PRIVATE mmo_core)
+
+    add_test(NAME mmo_unit_tests COMMAND mmo_unit_tests)
+    set_tests_properties(mmo_unit_tests PROPERTIES LABELS "unit")
+
+    if(MMO_ENABLE_LUA)
+        add_executable(
+            mmo_lua_integration_tests
+            src/mmo/tests/integration/lua_loader_tests.cpp)
+        target_link_libraries(mmo_lua_integration_tests PRIVATE mmo_persistence)
+        target_compile_definitions(
+            mmo_lua_integration_tests
+            PRIVATE
+                MMO_TEST_SOURCE_DIR="${CMAKE_CURRENT_SOURCE_DIR}"
+                MMO_TEST_BINARY_DIR="${CMAKE_CURRENT_BINARY_DIR}")
+
+        add_test(NAME mmo_lua_integration_tests COMMAND mmo_lua_integration_tests)
+        set_tests_properties(
+            mmo_lua_integration_tests
+            PROPERTIES LABELS "integration;lua")
+    else()
+        add_executable(
+            mmo_lua_disabled_tests
+            src/mmo/tests/integration/lua_loader_disabled_tests.cpp)
+        target_link_libraries(mmo_lua_disabled_tests PRIVATE mmo_persistence)
+
+        add_test(NAME mmo_lua_disabled_tests COMMAND mmo_lua_disabled_tests)
+        set_tests_properties(
+            mmo_lua_disabled_tests
+            PROPERTIES LABELS "integration;lua-disabled")
+    endif()
+
     add_executable(mmo_stress_tests src/mmo/tests/stress_tests.cpp)
     target_link_libraries(mmo_stress_tests PRIVATE mmo_core mmo_persistence)
 

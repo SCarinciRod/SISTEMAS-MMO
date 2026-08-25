@@ -6,6 +6,9 @@ All notable code and architecture updates for `SISTEMAS-MMO` are recorded here.
 
 ### Added
 
+- A reusable internal test harness and a separate `mmo_unit_tests` target for deterministic event validation and scheduler tests.
+- Conditional Lua OFF and Lua ON integration targets covering the disabled adapter, repository content, validation, numeric bounds, ownership, table sources, collisions, and atomic publication.
+- Minimal GitHub Actions CI for GCC warnings-as-errors, Clang ASan/UBSan, and Windows MSVC builds with CTest.
 - Reproducible CMake build with separate core, persistence, server, and stress-test targets plus CTest integration.
 - Cross-compiler warning options and opt-in ASan, UBSan, TSan, warnings-as-errors, and Lua build switches.
 - `core/numeric.hpp` with saturating arithmetic for resource, damage, stat, modifier, meter, and stack boundaries.
@@ -43,6 +46,8 @@ All notable code and architecture updates for `SISTEMAS-MMO` are recorded here.
 
 ### Changed
 
+- Lua adapter coverage moved out of the stress executable into conditional integration targets; GCC/Linux CI installs Lua 5.4 and exercises `MMO_ENABLE_LUA=ON`.
+- Basic event contract tests moved out of the mixed stress executable; volume and runtime-dispatch scenarios remain there.
 - Fixed the server aggregate header include and made the existing stress harness C++17-compatible.
 - Documented verified build and test commands in `README.md` and target boundaries in `ARCHITECTURE.md`.
 - Due events now cross an explicit dispatch boundary: migrations and zone activity update the world, domain notifications are retained in an outbox, and failed events are retained for diagnosis.

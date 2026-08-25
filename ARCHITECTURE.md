@@ -100,7 +100,11 @@ Future skill fusion should reuse the same skill catalog and relation model inste
 - `mmo_core` is the header-only foundation target.
 - `mmo_persistence` owns compiled persistence/content adapters such as the optional Lua loader.
 - `mmo_server` is the executable bootstrap target. Its current `main` remains minimal and is not yet a running authoritative server.
-- `mmo_stress_tests` contains the existing mixed functional/stress suite and is registered with CTest.
+- `mmo_unit_tests` owns deterministic tests that isolate one core contract without the runtime loop or load scaling.
+- `mmo_lua_disabled_tests` verifies the deterministic no-Lua adapter contract when `MMO_ENABLE_LUA=OFF`.
+- `mmo_lua_integration_tests` crosses filesystem, a real Lua VM, validation, and `item::Catalog` when `MMO_ENABLE_LUA=ON`.
+- `mmo_stress_tests` retains integration, regression, and load scenarios while the suite is migrated incrementally.
+- Shared assertions, execution, timing, and reporting live in `src/mmo/tests/support/test.hpp`; no external test dependency is required yet.
 - The repository requires C++17. Compiler-specific extensions are disabled.
 
 ## Runtime Invariants
@@ -108,6 +112,8 @@ Future skill fusion should reuse the same skill catalog and relation model inste
 - A due scheduled event is never treated as processed merely because it was removed from the scheduler. Infrastructure events mutate world state; domain events enter `World::event_outbox`; invalid or failed transitions enter `World::rejected_events`.
 - Periodic status effects use their own `tick_interval`, advance `next_tick_at` after consumption, and catch up deterministically through the expiration boundary.
 - Item identity text is owned by `item::Definition`. Content adapters must not publish `string_view` values backed by temporary or reallocating storage.
+- The Lua item loader parses and validates the complete source before publishing definitions. A failed atomic load preserves the previous catalog and existing IDs are never overwritten.
+- The Lua adapter calls `luaL_openlibs`; repository Lua files are trusted content with access to the standard Lua libraries, not untrusted sandboxed scripts.
 - Entity placement can only be changed by `entity::Table`; its zone index must agree with every record after spawn, move, and erase.
 - Inventory commands update load authoritatively. Transitional code that mutates `Record::inventory` directly must call `mark_inventory_load_dirty`; the loop recalculates a dirty load once and never polls clean inventory weight.
 - Resource, damage, stat, stack, and modifier arithmetic saturates at the destination type instead of relying on signed overflow or narrowing casts.
