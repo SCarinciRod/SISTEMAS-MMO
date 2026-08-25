@@ -4,14 +4,12 @@
 #include "mmo/core/damage.hpp"
 #include "mmo/core/event.hpp"
 #include "mmo/core/material.hpp"
-#include "mmo/persistence/persistence.hpp"
+#include "mmo/tests/support/test.hpp"
 
 #include <algorithm>
 #include <chrono>
 #include <cstdint>
 #include <cstdlib>
-#include <filesystem>
-#include <fstream>
 #include <iostream>
 #include <limits>
 #include <optional>
@@ -22,19 +20,17 @@
 #include <type_traits>
 #include <unordered_map>
 #include <unordered_set>
+#include <utility>
 #include <vector>
 
 namespace
 {
-    struct TestResult
-    {
-        std::string name{};
-        bool ok{ false };
-        std::uint64_t duration_ms{ 0 };
-        std::string details{};
-        std::uint64_t performance_budget_ms{ 0 };
-        bool budget_checked{ false };
-    };
+    using mmo::tests::support::format_test_summary_line;
+    using mmo::tests::support::require;
+    using mmo::tests::support::require_at_least;
+    using mmo::tests::support::require_at_most;
+    using mmo::tests::support::require_equal;
+    using mmo::tests::support::TestResult;
 
     enum class StressLevel
     {
@@ -278,120 +274,15 @@ namespace
     }
 
 
-    template <typename T>
-    auto value_to_string(T value) -> std::string
-    {
-        if constexpr (std::is_enum_v<T>)
-        {
-            return std::to_string(static_cast<std::uint64_t>(value));
-        }
-        else if constexpr (std::is_integral_v<T> && std::is_unsigned_v<T>)
-        {
-            return std::to_string(static_cast<unsigned long long>(value));
-        }
-        else if constexpr (std::is_integral_v<T> && std::is_signed_v<T>)
-        {
-            return std::to_string(static_cast<long long>(value));
-        }
-        else if constexpr (std::is_convertible_v<T, std::string_view>)
-        {
-            return std::string(std::string_view(value));
-        }
-        else
-        {
-            return std::to_string(value);
-        }
-    }
-
-    void require(bool condition, std::string_view message)
-    {
-        if (!condition)
-        {
-            throw std::runtime_error(std::string(message));
-        }
-    }
-
-    template <typename Expected, typename Actual>
-    void require_equal(Expected expected, Actual actual, std::string_view label)
-    {
-        if (!(expected == actual))
-        {
-            std::string error;
-            error.append(std::string(label));
-            error.append(" expected=");
-            error.append(value_to_string(expected));
-            error.append(" actual=");
-            error.append(value_to_string(actual));
-
-            throw std::runtime_error(error);
-        }
-    }
-
-    template <typename Minimum, typename Actual>
-    void require_at_least(Minimum minimum, Actual actual, std::string_view label)
-    {
-        if (actual < minimum)
-        {
-            std::string error;
-            error.append(std::string(label));
-            error.append(" minimum=");
-            error.append(value_to_string(minimum));
-            error.append(" actual=");
-            error.append(value_to_string(actual));
-
-            throw std::runtime_error(error);
-        }
-    }
-
-    template <typename Maximum, typename Actual>
-    void require_at_most(Maximum maximum, Actual actual, std::string_view label)
-    {
-        if (actual > maximum)
-        {
-            std::string error;
-            error.append(std::string(label));
-            error.append(" maximum=");
-            error.append(value_to_string(maximum));
-            error.append(" actual=");
-            error.append(value_to_string(actual));
-
-            throw std::runtime_error(error);
-        }
-    }
-
     template <typename Fn>
     auto run_test(std::string_view name, mmo::core::log::Logger& logger, Fn&& fn) -> TestResult
     {
-        TestResult result{};
-        result.name = std::string(name);
-
-        const auto started_at = std::chrono::steady_clock::now();
-
         logger.log(
             mmo::core::log::Level::info,
             "stress.test",
             std::string("BEGIN | ").append(std::string(name)));
 
-        try
-        {
-            fn(result.details);
-            result.ok = true;
-        }
-        catch (const std::exception& ex)
-        {
-            result.details = ex.what();
-            mmo::core::log::log_exception(logger, name, ex);
-        }
-        catch (...)
-        {
-            result.details = "unknown exception";
-            mmo::core::log::log_exception(logger, name);
-        }
-
-        const auto finished_at = std::chrono::steady_clock::now();
-
-        result.duration_ms = static_cast<std::uint64_t>(
-            std::chrono::duration_cast<std::chrono::milliseconds>(finished_at - started_at).count());
+        auto result = mmo::tests::support::run_test(name, std::forward<Fn>(fn));
 
         std::string end_message;
         end_message.append("END | ");
@@ -414,38 +305,6 @@ namespace
             end_message);
 
         return result;
-    }
-
-    auto format_test_summary_line(std::size_t index, std::size_t total, const TestResult& result) -> std::string
-    {
-        std::string message;
-        message.reserve(result.name.size() + result.details.size() + 160);
-
-        message.append(std::to_string(index));
-        message.push_back('/');
-        message.append(std::to_string(total));
-        message.append(" | ");
-        message.append(result.ok ? "PASS" : "FAIL");
-        message.append(" | ");
-        message.append(result.name);
-        message.append(" | duration=");
-        message.append(std::to_string(result.duration_ms));
-        message.append("ms");
-
-        if (result.budget_checked)
-        {
-            message.append(" | budget=");
-            message.append(std::to_string(result.performance_budget_ms));
-            message.append("ms");
-        }
-
-        if (!result.details.empty())
-        {
-            message.append(" | ");
-            message.append(result.details);
-        }
-
-        return message;
     }
 
     auto format_summary_header(StressLevel level, std::size_t total, std::uint32_t failures) -> std::string
@@ -707,32 +566,6 @@ namespace
             mmo::core::time::now()).has_value();
     }
 
-    auto make_persistence_test_directory(std::string_view test_name) -> std::filesystem::path
-    {
-        const auto directory =
-            std::filesystem::current_path() /
-            "stress_tmp" /
-            "persistence" /
-            std::string(test_name);
-
-        std::filesystem::remove_all(directory);
-        std::filesystem::create_directories(directory);
-
-        return directory;
-    }
-
-    void write_text_file(
-        const std::filesystem::path& path,
-        std::string_view content)
-    {
-        std::ofstream file(path, std::ios::binary);
-
-        require(file.good(), "failed to open test file for writing");
-
-        file << content;
-
-        require(file.good(), "failed to write test file");
-    }
 }
 int main() {
     mmo::core::log::Logger logger{};
@@ -1693,101 +1526,8 @@ int main() {
     }));
 
     // =========================================================================
-    // Event contract tests.
+    // Event stress and runtime integration tests. Pure scheduler tests live in mmo_unit_tests.
     // =========================================================================
-
-    push_result(run_test("stress.event_validation_rules", logger, [&](std::string& details) {
-        const auto now = mmo::core::time::now();
-
-        mmo::core::event::Event event{};
-        event.type = mmo::core::event::Type::evolution_due;
-        event.due_at = now;
-
-        require_equal(
-            mmo::core::event::ValidationIssue::missing_entity,
-            mmo::core::event::validate(event),
-            "evolution_due requires entity");
-
-        event.entity_id = static_cast<mmo::core::id::EntityId>(1);
-
-        require(mmo::core::event::is_valid(event), "evolution_due valid");
-
-        details = "validation_ok";
-    }));
-
-    push_result(run_test("stress.event_scheduler_basic", logger, [&](std::string& details) {
-        mmo::core::event::Scheduler scheduler{};
-        const auto now = mmo::core::time::now();
-
-        mmo::core::event::Event first{};
-        first.type = mmo::core::event::Type::region_notice;
-        first.due_at = now + mmo::core::time::Milliseconds{ 100 };
-        first.zone_id = static_cast<mmo::core::id::ZoneId>(1);
-        first.counter = 1;
-
-        mmo::core::event::Event second{};
-        second.type = mmo::core::event::Type::region_notice;
-        second.due_at = now + mmo::core::time::Milliseconds{ 50 };
-        second.zone_id = static_cast<mmo::core::id::ZoneId>(1);
-        second.counter = 2;
-
-        require(scheduler.try_schedule(first), "schedule first");
-        require(scheduler.try_schedule(second), "schedule second");
-
-        const auto ready = scheduler.pop_ready(now + mmo::core::time::Milliseconds{ 75 });
-
-        require_equal(static_cast<std::size_t>(1), ready.size(), "ready count");
-        require_equal(static_cast<std::uint32_t>(2), ready.front().counter, "ordering");
-
-        details = "ordering_ok";
-    }));
-
-    push_result(run_test("stress.event_scheduler_ordering", logger, [&](std::string& details) {
-        mmo::core::event::Scheduler scheduler{};
-        const auto now = mmo::core::time::now();
-
-        {
-            mmo::core::event::Event event{};
-            event.type = mmo::core::event::Type::region_notice;
-            event.due_at = now + mmo::core::time::Milliseconds{ 300 };
-            event.zone_id = static_cast<mmo::core::id::ZoneId>(1);
-            event.counter = 3;
-            scheduler.schedule(event);
-        }
-
-        {
-            mmo::core::event::Event event{};
-            event.type = mmo::core::event::Type::region_notice;
-            event.due_at = now + mmo::core::time::Milliseconds{ 100 };
-            event.zone_id = static_cast<mmo::core::id::ZoneId>(1);
-            event.counter = 1;
-            scheduler.schedule(event);
-        }
-
-        {
-            mmo::core::event::Event event{};
-            event.type = mmo::core::event::Type::region_notice;
-            event.due_at = now + mmo::core::time::Milliseconds{ 200 };
-            event.zone_id = static_cast<mmo::core::id::ZoneId>(1);
-            event.counter = 2;
-            scheduler.schedule(event);
-        }
-
-        const auto ready = scheduler.pop_ready(now + mmo::core::time::Milliseconds{ 250 });
-
-        require_equal(static_cast<std::size_t>(2), ready.size(), "ready event count");
-        require_equal(static_cast<std::uint32_t>(1), ready[0].counter, "first ready event counter");
-        require_equal(static_cast<std::uint32_t>(2), ready[1].counter, "second ready event counter");
-        require_equal(static_cast<std::size_t>(1), scheduler.size(), "remaining event count");
-
-        const auto remaining = scheduler.pop_ready(now + mmo::core::time::Milliseconds{ 400 });
-
-        require_equal(static_cast<std::size_t>(1), remaining.size(), "remaining ready event count");
-        require_equal(static_cast<std::uint32_t>(3), remaining[0].counter, "remaining event counter");
-        require(scheduler.empty(), "scheduler should be empty after all events popped");
-
-        details.append("ordered_events=3");
-    }));
 
     push_result(run_test("stress.event_scheduler_massive", logger, [&](std::string& details) {
         mmo::core::event::Scheduler scheduler{};
@@ -3712,78 +3452,6 @@ int main() {
         details.append(std::to_string(static_cast<std::uint64_t>(stats.status_sweeps)));
     }));
 
-#ifdef MMO_USE_LUA
-
-    // =========================================================================
-    // Persistence Lua loader contract tests.
-    // =========================================================================
-
-    push_result(run_test("stress.persistence_lua_valid_material_catalog", logger, [&](std::string& details) {
-        const auto directory = make_persistence_test_directory("valid_material_catalog");
-        const auto file_path = directory / "items.lua";
-
-        write_text_file(
-            file_path,
-            R"lua(
-return {
-    [1001] = {
-        name = "Iron Ore",
-        kind = "material"
-    }
-}
-)lua");
-
-        mmo::core::item::Catalog catalog{};
-
-        mmo::persistence::LuaLoadOptions options{};
-        options.mode = mmo::persistence::LuaLoadMode::strict;
-
-        const auto result = mmo::persistence::load_items_from_lua_ex(
-            file_path.string(),
-            catalog,
-            options);
-
-        require(
-            result.ok,
-            result.error.empty() ? "lua material load failed" : result.error);
-
-        require_equal(
-            static_cast<std::uint32_t>(1),
-            result.stats.items_seen,
-            "lua material items_seen");
-
-        require_equal(
-            static_cast<std::uint32_t>(1),
-            result.stats.items_loaded,
-            "lua material items_loaded");
-
-        require_equal(
-            static_cast<std::uint32_t>(1),
-            result.stats.materials_loaded,
-            "lua material materials_loaded");
-
-        const auto* definition = catalog.find(
-            static_cast<mmo::core::id::ItemTemplateId>(1001));
-
-        require(definition != nullptr, "loaded material definition not found");
-
-        require_equal(
-            mmo::core::item::Kind::material,
-            definition->kind,
-            "loaded material kind");
-
-        require_equal(
-            std::string("Iron Ore"),
-            std::string(definition->identity.name),
-            "loaded material name");
-
-        details.append("items_loaded=");
-        details.append(std::to_string(result.stats.items_loaded));
-        details.append(" materials_loaded=");
-        details.append(std::to_string(result.stats.materials_loaded));
-    }));
-
-#endif
     // =========================================================================
     // Summary output for console and structured logs.
     // =========================================================================

@@ -21,6 +21,8 @@ namespace mmo
 {
     namespace persistence
     {
+        namespace
+        {
             struct ParsedItem
             {
                 core::item::Definition definition{};
@@ -438,7 +440,11 @@ namespace mmo
                     return false;
                 }
 
-                read_bool_field(state, equipment_table_index, "two_handed", equipment.two_handed);
+                (void)read_bool_field(
+                    state,
+                    equipment_table_index,
+                    "two_handed",
+                    equipment.two_handed);
 
                 lua_getfield(state, equipment_table_index, "requirements");
 
@@ -784,5 +790,6 @@ namespace mmo
             return result.ok;
         }
     }
+}
 
 #endif // MMO_USE_LUA

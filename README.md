@@ -232,9 +232,28 @@ Targets atuais:
 - `mmo_core`: contratos e implementações header-only do núcleo;
 - `mmo_persistence`: implementação opcional de persistência/conteúdo;
 - `mmo_server`: entrypoint mínimo do servidor;
-- `mmo_stress_tests`: suite funcional e de stress existente, registrada no CTest.
+- `mmo_unit_tests`: testes determinísticos e isolados, inicialmente para `event::Scheduler`;
+- `mmo_lua_disabled_tests`: contrato do adapter indisponível, criado somente com `MMO_ENABLE_LUA=OFF`;
+- `mmo_lua_integration_tests`: Lua real, conteúdo e catálogo, criado somente com `MMO_ENABLE_LUA=ON`;
+- `mmo_stress_tests`: testes de integração, regressão e carga em migração incremental.
 
-O teste registrado no CTest usa `MMO_STRESS_LEVEL=smoke`. Para executar a carga padrÃ£o completa diretamente:
+O CTest executa os testes unitários e usa `MMO_STRESS_LEVEL=smoke` na suíte de stress. Os testes podem ser filtrados por categoria:
+
+```bash
+ctest --test-dir build -L unit --output-on-failure
+ctest --test-dir build -L integration --output-on-failure
+ctest --test-dir build -L stress --output-on-failure
+```
+
+Para verificar o adapter Lua real, instale os development files do Lua e use uma pasta de build separada:
+
+```bash
+cmake -S . -B build-lua -DCMAKE_BUILD_TYPE=Debug -DMMO_ENABLE_LUA=ON -DMMO_WARNINGS_AS_ERRORS=ON
+cmake --build build-lua
+ctest --test-dir build-lua --output-on-failure
+```
+
+Para executar a carga padrão completa diretamente:
 
 ```bash
 ./build/mmo_stress_tests
