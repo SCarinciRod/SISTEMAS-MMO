@@ -103,9 +103,21 @@ Future skill fusion should reuse the same skill catalog and relation model inste
 - `mmo_unit_tests` owns deterministic tests that isolate one core contract without the runtime loop or load scaling.
 - `mmo_lua_disabled_tests` verifies the deterministic no-Lua adapter contract when `MMO_ENABLE_LUA=OFF`.
 - `mmo_lua_integration_tests` crosses filesystem, a real Lua VM, validation, and `item::Catalog` when `MMO_ENABLE_LUA=ON`.
+- `mmo_simulation_tests` exercises the headless world step with fixed logical time and no server loop.
 - `mmo_stress_tests` retains integration, regression, and load scenarios while the suite is migrated incrementally.
 - Shared assertions, execution, timing, and reporting live in `src/mmo/tests/support/test.hpp`; no external test dependency is required yet.
 - The repository requires C++17. Compiler-specific extensions are disabled.
+
+## Simulation Boundary
+
+- `mmo::core` owns state, invariants, and deterministic calculations.
+- `mmo::world` owns the stateless orchestration of one logical simulation step.
+- `mmo::server` owns wall-clock pacing, sleep, catch-up, lifecycle, logging, and performance measurements.
+- `world::step` receives `TickContext::tick_index` and `TickContext::simulation_time`. Gameplay never derives simulation time from wall clock inside the kernel.
+- The canonical tick order is scheduled events, entity maintenance, periodic status application, then status expiration/build-up sweep.
+- Hash containers may be used for lookup, but their iteration order must not determine simulation results. The current step copies and sorts all entity IDs before traversal.
+- Per-tick sorting is a transitional correctness-first implementation. A persistent deterministic active-zone index may replace it after zone activity invariants are authoritative.
+- Optional phase observation lets the server retain wall-clock phase metrics without feeding those measurements back into gameplay decisions.
 
 ## Runtime Invariants
 
@@ -115,7 +127,7 @@ Future skill fusion should reuse the same skill catalog and relation model inste
 - The Lua item loader parses and validates the complete source before publishing definitions. A failed atomic load preserves the previous catalog and existing IDs are never overwritten.
 - The Lua adapter calls `luaL_openlibs`; repository Lua files are trusted content with access to the standard Lua libraries, not untrusted sandboxed scripts.
 - Entity placement can only be changed by `entity::Table`; its zone index must agree with every record after spawn, move, and erase.
-- Inventory commands update load authoritatively. Transitional code that mutates `Record::inventory` directly must call `mark_inventory_load_dirty`; the loop recalculates a dirty load once and never polls clean inventory weight.
+- Inventory commands update load authoritatively. Transitional code that mutates `Record::inventory` directly must call `mark_inventory_load_dirty`; the simulation step recalculates a dirty load once and never polls clean inventory weight.
 - Resource, damage, stat, stack, and modifier arithmetic saturates at the destination type instead of relying on signed overflow or narrowing casts.
-- The server loop derives simulation deadlines from `(epoch, tick index, rate)`, so fractional tick durations do not accumulate drift. Unpaced mode advances the same simulation clock without consulting wall time.
+- The server loop derives simulation deadlines from `(epoch, tick index, rate)`, so fractional tick durations do not accumulate drift, then passes each deadline explicitly to `world::step`.
 - A paced loop keeps at most `LoopConfig::max_catch_up_ticks` overdue steps. Older steps are explicitly counted in `LoopStats::ticks_skipped`; lag, total/max tick work, and event/entity/status phase time are observable.

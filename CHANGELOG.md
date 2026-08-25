@@ -6,6 +6,8 @@ All notable code and architecture updates for `SISTEMAS-MMO` are recorded here.
 
 ### Added
 
+- `world::TickContext`, `world::TickStats`, and a deterministic headless `world::step` with explicit logical time and canonical entity traversal.
+- A dedicated `mmo_simulation_tests` integration target covering events, dirty load, periodic status cadence, expiration, resource invariants, canonical ordering, and repeated simulation.
 - A reusable internal test harness and a separate `mmo_unit_tests` target for deterministic event validation and scheduler tests.
 - Conditional Lua OFF and Lua ON integration targets covering the disabled adapter, repository content, validation, numeric bounds, ownership, table sources, collisions, and atomic publication.
 - Minimal GitHub Actions CI for GCC warnings-as-errors, Clang ASan/UBSan, and Windows MSVC builds with CTest.
@@ -46,6 +48,8 @@ All notable code and architecture updates for `SISTEMAS-MMO` are recorded here.
 
 ### Changed
 
+- `server::run_loop` now acts as the pacing adapter around `world::step` and aggregates logical tick stats while retaining wall-clock phase metrics.
+- Periodic status resource mutation now crosses an explicit `entity::Table` boundary and records periodic deaths using simulation time.
 - Lua adapter coverage moved out of the stress executable into conditional integration targets; GCC/Linux CI installs Lua 5.4 and exercises `MMO_ENABLE_LUA=ON`.
 - Basic event contract tests moved out of the mixed stress executable; volume and runtime-dispatch scenarios remain there.
 - Fixed the server aggregate header include and made the existing stress harness C++17-compatible.

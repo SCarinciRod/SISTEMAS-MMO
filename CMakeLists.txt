@@ -86,6 +86,16 @@ if(BUILD_TESTING)
     add_test(NAME mmo_unit_tests COMMAND mmo_unit_tests)
     set_tests_properties(mmo_unit_tests PROPERTIES LABELS "unit")
 
+    add_executable(
+        mmo_simulation_tests
+        src/mmo/tests/integration/simulation_tests.cpp)
+    target_link_libraries(mmo_simulation_tests PRIVATE mmo_core)
+
+    add_test(NAME mmo_simulation_tests COMMAND mmo_simulation_tests)
+    set_tests_properties(
+        mmo_simulation_tests
+        PROPERTIES LABELS "integration;simulation")
+
     if(MMO_ENABLE_LUA)
         add_executable(
             mmo_lua_integration_tests
