@@ -1712,7 +1712,8 @@ int main() {
         const auto first_dispatch = mmo::world::step(
             world,
             items,
-            mmo::world::TickContext{ 0, now });
+            mmo::world::TickContext{ 0, now },
+            mmo::world::command::Batch{ 0 });
 
         require_equal(static_cast<std::uint64_t>(3), first_dispatch.events_processed, "first dispatch total");
         require_equal(static_cast<std::uint64_t>(2), first_dispatch.events_applied, "first dispatch applied");
@@ -1732,7 +1733,8 @@ int main() {
         const auto duplicate_dispatch = mmo::world::step(
             world,
             items,
-            mmo::world::TickContext{ 1, now });
+            mmo::world::TickContext{ 1, now },
+            mmo::world::command::Batch{ 1 });
         require_equal(static_cast<std::uint64_t>(0), duplicate_dispatch.events_processed, "events must dispatch once");
         require_equal(static_cast<std::size_t>(1), world.pending_events().size(), "outbox must not duplicate");
 
@@ -1828,6 +1830,225 @@ int main() {
         details.append(std::to_string(invalid_count));
         details.append(" rejected=");
         details.append(std::to_string(rejected));
+    }));
+
+    // =========================================================================
+    // Authoritative command pipeline structural stress.
+    // =========================================================================
+
+    push_result(run_test("stress.command_pipeline_bounded_deterministic", logger, [&](std::string& details) {
+        constexpr std::size_t inbox_capacity = 100;
+        constexpr std::uint64_t tick_count = 100;
+        constexpr std::uint64_t expected_accepted =
+            static_cast<std::uint64_t>(inbox_capacity) * tick_count;
+        constexpr auto actor_id = static_cast<mmo::core::id::EntityId>(700001);
+        constexpr auto first_zone = static_cast<mmo::core::id::ZoneId>(1);
+        constexpr auto second_zone = static_cast<mmo::core::id::ZoneId>(2);
+
+        mmo::world::World world{};
+        const mmo::core::item::Catalog items{};
+        const auto started_at = mmo::core::time::now();
+        require(
+            world.spawn_entity(actor_id, make_stress_blueprint(), first_zone, started_at),
+            "command stress actor spawn");
+
+        mmo::world::command::InboxConfig inbox_config{};
+        inbox_config.capacity = inbox_capacity;
+        inbox_config.maximum_future_ticks = 1;
+        mmo::world::command::Inbox inbox{ inbox_config };
+
+        std::uint64_t accepted_commands = 0;
+        std::uint64_t queue_full_rejections = 0;
+        std::uint64_t duplicate_rejections = 0;
+        std::uint64_t too_old_rejections = 0;
+        std::uint64_t too_future_rejections = 0;
+        std::uint64_t commands_received = 0;
+        std::uint64_t commands_processed = 0;
+        std::uint64_t commands_accepted = 0;
+        std::uint64_t commands_rejected = 0;
+
+        for (std::uint64_t tick_number = 1; tick_number <= tick_count; ++tick_number)
+        {
+            const auto tick = static_cast<mmo::core::time::TickCount>(tick_number);
+            const auto sequence_base = (tick_number - 1) * inbox_capacity;
+
+            // Descending ingress makes canonical sequence ordering observable at execution.
+            for (std::size_t offset = inbox_capacity; offset > 0; --offset)
+            {
+                const auto sequence_value = sequence_base + offset;
+                const auto destination_zone =
+                    (sequence_value % 2) == 0 ? first_zone : second_zone;
+                const mmo::world::command::Envelope envelope{
+                    tick,
+                    mmo::world::command::Sequence{ sequence_value },
+                    actor_id,
+                    mmo::world::command::Payload{
+                        mmo::world::command::MoveToZone{ destination_zone }
+                    }
+                };
+
+                require(
+                    inbox.try_push(envelope, tick).accepted(),
+                    "command stress accepted ingress");
+                ++accepted_commands;
+            }
+
+            const auto rejection_sequence_base = 1'000'000ull + (tick_number * 4ull);
+            const auto full_result = inbox.try_push(
+                mmo::world::command::Envelope{
+                    tick,
+                    mmo::world::command::Sequence{ rejection_sequence_base },
+                    actor_id,
+                    mmo::world::command::Payload{
+                        mmo::world::command::MoveToZone{ second_zone }
+                    }
+                },
+                tick);
+            require_equal(
+                mmo::world::command::IngressError::queue_full,
+                full_result.error,
+                "command stress full rejection");
+            ++queue_full_rejections;
+
+            const auto duplicate_result = inbox.try_push(
+                mmo::world::command::Envelope{
+                    tick,
+                    mmo::world::command::Sequence{ sequence_base + inbox_capacity },
+                    actor_id,
+                    mmo::world::command::Payload{
+                        mmo::world::command::MoveToZone{ second_zone }
+                    }
+                },
+                tick);
+            require_equal(
+                mmo::world::command::IngressError::duplicate_sequence,
+                duplicate_result.error,
+                "command stress duplicate rejection");
+            ++duplicate_rejections;
+
+            const auto old_result = inbox.try_push(
+                mmo::world::command::Envelope{
+                    tick - 1,
+                    mmo::world::command::Sequence{ rejection_sequence_base + 1 },
+                    actor_id,
+                    mmo::world::command::Payload{
+                        mmo::world::command::MoveToZone{ second_zone }
+                    }
+                },
+                tick);
+            require_equal(
+                mmo::world::command::IngressError::too_old,
+                old_result.error,
+                "command stress old rejection");
+            ++too_old_rejections;
+
+            const auto future_result = inbox.try_push(
+                mmo::world::command::Envelope{
+                    tick + 2,
+                    mmo::world::command::Sequence{ rejection_sequence_base + 2 },
+                    actor_id,
+                    mmo::world::command::Payload{
+                        mmo::world::command::MoveToZone{ second_zone }
+                    }
+                },
+                tick);
+            require_equal(
+                mmo::world::command::IngressError::too_far_in_future,
+                future_result.error,
+                "command stress future rejection");
+            ++too_future_rejections;
+
+            const auto capture = inbox.capture_for_tick(tick);
+            require(capture.rejections.empty(), "command stress unexpected capture rejection");
+            require_equal(inbox_capacity, capture.batch.size(), "command stress batch size");
+            require_equal(tick, capture.batch.target_tick(), "command stress batch tick");
+
+            const auto tick_stats = mmo::world::step(
+                world,
+                items,
+                mmo::world::TickContext{
+                    tick,
+                    started_at + mmo::core::time::Milliseconds{
+                        static_cast<mmo::core::time::Milliseconds::rep>(tick_number)
+                    }
+                },
+                capture.batch);
+
+            require_equal(
+                static_cast<std::uint64_t>(inbox_capacity),
+                tick_stats.commands_received,
+                "command stress tick received");
+            require_equal(
+                static_cast<std::uint64_t>(inbox_capacity),
+                tick_stats.commands_processed,
+                "command stress tick processed");
+            require_equal(
+                static_cast<std::uint64_t>(inbox_capacity),
+                tick_stats.commands_accepted,
+                "command stress tick accepted");
+            require_equal(
+                static_cast<std::uint64_t>(0),
+                tick_stats.commands_rejected,
+                "command stress tick rejected");
+            require_equal(
+                inbox_capacity,
+                tick_stats.command_results.size(),
+                "command stress result count");
+            require_equal(
+                sequence_base + 1,
+                tick_stats.command_results.front().sequence.value,
+                "command stress first canonical sequence");
+            require_equal(
+                sequence_base + inbox_capacity,
+                tick_stats.command_results.back().sequence.value,
+                "command stress last canonical sequence");
+            for (std::size_t index = 0; index < inbox_capacity; ++index)
+            {
+                require_equal(
+                    sequence_base + index + 1,
+                    tick_stats.command_results[index].sequence.value,
+                    "command stress canonical sequence");
+            }
+
+            commands_received += tick_stats.commands_received;
+            commands_processed += tick_stats.commands_processed;
+            commands_accepted += tick_stats.commands_accepted;
+            commands_rejected += tick_stats.commands_rejected;
+        }
+
+        require_equal(expected_accepted, accepted_commands, "command stress ingress accepted total");
+        require_equal(expected_accepted, commands_received, "command stress received total");
+        require_equal(expected_accepted, commands_processed, "command stress processed total");
+        require_equal(expected_accepted, commands_accepted, "command stress accepted total");
+        require_equal(static_cast<std::uint64_t>(0), commands_rejected, "command stress rejected total");
+        require_equal(tick_count, queue_full_rejections, "command stress full total");
+        require_equal(tick_count, duplicate_rejections, "command stress duplicate total");
+        require_equal(tick_count, too_old_rejections, "command stress old total");
+        require_equal(tick_count, too_future_rejections, "command stress future total");
+
+        const auto metrics = inbox.metrics();
+        require_equal(static_cast<std::size_t>(0), metrics.depth, "command stress final inbox depth");
+        require_equal(inbox_capacity, metrics.capacity, "command stress inbox capacity");
+        require_equal(tick_count, metrics.rejected_full, "command stress full metric");
+        require_equal(inbox_capacity, metrics.high_watermark, "command stress high watermark");
+        require_equal(
+            static_cast<std::uint64_t>(0),
+            metrics.expired_before_capture,
+            "command stress expired metric");
+
+        const auto* actor = world.find_entity(actor_id);
+        require(actor != nullptr, "command stress actor missing");
+        require_equal(first_zone, actor->placement.zone_id(), "command stress final actor zone");
+        require(world.has_consistent_spatial_state(), "command stress spatial invariant");
+        require_equal(
+            static_cast<std::size_t>(1),
+            world.entity_ids_in_zone(first_zone).size(),
+            "command stress final source membership");
+        require(
+            world.entity_ids_in_zone(second_zone).empty(),
+            "command stress final destination membership");
+
+        details.append("accepted=10000 ingress_rejections=400 capacity=100 ticks=100");
     }));
 
     // =========================================================================
@@ -2707,7 +2928,8 @@ int main() {
             mmo::world::TickContext{
                 0,
                 now + mmo::core::time::Milliseconds{ 999 }
-            });
+            },
+            mmo::world::command::Batch{ 0 });
         require_equal(
             static_cast<std::uint64_t>(0),
             before.status_periodic_applications,
@@ -2723,7 +2945,8 @@ int main() {
             mmo::world::TickContext{
                 1,
                 now + mmo::core::time::Milliseconds{ 1000 }
-            });
+            },
+            mmo::world::command::Batch{ 1 });
         require_equal(
             static_cast<std::uint64_t>(1),
             first.status_periodic_applications,
@@ -2739,7 +2962,8 @@ int main() {
             mmo::world::TickContext{
                 2,
                 now + mmo::core::time::Milliseconds{ 1000 }
-            });
+            },
+            mmo::world::command::Batch{ 2 });
         require_equal(
             static_cast<std::uint64_t>(0),
             repeated.status_periodic_applications,
@@ -2751,7 +2975,8 @@ int main() {
             mmo::world::TickContext{
                 3,
                 now + mmo::core::time::Milliseconds{ 3500 }
-            });
+            },
+            mmo::world::command::Batch{ 3 });
         require_equal(
             static_cast<std::uint64_t>(2),
             catch_up.status_periodic_applications,
@@ -2767,7 +2992,8 @@ int main() {
             mmo::world::TickContext{
                 4,
                 now + mmo::core::time::Milliseconds{ 8000 }
-            });
+            },
+            mmo::world::command::Batch{ 4 });
         require_equal(
             mmo::world::max_periodic_catch_up_applications_per_status,
             expiration.status_periodic_applications,
@@ -2784,7 +3010,8 @@ int main() {
             mmo::world::TickContext{
                 5,
                 now + mmo::core::time::Milliseconds{ 9000 }
-            });
+            },
+            mmo::world::command::Batch{ 5 });
         require_equal(
             static_cast<std::uint64_t>(0),
             expired.status_periodic_applications,
@@ -2831,8 +3058,9 @@ int main() {
         config.tick_rate = 20;
         config.max_ticks = 2;
         config.sleep = false;
+        mmo::world::command::Inbox command_inbox{ mmo::world::command::InboxConfig{} };
 
-        const auto stats = mmo::server::run_loop(world, catalog, config, logger);
+        const auto stats = mmo::server::run_loop(world, catalog, command_inbox, config, logger);
         require_equal(static_cast<std::uint64_t>(2), stats.ticks, "fixed timestep executed ticks");
         require_equal(static_cast<std::uint64_t>(1), stats.events_processed, "scheduled simulation event");
         require_equal(static_cast<std::uint64_t>(1), stats.load_recalculations, "initial dirty load sync");
@@ -2840,7 +3068,7 @@ int main() {
         require_equal(static_cast<std::uint64_t>(0), stats.ticks_skipped, "unpaced loop skipped ticks");
 
         config.max_ticks = 3;
-        const auto clean_stats = mmo::server::run_loop(world, catalog, config, logger);
+        const auto clean_stats = mmo::server::run_loop(world, catalog, command_inbox, config, logger);
         require_equal(
             static_cast<std::uint64_t>(0),
             clean_stats.load_recalculations,
@@ -2848,7 +3076,7 @@ int main() {
 
         populate_world_inventory(world, 800001, catalog, 1, 1, 8'000'000);
         config.max_ticks = 2;
-        const auto mutation_stats = mmo::server::run_loop(world, catalog, config, logger);
+        const auto mutation_stats = mmo::server::run_loop(world, catalog, command_inbox, config, logger);
         require_equal(
             static_cast<std::uint64_t>(0),
             mutation_stats.load_recalculations,
@@ -2927,8 +3155,9 @@ int main() {
         config.tick_rate = stress_config.world_tick_rate;
         config.max_ticks = std::min<std::uint32_t>(stress_config.world_max_ticks, 120);
         config.sleep = false;
+        mmo::world::command::Inbox command_inbox{ mmo::world::command::InboxConfig{} };
 
-        const auto stats = mmo::server::run_loop(world, catalog, config, logger);
+        const auto stats = mmo::server::run_loop(world, catalog, command_inbox, config, logger);
 
         std::uint32_t actual_dead = 0;
 
@@ -3050,10 +3279,11 @@ int main() {
         config.tick_rate = stress_config.world_tick_rate;
         config.max_ticks = stress_config.world_max_ticks;
         config.sleep = false;
+        mmo::world::command::Inbox command_inbox{ mmo::world::command::InboxConfig{} };
 
         const auto loop_started = std::chrono::steady_clock::now();
 
-        const auto stats = mmo::server::run_loop(world, catalog, config, logger);
+        const auto stats = mmo::server::run_loop(world, catalog, command_inbox, config, logger);
 
         const auto loop_finished = std::chrono::steady_clock::now();
 
@@ -3204,8 +3434,9 @@ int main() {
         config.tick_rate = stress_config.world_tick_rate;
         config.max_ticks = max_ticks;
         config.sleep = false;
+        mmo::world::command::Inbox command_inbox{ mmo::world::command::InboxConfig{} };
 
-        const auto stats = mmo::server::run_loop(world, catalog, config, logger);
+        const auto stats = mmo::server::run_loop(world, catalog, command_inbox, config, logger);
 
         require_equal(
             static_cast<std::uint64_t>(max_ticks),
@@ -3234,8 +3465,9 @@ int main() {
         config.tick_rate = stress_config.world_tick_rate;
         config.max_ticks = stress_config.world_max_ticks;
         config.sleep = false;
+        mmo::world::command::Inbox command_inbox{ mmo::world::command::InboxConfig{} };
 
-        const auto stats = mmo::server::run_loop(world, catalog, config, logger);
+        const auto stats = mmo::server::run_loop(world, catalog, command_inbox, config, logger);
 
         require_equal(
             static_cast<std::uint64_t>(stress_config.world_max_ticks),
@@ -3288,8 +3520,9 @@ int main() {
         config.tick_rate = stress_config.world_tick_rate;
         config.max_ticks = 5;
         config.sleep = false;
+        mmo::world::command::Inbox command_inbox{ mmo::world::command::InboxConfig{} };
 
-        const auto stats = mmo::server::run_loop(world, catalog, config, logger);
+        const auto stats = mmo::server::run_loop(world, catalog, command_inbox, config, logger);
 
         require_equal(
             static_cast<std::uint64_t>(config.max_ticks),
@@ -3343,8 +3576,9 @@ int main() {
         config.tick_rate = stress_config.world_tick_rate;
         config.max_ticks = 5;
         config.sleep = false;
+        mmo::world::command::Inbox command_inbox{ mmo::world::command::InboxConfig{} };
 
-        const auto stats = mmo::server::run_loop(world, catalog, config, logger);
+        const auto stats = mmo::server::run_loop(world, catalog, command_inbox, config, logger);
 
         require_equal(
             static_cast<std::uint64_t>(config.max_ticks),
@@ -3435,8 +3669,9 @@ int main() {
         config.tick_rate = stress_config.world_tick_rate;
         config.max_ticks = 60;
         config.sleep = false;
+        mmo::world::command::Inbox command_inbox{ mmo::world::command::InboxConfig{} };
 
-        const auto stats = mmo::server::run_loop(world, catalog, config, logger);
+        const auto stats = mmo::server::run_loop(world, catalog, command_inbox, config, logger);
 
         require_equal(
             static_cast<std::uint64_t>(config.max_ticks),

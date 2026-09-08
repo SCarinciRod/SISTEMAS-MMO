@@ -6,6 +6,11 @@ All notable code and architecture updates for `SISTEMAS-MMO` are recorded here.
 
 ### Added
 
+- Trusted health-adjustment and single-item grant commands, typed per-tick domain facts, and regressions for invalid input and duplicate grants.
+- Sticky World fault state: unexpected tick failure stops the loop and prevents simulation restart; tested after partial mutation.
+- A bounded deterministic command ingress with server-assigned sequence metadata, future-tick limits, typed backpressure, bounded deduplication, closed batches, and observable infrastructure metrics.
+- A minimal authoritative `MoveToZone` command with centralized validation, structured execution results, and explicit command processing metrics in the simulation tick.
+- A dedicated `mmo_command_tests` integration target and a structural 10,000-command stress scenario for ordering, bounded memory, rejection policy, and repeated determinism.
 - Read-only World queries, validated event scheduling, and ordered drain operations for normal and rejected simulation outputs.
 - Authority-boundary regressions for const entity lookup, logical health timestamps, scheduler validation, output drain ordering, rejected-output consumption, and spatial identity consistency.
 - `mmo::world::World` as the authoritative runtime aggregate for spatial mutations, zone population, active-zone indexing, and event dispatch.
@@ -52,6 +57,7 @@ All notable code and architecture updates for `SISTEMAS-MMO` are recorded here.
 
 ### Changed
 
+- `world::step` now receives an immutable command batch and runs it after due scheduled events and before active entity/system maintenance; `server::run_loop` owns inbox capture outside `World`.
 - `mmo::world::World` now keeps entity, zone, scheduler, and output storage private; live mutation crosses explicit World operations.
 - `entity::Table::find` now returns only `const Record*`, `adjust_health` requires simulation time, and the public inventory-dirty escape hatch was removed.
 - Entity, zone, and zone-membership storage now uses ordered `std::map`/`std::set` indexes with worst-case `O(log N)` lookup and mutation; the active hot path is canonical `(ZoneId, EntityId)` without a global per-tick sort.

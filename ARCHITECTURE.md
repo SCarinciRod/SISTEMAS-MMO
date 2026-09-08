@@ -28,6 +28,7 @@ This file is the working agreement for the project. Read it before making archit
 - `core/zone.hpp`: passive zone state and ordered storage.
 - `core/event.hpp`: delayed event scheduler.
 - `core/numeric.hpp`: checked/saturating integer operations for domain boundaries.
+- `world/command.hpp`: bounded authoritative command ingress, closed batches, ordering metadata, and typed command results.
 - `world/world.hpp`: authoritative runtime aggregate, spatial mutations, active-set index, event dispatch, and simulation step.
 
 Definitions, local state tables, and calculations stay in `core`. Cross-table runtime ownership belongs to `mmo::world`; persistence and networking remain outside both layers.
@@ -104,6 +105,7 @@ Future skill fusion should reuse the same skill catalog and relation model inste
 - `mmo_lua_disabled_tests` verifies the deterministic no-Lua adapter contract when `MMO_ENABLE_LUA=OFF`.
 - `mmo_lua_integration_tests` crosses filesystem, a real Lua VM, validation, and `item::Catalog` when `MMO_ENABLE_LUA=ON`.
 - `mmo_simulation_tests` exercises the headless world step with fixed logical time and no server loop.
+- `mmo_command_tests` exercises bounded ingress, canonical command ordering, validation, and repeated deterministic command streams.
 - `mmo_stress_tests` retains integration, regression, and load scenarios while the suite is migrated incrementally.
 - Shared assertions, execution, timing, and reporting live in `src/mmo/tests/support/test.hpp`; no external test dependency is required yet.
 - The repository requires C++17. Compiler-specific extensions are disabled.
@@ -115,7 +117,7 @@ Future skill fusion should reuse the same skill catalog and relation model inste
 - `mmo::world::step` owns the stateless orchestration of one logical simulation step over that aggregate.
 - `mmo::server` owns wall-clock pacing, sleep, catch-up, lifecycle, logging, and performance measurements.
 - `world::step` receives `TickContext::tick_index` and `TickContext::simulation_time`. Gameplay never derives simulation time from wall clock inside the kernel.
-- The canonical tick order is scheduled events, entity maintenance, periodic status application, then status expiration/build-up sweep.
+- The canonical tick order is scheduled events, authoritative commands, entity maintenance, periodic status application, then status expiration/build-up sweep.
 - Entity, zone, and membership indexes use ordered trees. Lookup and mutation have deterministic worst-case `O(log N)` behavior instead of relying on average-case hash complexity.
 - The persistent active-zone index is an ordered `std::set<ZoneId>`. Full simulation order is the stable pair `(ZoneId, EntityId)` and requires no global per-tick sort.
 - Optional phase observation lets the server retain wall-clock phase metrics without feeding those measurements back into gameplay decisions.
@@ -129,6 +131,22 @@ Future skill fusion should reuse the same skill catalog and relation model inste
 - Gameplay timestamps are dependencies of the write operation. In particular, `adjust_health` requires simulation time and never derives `death_at` from wall clock.
 - `World::try_schedule_event` is the normal scheduling boundary and always uses event validation. Scheduler state is observable only through read-only queries.
 - Normal and rejected outputs follow producer/consumer ownership. `drain_events` and `drain_rejected_events` preserve order, transfer the current batch, and leave the corresponding World queue empty.
+
+## Command Ingress Boundary
+
+- External producers submit intent through trusted server infrastructure; they do not call `World` directly. P6 proves this boundary with `MoveToZone`, which is a simulation slice rather than the final continuous-movement protocol.
+- `command::Sequence` is server-assigned authoritative ordering metadata. A future client sequence may support protocol deduplication, but it must never select global gameplay order.
+- `command::Envelope` keeps intent separate from authoritative metadata: target tick, sequence, actor, and typed payload have distinct roles.
+- `command::Inbox` belongs to the server/simulation host, outside `World`. Its total pending depth is bounded across current and future ticks, and `queue_full` is returned explicitly instead of growing memory or dropping input silently.
+- Ingress validates server sequence, actor identity, old ticks, the configured future window, duplicates, and capacity. These infrastructure rejections are distinct from gameplay validation performed inside the simulation.
+- Deduplication covers all pending sequences plus a bounded recent history equal to inbox capacity. It prevents immediate replay without creating an unbounded process-lifetime database.
+- Capturing a tick produces an owning, immutable `command::Batch`. Future commands remain in the inbox, newly submitted commands cannot alter the captured batch, and commands missed because the host skipped a tick are returned as typed `too_old` capture rejections.
+- A batch is sorted by ascending authoritative sequence before it reaches `world::step`. The tick therefore depends on `(target tick, server sequence)`, never producer arrival order, wall time, thread scheduling, socket order, or hash-container iteration.
+- Command dispatch is centralized in `World` and uses `TickContext::simulation_time`. Invalid intent returns a structured `ExecutionResult`; expected gameplay rejection is not an exception.
+- Command results are carried by the per-tick result, while inbox depth, capacity, full rejection count, high watermark, and capture expiration count remain infrastructure metrics outside `TickStats`.
+- `CommandId` names the server-assigned `Sequence` identity. The initial operations are zone movement, nonzero health adjustment, and a one-unit inventory grant. Resource and grant commands are for trusted server producers.
+- Successful semantic changes produce typed `domain::Event` facts in `TickStats::domain_events`, ordered by command ID within the tick. Rejections never become domain facts. The existing scheduled event model remains temporarily compatible.
+- An unexpected tick exception marks `World` faulted, propagates to the host, and stops `run_loop`. Subsequent loop or direct step attempts cannot resume that World. There is no automatic rollback or recovery.
 
 ## Zone Activity Semantics
 

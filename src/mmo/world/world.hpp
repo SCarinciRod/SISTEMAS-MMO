@@ -1,9 +1,12 @@
 #pragma once
 
 #include <cstdint>
+#include <exception>
+#include <stdexcept>
 #include <map>
 #include <optional>
 #include <set>
+#include <type_traits>
 #include <vector>
 
 #include "mmo/core/entity.hpp"
@@ -11,6 +14,8 @@
 #include "mmo/core/item.hpp"
 #include "mmo/core/time.hpp"
 #include "mmo/core/zone.hpp"
+#include "mmo/world/command.hpp"
+#include "mmo/world/domain_event.hpp"
 
 namespace mmo
 {
@@ -25,11 +30,15 @@ namespace mmo
             World& world,
             const core::item::Catalog& items,
             const TickContext& context,
+            const command::Batch& commands,
             TickObserver* observer) -> TickStats;
 
         class World
         {
         public:
+            [[nodiscard]] auto is_faulted() const noexcept -> bool { return faulted_; }
+            auto mark_faulted() noexcept -> void { faulted_ = true; }
+
             [[nodiscard]] auto find_entity(core::id::EntityId entity_id) const
                 -> const core::entity::Record*
             {
@@ -342,6 +351,7 @@ namespace mmo
             }
 
         private:
+            bool faulted_{ false };
             enum class EventDispatchOutcome : std::uint8_t
             {
                 applied,
@@ -372,6 +382,7 @@ namespace mmo
                 World& world,
                 const core::item::Catalog& items,
                 const TickContext& context,
+                const command::Batch& commands,
                 TickObserver* observer) -> TickStats;
 
             auto mark_zone_tick(
@@ -467,6 +478,81 @@ namespace mmo
 
                 return stats;
             }
+
+            [[nodiscard]] auto execute_command_internal(
+                const command::Envelope& envelope,
+                const core::item::Catalog& items,
+                core::time::TimePoint simulation_time) -> command::ExecutionResult
+            {
+                if (envelope.actor == core::id::invalid_entity_id)
+                {
+                    return { envelope.sequence, command::ExecutionRejection::invalid_actor };
+                }
+
+                const auto* actor = entities_.find(envelope.actor);
+                if (actor == nullptr)
+                {
+                    return { envelope.sequence, command::ExecutionRejection::entity_missing };
+                }
+
+                return std::visit(
+                    [this, &envelope, &items, actor, simulation_time](const auto& payload)
+                        -> command::ExecutionResult
+                    {
+                        using PayloadType = std::decay_t<decltype(payload)>;
+                        if constexpr (std::is_same_v<PayloadType, command::MoveToZone>)
+                        {
+                            if (payload.destination_zone_id == core::id::invalid_zone_id)
+                            {
+                                return {
+                                    envelope.sequence,
+                                    command::ExecutionRejection::invalid_destination
+                                };
+                            }
+
+                            if (actor->placement.zone_id() == payload.destination_zone_id)
+                            {
+                                return {
+                                    envelope.sequence,
+                                    command::ExecutionRejection::already_in_destination
+                                };
+                            }
+
+                            if (!move_entity_to_zone(
+                                    envelope.actor,
+                                    payload.destination_zone_id,
+                                    simulation_time))
+                            {
+                                return {
+                                    envelope.sequence,
+                                    command::ExecutionRejection::transition_rejected
+                                };
+                            }
+
+                            return { envelope.sequence, command::ExecutionRejection::none };
+                        }
+                        else if constexpr (std::is_same_v<PayloadType, command::AdjustHealth>)
+                        {
+                            if (payload.delta == 0)
+                                return { envelope.sequence, command::ExecutionRejection::invalid_quantity };
+                            return { envelope.sequence, adjust_health(envelope.actor, payload.delta, simulation_time)
+                                ? command::ExecutionRejection::none : command::ExecutionRejection::transition_rejected };
+                        }
+                        else
+                        {
+                            if (payload.item_id == core::id::invalid_item_id || items.find(payload.template_id) == nullptr)
+                                return { envelope.sequence, command::ExecutionRejection::invalid_item };
+                            core::item::Instance instance{};
+                            instance.item_id = payload.item_id;
+                            instance.item_template_id = payload.template_id;
+                            instance.acquired_at = simulation_time;
+                            const auto result = add_inventory_item(envelope.actor, items, instance);
+                            return { envelope.sequence, result.quantity_added == 1
+                                ? command::ExecutionRejection::none : command::ExecutionRejection::transition_rejected };
+                        }
+                    },
+                    envelope.payload);
+            }
         };
 
         struct TickContext
@@ -481,6 +567,12 @@ namespace mmo
             std::uint64_t events_applied{ 0 };
             std::uint64_t events_queued{ 0 };
             std::uint64_t events_rejected{ 0 };
+            std::uint64_t commands_received{ 0 };
+            std::uint64_t commands_processed{ 0 };
+            std::uint64_t commands_accepted{ 0 };
+            std::uint64_t commands_rejected{ 0 };
+            std::vector<command::ExecutionResult> command_results{};
+            std::vector<domain::Event> domain_events{};
             std::uint64_t active_zones{ 0 };
             std::uint64_t entities_considered{ 0 };
             std::uint64_t entities_skipped{ 0 };
@@ -495,6 +587,7 @@ namespace mmo
         enum class TickPhase : std::uint8_t
         {
             scheduled_events = 0,
+            authoritative_commands,
             entity_maintenance,
             periodic_statuses,
             status_sweep
@@ -547,13 +640,24 @@ namespace mmo
             }
         }
 
-        // Canonical tick order: events, entity maintenance, periodic statuses, expiration sweep.
+        // Canonical tick order: events, commands, maintenance, periodic statuses, expiration sweep.
         [[nodiscard]] inline auto step(
             World& world,
             const core::item::Catalog& items,
             const TickContext& context,
+            const command::Batch& commands,
             TickObserver* observer = nullptr) -> TickStats
         {
+            if (world.is_faulted()) throw std::logic_error("Cannot step a faulted World");
+            struct FaultGuard
+            {
+                World& world;
+                int exceptions{ std::uncaught_exceptions() };
+                ~FaultGuard()
+                {
+                    if (std::uncaught_exceptions() > exceptions) world.mark_faulted();
+                }
+            } fault_guard{ world };
             TickStats stats{};
 
             detail::notify_phase_started(observer, TickPhase::scheduled_events);
@@ -563,6 +667,47 @@ namespace mmo
             stats.events_queued = event_stats.queued;
             stats.events_rejected = event_stats.rejected;
             detail::notify_phase_finished(observer, TickPhase::scheduled_events);
+
+            detail::notify_phase_started(observer, TickPhase::authoritative_commands);
+            stats.commands_received = commands.size();
+            stats.command_results.reserve(commands.size());
+            for (const auto& envelope : commands)
+            {
+                const auto* before = world.find_entity(envelope.actor);
+                const auto previous_zone = before ? before->placement.zone_id() : core::id::invalid_zone_id;
+                const auto previous_health = before ? before->resources.health_current : 0;
+                const auto result = commands.target_tick() != context.tick_index
+                    ? command::ExecutionResult{ envelope.sequence, command::ExecutionRejection::invalid_tick }
+                    : world.execute_command_internal(
+                    envelope,
+                    items,
+                    context.simulation_time);
+                stats.command_results.push_back(result);
+                ++stats.commands_processed;
+                if (result.accepted())
+                {
+                    ++stats.commands_accepted;
+                    const auto* after = world.find_entity(envelope.actor);
+                    if (std::holds_alternative<command::MoveToZone>(envelope.payload))
+                        stats.domain_events.push_back({ context.tick_index, context.simulation_time, envelope.sequence,
+                            domain::EntityMoved{ envelope.actor, previous_zone, after->placement.zone_id() } });
+                    else if (std::holds_alternative<command::AdjustHealth>(envelope.payload))
+                    {
+                        if (previous_health != after->resources.health_current)
+                            stats.domain_events.push_back({ context.tick_index, context.simulation_time, envelope.sequence,
+                                domain::HealthAdjusted{ envelope.actor, previous_health, after->resources.health_current } });
+                    }
+                    else
+                        stats.domain_events.push_back({ context.tick_index, context.simulation_time, envelope.sequence,
+                            domain::InventoryItemAdded{ envelope.actor,
+                                std::get<command::AddInventoryItem>(envelope.payload).template_id, 1 } });
+                }
+                else
+                {
+                    ++stats.commands_rejected;
+                }
+            }
+            detail::notify_phase_finished(observer, TickPhase::authoritative_commands);
 
             const auto ids = list_active_entity_ids_in_simulation_order(world);
             stats.active_zones = world.active_zone_ids().size();
