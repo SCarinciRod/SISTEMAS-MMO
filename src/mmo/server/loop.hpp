@@ -27,11 +27,17 @@ namespace mmo
 
         struct LoopStats
         {
+            bool faulted{ false };
             std::uint64_t ticks{ 0 };
             std::uint64_t events_processed{ 0 };
             std::uint64_t events_applied{ 0 };
             std::uint64_t events_queued{ 0 };
             std::uint64_t events_rejected{ 0 };
+            std::uint64_t commands_received{ 0 };
+            std::uint64_t commands_processed{ 0 };
+            std::uint64_t commands_accepted{ 0 };
+            std::uint64_t commands_rejected{ 0 };
+            std::uint64_t commands_expired_before_tick{ 0 };
             std::uint64_t active_zone_ticks{ 0 };
             std::uint64_t entities_processed{ 0 };
             std::uint64_t entities_skipped{ 0 };
@@ -42,6 +48,7 @@ namespace mmo
             std::uint64_t tick_work_max_ns{ 0 };
             std::uint64_t max_schedule_lag_ns{ 0 };
             std::uint64_t event_phase_total_ns{ 0 };
+            std::uint64_t command_phase_total_ns{ 0 };
             std::uint64_t entity_phase_total_ns{ 0 };
             std::uint64_t status_phase_total_ns{ 0 };
 
@@ -84,6 +91,10 @@ namespace mmo
             loop_stats.events_applied += tick_stats.events_applied;
             loop_stats.events_queued += tick_stats.events_queued;
             loop_stats.events_rejected += tick_stats.events_rejected;
+            loop_stats.commands_received += tick_stats.commands_received;
+            loop_stats.commands_processed += tick_stats.commands_processed;
+            loop_stats.commands_accepted += tick_stats.commands_accepted;
+            loop_stats.commands_rejected += tick_stats.commands_rejected;
             loop_stats.active_zone_ticks += tick_stats.active_zones;
             loop_stats.entities_processed += tick_stats.entities_considered;
             loop_stats.entities_skipped += tick_stats.entities_skipped;
@@ -120,6 +131,9 @@ namespace mmo
                         case mmo::world::TickPhase::scheduled_events:
                             stats_.event_phase_total_ns += safe_elapsed;
                             break;
+                        case mmo::world::TickPhase::authoritative_commands:
+                            stats_.command_phase_total_ns += safe_elapsed;
+                            break;
                         case mmo::world::TickPhase::entity_maintenance:
                             stats_.entity_phase_total_ns += safe_elapsed;
                             break;
@@ -136,14 +150,21 @@ namespace mmo
             };
         }
 
-        // Main tick loop: events, entity updates, and status processing per tick.
+        // Main tick loop: captures commands, then runs the deterministic simulation phases.
         [[nodiscard]] inline auto run_loop(
             mmo::world::World& world,
             const core::item::Catalog& catalog,
+            mmo::world::command::Inbox& command_inbox,
             const LoopConfig& config,
-            core::log::Logger& logger) -> LoopStats
+            core::log::Logger& logger,
+            mmo::world::TickObserver* observer = nullptr) -> LoopStats
         {
             LoopStats stats{};
+            if (world.is_faulted())
+            {
+                stats.faulted = true;
+                return stats;
+            }
 
             const auto safe_tick_rate = core::time::normalize_tick_rate(config.tick_rate);
             const auto epoch = core::time::now();
@@ -203,20 +224,29 @@ namespace mmo
                 try
                 {
                     detail::LoopTickObserver phase_observer{ stats };
+                    auto command_capture = command_inbox.capture_for_tick(simulation_tick);
+                    stats.commands_expired_before_tick += command_capture.rejections.size();
                     const auto tick_stats = mmo::world::step(
                         world,
                         catalog,
                         mmo::world::TickContext{ simulation_tick, scheduled_at },
-                        &phase_observer);
+                        command_capture.batch,
+                        observer != nullptr ? observer : &phase_observer);
                     aggregate_tick_stats(stats, tick_stats);
                 }
                 catch (const std::exception& ex)
                 {
+                    world.mark_faulted();
+                    stats.faulted = true;
                     core::log::log_exception(logger, "server.loop.tick", ex);
+                    return stats;
                 }
                 catch (...)
                 {
+                    world.mark_faulted();
+                    stats.faulted = true;
                     core::log::log_exception(logger, "server.loop.tick");
+                    return stats;
                 }
 
                 const auto work_nanoseconds = std::chrono::duration_cast<core::time::Nanoseconds>(

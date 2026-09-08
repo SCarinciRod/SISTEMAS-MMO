@@ -77,6 +77,14 @@ namespace
         totals.events_applied += tick.events_applied;
         totals.events_queued += tick.events_queued;
         totals.events_rejected += tick.events_rejected;
+        totals.commands_received += tick.commands_received;
+        totals.commands_processed += tick.commands_processed;
+        totals.commands_accepted += tick.commands_accepted;
+        totals.commands_rejected += tick.commands_rejected;
+        totals.command_results.insert(
+            totals.command_results.end(),
+            tick.command_results.begin(),
+            tick.command_results.end());
         totals.active_zones += tick.active_zones;
         totals.entities_considered += tick.entities_considered;
         totals.entities_skipped += tick.entities_skipped;
@@ -95,6 +103,40 @@ namespace
         test::require_equal(expected.events_applied, actual.events_applied, std::string(label).append(" events applied"));
         test::require_equal(expected.events_queued, actual.events_queued, std::string(label).append(" events queued"));
         test::require_equal(expected.events_rejected, actual.events_rejected, std::string(label).append(" events rejected"));
+        test::require_equal(
+            expected.commands_received,
+            actual.commands_received,
+            std::string(label).append(" commands received"));
+        test::require_equal(
+            expected.commands_processed,
+            actual.commands_processed,
+            std::string(label).append(" commands processed"));
+        test::require_equal(
+            expected.commands_accepted,
+            actual.commands_accepted,
+            std::string(label).append(" commands accepted"));
+        test::require_equal(
+            expected.commands_rejected,
+            actual.commands_rejected,
+            std::string(label).append(" commands rejected"));
+        test::require_equal(
+            expected.command_results.size(),
+            actual.command_results.size(),
+            std::string(label).append(" command result count"));
+        for (std::size_t index = 0; index < expected.command_results.size(); ++index)
+        {
+            const auto result_label = std::string(label)
+                .append(" command result ")
+                .append(std::to_string(index));
+            test::require_equal(
+                expected.command_results[index].sequence.value,
+                actual.command_results[index].sequence.value,
+                result_label + " sequence");
+            test::require_equal(
+                expected.command_results[index].reason,
+                actual.command_results[index].reason,
+                result_label + " reason");
+        }
         test::require_equal(expected.active_zones, actual.active_zones, std::string(label).append(" active zones"));
         test::require_equal(expected.entities_considered, actual.entities_considered, std::string(label).append(" entities considered"));
         test::require_equal(expected.entities_skipped, actual.entities_skipped, std::string(label).append(" entities skipped"));
@@ -201,7 +243,8 @@ namespace
         const auto stats = mmo::world::step(
             world,
             items,
-            mmo::world::TickContext{ 0, epoch() });
+            mmo::world::TickContext{ 0, epoch() },
+            mmo::world::command::Batch{ 0 });
 
         test::require_equal(static_cast<std::uint64_t>(0), stats.events_processed, "empty events");
         test::require_equal(static_cast<std::uint64_t>(0), stats.entities_considered, "empty entities");
@@ -224,11 +267,13 @@ namespace
         const auto first = mmo::world::step(
             world,
             items,
-            mmo::world::TickContext{ 0, epoch() });
+            mmo::world::TickContext{ 0, epoch() },
+            mmo::world::command::Batch{ 0 });
         const auto second = mmo::world::step(
             world,
             items,
-            mmo::world::TickContext{ 1, epoch() });
+            mmo::world::TickContext{ 1, epoch() },
+            mmo::world::command::Batch{ 1 });
 
         test::require_equal(static_cast<std::uint64_t>(1), first.events_processed, "first event processing");
         test::require_equal(static_cast<std::uint64_t>(1), first.events_queued, "first event queued");
@@ -251,7 +296,8 @@ namespace
         const auto stats = mmo::world::step(
             world,
             items,
-            mmo::world::TickContext{ 0, epoch() + mmo::core::time::Milliseconds{ 99 } });
+            mmo::world::TickContext{ 0, epoch() + mmo::core::time::Milliseconds{ 99 } },
+            mmo::world::command::Batch{ 0 });
 
         test::require_equal(static_cast<std::uint64_t>(0), stats.events_processed, "future event processing");
         test::require_equal(static_cast<std::size_t>(1), world.pending_event_count(), "future event pending");
@@ -290,7 +336,8 @@ namespace
         const auto stats = mmo::world::step(
             world,
             items,
-            mmo::world::TickContext{ 0, epoch() });
+            mmo::world::TickContext{ 0, epoch() },
+            mmo::world::command::Batch{ 0 });
 
         test::require_equal(static_cast<std::uint64_t>(2), stats.events_queued, "queued output count");
         const auto drained = world.drain_events();
@@ -357,11 +404,13 @@ namespace
         const auto first = mmo::world::step(
             world,
             items,
-            mmo::world::TickContext{ 7, epoch() });
+            mmo::world::TickContext{ 7, epoch() },
+            mmo::world::command::Batch{ 7 });
         const auto second = mmo::world::step(
             world,
             items,
-            mmo::world::TickContext{ 8, epoch() + mmo::core::time::Milliseconds{ 50 } });
+            mmo::world::TickContext{ 8, epoch() + mmo::core::time::Milliseconds{ 50 } },
+            mmo::world::command::Batch{ 8 });
 
         test::require_equal(static_cast<std::uint64_t>(1), first.load_recalculations, "dirty load sync");
         test::require_equal(static_cast<std::uint64_t>(0), second.load_recalculations, "clean load reuse");
@@ -383,15 +432,18 @@ namespace
         const auto before = mmo::world::step(
             world,
             items,
-            mmo::world::TickContext{ 19, epoch() + mmo::core::time::Milliseconds{ 999 } });
+            mmo::world::TickContext{ 19, epoch() + mmo::core::time::Milliseconds{ 999 } },
+            mmo::world::command::Batch{ 19 });
         const auto first = mmo::world::step(
             world,
             items,
-            mmo::world::TickContext{ 20, epoch() + mmo::core::time::Milliseconds{ 1000 } });
+            mmo::world::TickContext{ 20, epoch() + mmo::core::time::Milliseconds{ 1000 } },
+            mmo::world::command::Batch{ 20 });
         const auto second = mmo::world::step(
             world,
             items,
-            mmo::world::TickContext{ 40, epoch() + mmo::core::time::Milliseconds{ 2000 } });
+            mmo::world::TickContext{ 40, epoch() + mmo::core::time::Milliseconds{ 2000 } },
+            mmo::world::command::Batch{ 40 });
 
         test::require_equal(static_cast<std::uint64_t>(0), before.status_periodic_applications, "before deadline");
         test::require_equal(static_cast<std::uint64_t>(1), first.status_periodic_applications, "first deadline");
@@ -429,7 +481,8 @@ namespace
         const auto stats = mmo::world::step(
             world,
             items,
-            mmo::world::TickContext{ 20, deadline });
+            mmo::world::TickContext{ 20, deadline },
+            mmo::world::command::Batch{ 20 });
         const auto* record = world.find_entity(entity_id);
 
         test::require_equal(static_cast<std::uint64_t>(1), stats.status_periodic_applications, "lethal application count");
@@ -459,11 +512,13 @@ namespace
         const auto before = mmo::world::step(
             world,
             items,
-            mmo::world::TickContext{ 119, epoch() + mmo::core::time::Milliseconds{ 5999 } });
+            mmo::world::TickContext{ 119, epoch() + mmo::core::time::Milliseconds{ 5999 } },
+            mmo::world::command::Batch{ 119 });
         const auto at_deadline = mmo::world::step(
             world,
             items,
-            mmo::world::TickContext{ 120, epoch() + mmo::core::time::Milliseconds{ 6000 } });
+            mmo::world::TickContext{ 120, epoch() + mmo::core::time::Milliseconds{ 6000 } },
+            mmo::world::command::Batch{ 120 });
 
         test::require_equal(static_cast<std::uint64_t>(0), before.status_changes, "status before expiration");
         test::require_equal(static_cast<std::uint64_t>(1), at_deadline.status_changes, "status expiration change");
@@ -499,8 +554,16 @@ namespace
             mmo::world::list_entity_ids_in_simulation_order(second) == expected,
             "second traversal should ignore insertion order");
 
-        const auto first_stats = mmo::world::step(first, items, mmo::world::TickContext{ 42, epoch() });
-        const auto second_stats = mmo::world::step(second, items, mmo::world::TickContext{ 42, epoch() });
+        const auto first_stats = mmo::world::step(
+            first,
+            items,
+            mmo::world::TickContext{ 42, epoch() },
+            mmo::world::command::Batch{ 42 });
+        const auto second_stats = mmo::world::step(
+            second,
+            items,
+            mmo::world::TickContext{ 42, epoch() },
+            mmo::world::command::Batch{ 42 });
         require_equal_stats(first_stats, second_stats, "canonical traversal");
         details = "insertions=30,10,20/20,30,10 traversal=10,20,30";
     }
@@ -558,8 +621,16 @@ namespace
                 tick,
                 epoch() + mmo::core::time::Milliseconds{ 50 * tick }
             };
-            const auto first_tick = mmo::world::step(first, items, context);
-            const auto second_tick = mmo::world::step(second, items, context);
+            const auto first_tick = mmo::world::step(
+                first,
+                items,
+                context,
+                mmo::world::command::Batch{ context.tick_index });
+            const auto second_tick = mmo::world::step(
+                second,
+                items,
+                context,
+                mmo::world::command::Batch{ context.tick_index });
             require_equal_stats(first_tick, second_tick, "repeated tick");
             accumulate_stats(first_totals, first_tick);
             accumulate_stats(second_totals, second_tick);
@@ -639,7 +710,8 @@ namespace
         const auto stats = mmo::world::step(
             world,
             items,
-            mmo::world::TickContext{ 7, epoch() });
+            mmo::world::TickContext{ 7, epoch() },
+            mmo::world::command::Batch{ 7 });
 
         test::require_equal(static_cast<std::uint64_t>(1), stats.active_zones, "active zone count");
         test::require_equal(static_cast<std::uint64_t>(1), stats.entities_considered, "active entities");
@@ -700,7 +772,8 @@ namespace
         const auto awake = mmo::world::step(
             world,
             items,
-            mmo::world::TickContext{ 4, epoch() });
+            mmo::world::TickContext{ 4, epoch() },
+            mmo::world::command::Batch{ 4 });
         test::require_equal(static_cast<std::uint64_t>(1), awake.events_applied, "wake applied");
         test::require_equal(static_cast<std::uint64_t>(1), awake.entities_considered, "wake same tick entity");
         test::require(world.should_tick_full(zone_id), "woken zone should be active");
@@ -712,7 +785,8 @@ namespace
         const auto asleep = mmo::world::step(
             world,
             items,
-            mmo::world::TickContext{ 5, sleep.due_at });
+            mmo::world::TickContext{ 5, sleep.due_at },
+            mmo::world::command::Batch{ 5 });
         test::require_equal(static_cast<std::uint64_t>(1), asleep.events_applied, "sleep applied");
         test::require_equal(static_cast<std::uint64_t>(0), asleep.entities_considered, "sleep same tick entity");
         test::require_equal(static_cast<std::uint64_t>(1), asleep.entities_skipped, "sleep skipped entity");
@@ -739,7 +813,8 @@ namespace
         const auto stats = mmo::world::step(
             world,
             items,
-            mmo::world::TickContext{ 1, epoch() });
+            mmo::world::TickContext{ 1, epoch() },
+            mmo::world::command::Batch{ 1 });
 
         test::require_equal(static_cast<std::uint64_t>(2), stats.events_rejected, "sleep rejection");
         const auto rejected = world.drain_rejected_events();
@@ -769,7 +844,8 @@ namespace
             mmo::world::TickContext{
                 159,
                 epoch() + mmo::core::time::Milliseconds{ 7999 }
-            });
+            },
+            mmo::world::command::Batch{ 159 });
         test::require_equal(static_cast<std::uint64_t>(0), sleeping.status_periodic_applications, "sleeping periodic work");
         test::require_equal(static_cast<std::uint64_t>(1), sleeping.entities_skipped, "sleeping status entity");
 
@@ -781,7 +857,8 @@ namespace
         const auto awakened = mmo::world::step(
             world,
             items,
-            mmo::world::TickContext{ 160, wake.due_at });
+            mmo::world::TickContext{ 160, wake.due_at },
+            mmo::world::command::Batch{ 160 });
 
         test::require_equal(
             mmo::world::max_periodic_catch_up_applications_per_status,
@@ -838,7 +915,8 @@ namespace
                 mmo::world::TickContext{
                     tick,
                     epoch() + mmo::core::time::Milliseconds{ 50 * tick }
-                });
+                },
+                mmo::world::command::Batch{ tick });
             accumulate_stats(totals, stats);
         }
 

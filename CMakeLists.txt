@@ -96,6 +96,16 @@ if(BUILD_TESTING)
         mmo_simulation_tests
         PROPERTIES LABELS "integration;simulation")
 
+    add_executable(
+        mmo_command_tests
+        src/mmo/tests/integration/command_tests.cpp)
+    target_link_libraries(mmo_command_tests PRIVATE mmo_core)
+
+    add_test(NAME mmo_command_tests COMMAND mmo_command_tests)
+    set_tests_properties(
+        mmo_command_tests
+        PROPERTIES LABELS "integration;command")
+
     if(MMO_ENABLE_LUA)
         add_executable(
             mmo_lua_integration_tests
