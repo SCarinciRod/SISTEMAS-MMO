@@ -6,6 +6,8 @@ All notable code and architecture updates for `SISTEMAS-MMO` are recorded here.
 
 ### Added
 
+- P7 typed scheduled actions, deterministic action ordering, immutable causal domain facts, and focused mixed-stream event tests.
+- Applied scheduled migration, wake/sleep, and region notices now produce domain facts; failed or unsupported actions return structured results.
 - Trusted health-adjustment and single-item grant commands, typed per-tick domain facts, and regressions for invalid input and duplicate grants.
 - Sticky World fault state: unexpected tick failure stops the loop and prevents simulation restart; tested after partial mutation.
 - A bounded deterministic command ingress with server-assigned sequence metadata, future-tick limits, typed backpressure, bounded deduplication, closed batches, and observable infrastructure metrics.
@@ -57,6 +59,7 @@ All notable code and architecture updates for `SISTEMAS-MMO` are recorded here.
 
 ### Changed
 
+- World now schedules typed actions through an input-only legacy adapter and returns tick-local facts/results instead of generic legacy output queues.
 - `world::step` now receives an immutable command batch and runs it after due scheduled events and before active entity/system maintenance; `server::run_loop` owns inbox capture outside `World`.
 - `mmo::world::World` now keeps entity, zone, scheduler, and output storage private; live mutation crosses explicit World operations.
 - `entity::Table::find` now returns only `const Record*`, `adjust_health` requires simulation time, and the public inventory-dirty escape hatch was removed.

@@ -1716,12 +1716,12 @@ int main() {
             mmo::world::command::Batch{ 0 });
 
         require_equal(static_cast<std::uint64_t>(3), first_dispatch.events_processed, "first dispatch total");
-        require_equal(static_cast<std::uint64_t>(2), first_dispatch.events_applied, "first dispatch applied");
-        require_equal(static_cast<std::uint64_t>(1), first_dispatch.events_queued, "first dispatch queued");
+        require_equal(static_cast<std::uint64_t>(3), first_dispatch.events_applied, "first dispatch applied");
+        require_equal(static_cast<std::uint64_t>(0), first_dispatch.events_queued, "no legacy output");
         require_equal(static_cast<std::uint64_t>(0), first_dispatch.events_rejected, "first dispatch rejected");
         require_equal(static_cast<std::size_t>(1), world.pending_event_count(), "future event retained");
-        require_equal(static_cast<std::size_t>(1), world.pending_events().size(), "domain outbox count");
-        require_equal(static_cast<std::uint32_t>(99), world.pending_events().front().counter, "outbox payload");
+        require_equal(static_cast<std::size_t>(3), first_dispatch.domain_events.size(), "domain facts count");
+        require_equal(static_cast<std::uint32_t>(99), std::get<mmo::world::domain::RegionNoticeEmitted>(first_dispatch.domain_events.back().payload).notice_id, "notice payload");
 
         const auto* entity = world.find_entity(entity_id);
         require(entity != nullptr, "migrated entity should exist");
@@ -1736,7 +1736,7 @@ int main() {
             mmo::world::TickContext{ 1, now },
             mmo::world::command::Batch{ 1 });
         require_equal(static_cast<std::uint64_t>(0), duplicate_dispatch.events_processed, "events must dispatch once");
-        require_equal(static_cast<std::size_t>(1), world.pending_events().size(), "outbox must not duplicate");
+        require(duplicate_dispatch.domain_events.empty(), "facts must not duplicate");
 
         details.append("applied=2 queued=1 future=1");
     }));
