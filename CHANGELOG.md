@@ -59,6 +59,7 @@ All notable code and architecture updates for `SISTEMAS-MMO` are recorded here.
 
 ### Changed
 
+- Fixed MSVC C4702 in scheduled dispatch while preserving unsupported-action rejection and warnings-as-errors.
 - World now schedules typed actions through an input-only legacy adapter and returns tick-local facts/results instead of generic legacy output queues.
 - `world::step` now receives an immutable command batch and runs it after due scheduled events and before active entity/system maintenance; `server::run_loop` owns inbox capture outside `World`.
 - `mmo::world::World` now keeps entity, zone, scheduler, and output storage private; live mutation crosses explicit World operations.
