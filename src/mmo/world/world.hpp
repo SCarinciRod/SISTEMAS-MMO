@@ -386,6 +386,7 @@ namespace mmo
                 {
                     using T = std::decay_t<decltype(payload)>;
                     std::optional<domain::Payload> fact;
+                    auto rejection = scheduled::Rejection::none;
                     if constexpr (std::is_same_v<T, scheduled::CompleteMigration>)
                     {
                         const auto* actor = find_entity(payload.entity_id);
@@ -415,12 +416,12 @@ namespace mmo
                     else if constexpr (std::is_same_v<T, scheduled::RegionNotice>)
                         fact = domain::RegionNoticeEmitted{ payload.zone_id, payload.notice_id };
                     else
-                        return { action.id, scheduled::Rejection::unsupported };
+                        rejection = scheduled::Rejection::unsupported;
 
                     if (fact)
                         events.push_back({ tick, static_cast<std::uint64_t>(events.size()), simulation_time,
                             domain::ScheduledActionCause{ action.id }, std::move(*fact) });
-                    return { action.id };
+                    return { action.id, rejection };
                 }, action.payload);
             }
 
