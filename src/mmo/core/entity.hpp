@@ -435,8 +435,16 @@ namespace mmo
                         return false;
                     }
 
-                    refresh_record(it->second);
-                    zone_index_[record.placement.zone_id()].insert(record.identity.entity_id);
+                    try
+                    {
+                        refresh_record(it->second);
+                        link_to_zone(record.placement.zone_id(), record.identity.entity_id);
+                    }
+                    catch (...)
+                    {
+                        records_.erase(it);
+                        throw;
+                    }
                     return true;
                 }
 
@@ -481,13 +489,13 @@ namespace mmo
 
                     if (record_it->second.placement.zone_id() == zone_id)
                     {
-                        zone_index_[zone_id].insert(entity_id);
                         return true;
                     }
 
+                    // Allocate destination membership before the no-throw placement commit.
+                    link_to_zone(zone_id, entity_id);
                     unlink_from_zone(record_it->second.placement.zone_id(), entity_id);
                     record_it->second.placement.set_zone(zone_id);
-                    zone_index_[zone_id].insert(entity_id);
                     return true;
                 }
 
@@ -559,6 +567,8 @@ namespace mmo
                         return result;
                     }
 
+                    // Status aggregation may allocate (shield layers); prepare it before inventory commit.
+                    const auto totals = record_it->second.combat.status_effects.aggregate();
                     auto result = mmo::core::inventory::add_item(
                         catalog,
                         record_it->second.inventory,
@@ -568,7 +578,7 @@ namespace mmo
                     {
                         mmo::core::entity::mark_inventory_load_dirty(record_it->second);
                         sync_load(record_it->second, catalog);
-                        refresh_record(record_it->second);
+                        refresh_record(record_it->second, totals);
                     }
 
                     return result;
@@ -1338,6 +1348,11 @@ namespace mmo
                 auto refresh_record(Record& record) -> void
                 {
                     const auto totals = record.combat.status_effects.aggregate();
+                    refresh_record(record, totals);
+                }
+
+                auto refresh_record(Record& record, const status::Totals& totals) -> void
+                {
                     const auto modifiers = amplify_positive_effects(totals.modifiers);
 
                     record.combat.guaranteed_critical_hit = modifiers.guaranteed_critical_hit;
@@ -1534,6 +1549,26 @@ namespace mmo
                     amplify_positive(modifiers.break_damage_bonus_percent);
 
                     return modifiers;
+                }
+
+                auto link_to_zone(id::ZoneId zone_id, id::EntityId entity_id) -> void
+                {
+                    const auto entry = zone_index_.try_emplace(zone_id);
+                    try
+                    {
+                        entry.first->second.insert(entity_id);
+                    }
+                    catch (...)
+                    {
+                        if (entry.second) zone_index_.erase(entry.first);
+                        throw;
+                    }
+                }
+
+                [[nodiscard]] auto has_zone_membership(id::ZoneId zone_id, id::EntityId entity_id) const -> bool
+                {
+                    const auto it = zone_index_.find(zone_id);
+                    return it != zone_index_.end() && it->second.count(entity_id) != 0;
                 }
 
                 auto unlink_from_zone(id::ZoneId zone_id, id::EntityId entity_id) -> void

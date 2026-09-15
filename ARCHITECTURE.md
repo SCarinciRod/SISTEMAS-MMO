@@ -157,6 +157,15 @@ Future skill fusion should reuse the same skill catalog and relation model inste
 - A due region notice emits `RegionNoticeEmitted`, meaning the notification was produced. Evolution execution is not implemented and returns `unsupported`, never an invented evolution fact.
 - Legacy `core::event::Event` and its standalone scheduler remain for old callers/tests only. World stores typed actions and exposes no legacy facts. `events_queued` remains a compatibility metric fixed at zero.
 
+## Atomic Authoritative Mutations (P8)
+
+- Spatial writes validate IDs, membership, population limits and activity before mutation. Spawn/move prepare the destination zone and active membership with constant-size rollback; entity insertion/linking also undo failed allocations. Expected rejection leaves logical state unchanged. Under these preconditions, the commit tail updates placement/populations/activity without allocation. Erase prevalidates all remaining steps before its allocation-free removal; it does not erase and then attempt a fallible compensation.
+- Wake/sleep use the same local preparation boundary. Inventory grants retain their existing candidate-based validation; potentially allocating status aggregation now precedes inventory commit and derived-load synchronization. No World copy or generic undo log is used.
+- Tick output vectors reserve capacity for at most one fact and one result per input before execution. Facts/results are appended only after mutation returns successfully. Outputs remain local until `step` returns; an exception discards the failed tick's outputs, not its already committed mutations.
+- Scheduled work remains owned by the ordered scheduler during execution (`peek_ready`). A completed acceptance or rejection is acknowledged only after its outputs are staged. An interrupted action remains pending in a faulted World; this is diagnostic ownership, not permission to retry or a persistent recovery protocol.
+- Direct writes and ticks share the sticky exception/fault policy. Spatial preparation and inventory grant allocation failures preserve prior logical state and mark World faulted. Other status/combat/maintenance operations are not given a blanket strong guarantee: previously completed changes may remain, and execution must stop. Faulted Worlds reject further writes.
+- Fault checkpoints are private and compiled only for the atomic-mutation test target. Its separate allocation-failure replacement tests each allocation position without changing production allocators.
+
 ## Zone Activity Semantics
 
 - A zone receives a full tick when `player_count > 0` or an explicit wake request is present. `State::is_active()` is the only logical definition; the ordered active index is a validated acceleration structure for it.

@@ -111,6 +111,14 @@ if(BUILD_TESTING)
     add_test(NAME mmo_event_model_tests COMMAND mmo_event_model_tests)
     set_tests_properties(mmo_event_model_tests PROPERTIES LABELS "integration;events")
 
+    add_executable(mmo_atomic_mutation_tests
+        src/mmo/tests/integration/atomic_mutation_tests.cpp
+        src/mmo/tests/support/allocation_failure.cpp)
+    target_link_libraries(mmo_atomic_mutation_tests PRIVATE mmo_core)
+    target_compile_definitions(mmo_atomic_mutation_tests PRIVATE MMO_TEST_MUTATIONS)
+    add_test(NAME mmo_atomic_mutation_tests COMMAND mmo_atomic_mutation_tests)
+    set_tests_properties(mmo_atomic_mutation_tests PROPERTIES LABELS "integration;atomicity")
+
     if(MMO_ENABLE_LUA)
         add_executable(
             mmo_lua_integration_tests

@@ -62,6 +62,8 @@ namespace mmo
 
                 auto ensure(id::ZoneId zone_id) -> State&
                 {
+                    const auto existing = zones_.find(zone_id);
+                    if (existing != zones_.end()) return existing->second;
                     auto insert_result = zones_.emplace(zone_id, State{});
                     auto& state = insert_result.first->second;
                     if (insert_result.second)
