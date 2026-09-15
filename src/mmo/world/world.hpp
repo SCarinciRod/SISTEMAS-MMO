@@ -20,6 +20,7 @@
 
 namespace mmo
 {
+    namespace tests::support { struct WorldMutationAccess; }
     namespace world
     {
         struct TickContext;
@@ -87,6 +88,7 @@ namespace mmo
 
             [[nodiscard]] auto try_schedule_action(const scheduled::ScheduledAction& action) -> scheduled::Result
             {
+                MutationScope scope{ *this };
                 const auto result = scheduler_.try_schedule(action);
                 if (result.accepted() && action.id.value > last_scheduled_id_)
                     last_scheduled_id_ = action.id.value;
@@ -96,6 +98,7 @@ namespace mmo
             // Legacy input adapter only; outputs use domain facts and scheduled results.
             [[nodiscard]] auto try_schedule_event(const core::event::Event& event) -> bool
             {
+                MutationScope scope{ *this };
                 if (last_scheduled_id_ == std::numeric_limits<std::uint64_t>::max()) return false;
                 const auto action = scheduled::from_legacy(event, { last_scheduled_id_ + 1 });
                 return action && try_schedule_action(*action).accepted();
@@ -105,6 +108,7 @@ namespace mmo
                 core::id::EntityId entity_id,
                 const core::status::Instance& instance) -> bool
             {
+                MutationScope scope{ *this };
                 return entities_.apply_status(entity_id, instance);
             }
 
@@ -113,11 +117,13 @@ namespace mmo
                 std::int32_t delta,
                 core::time::TimePoint simulation_time) -> bool
             {
+                MutationScope scope{ *this };
                 return entities_.adjust_health(entity_id, delta, simulation_time);
             }
 
             auto adjust_mana(core::id::EntityId entity_id, std::int32_t delta) -> bool
             {
+                MutationScope scope{ *this };
                 return entities_.adjust_mana(entity_id, delta);
             }
 
@@ -127,6 +133,7 @@ namespace mmo
                 core::time::TimePoint simulation_time)
                 -> std::optional<core::combat::DamageResult>
             {
+                MutationScope scope{ *this };
                 return entities_.apply_damage(entity_id, profile, simulation_time);
             }
 
@@ -137,6 +144,7 @@ namespace mmo
                 core::time::TimePoint simulation_time)
                 -> std::optional<core::combat::DamageResult>
             {
+                MutationScope scope{ *this };
                 return entities_.apply_damage(entity_id, profile, defense, simulation_time);
             }
 
@@ -145,6 +153,7 @@ namespace mmo
                 const core::item::Catalog& catalog,
                 core::item::Instance instance) -> core::inventory::AddResult
             {
+                MutationScope scope{ *this };
                 return entities_.add_inventory_item(entity_id, catalog, instance);
             }
 
@@ -162,15 +171,22 @@ namespace mmo
                 core::id::ZoneId zone_id,
                 core::time::TimePoint now) -> bool
             {
+                MutationScope scope{ *this };
                 const bool is_player = blueprint.type == core::entity::Type::player;
-                if (!zones_.can_add_entity(zone_id, is_player) ||
-                    !entities_.spawn(entity_id, blueprint, zone_id, now))
+                if (entity_id == core::id::invalid_entity_id || entities_.find(entity_id) ||
+                    !zone_index_consistent(zone_id) || !zones_.can_add_entity(zone_id, is_player))
                 {
                     return false;
                 }
 
+                SpatialPreparation preparation{ *this };
+                preparation.prepare(zone_id, is_player);
+                mutation_checkpoint(MutationPoint::before_entity_commit);
+                if (!entities_.spawn(entity_id, blueprint, zone_id, now)) return false;
+                // Entity insertion has a strong guarantee; remaining steps do not allocate.
                 zones_.add_entity(zone_id, is_player, now);
                 refresh_zone_activity(zone_id);
+                preparation.commit();
                 return true;
             }
 
@@ -178,6 +194,7 @@ namespace mmo
                 core::id::EntityId entity_id,
                 core::time::TimePoint now) -> bool
             {
+                MutationScope scope{ *this };
                 const auto* record = entities_.find(entity_id);
                 if (record == nullptr)
                 {
@@ -186,17 +203,17 @@ namespace mmo
 
                 const auto zone_id = record->placement.zone_id();
                 const bool is_player = record->identity.type == core::entity::Type::player;
-                if (!zones_.can_remove_entity(zone_id, is_player) ||
-                    !entities_.erase(entity_id))
+                if (!zone_index_consistent(zone_id) ||
+                    !entities_.has_zone_membership(zone_id, entity_id) ||
+                    !zones_.can_remove_entity(zone_id, is_player))
                 {
                     return false;
                 }
 
-                if (!zones_.remove_entity(zone_id, is_player, now))
-                {
-                    return false;
-                }
-
+                mutation_checkpoint(MutationPoint::before_entity_commit);
+                // Prevalidation makes this entire commit allocation-free and non-rejecting.
+                entities_.erase(entity_id);
+                zones_.remove_entity(zone_id, is_player, now);
                 refresh_zone_activity(zone_id);
                 return true;
             }
@@ -206,6 +223,7 @@ namespace mmo
                 core::id::ZoneId destination_zone_id,
                 core::time::TimePoint now) -> bool
             {
+                MutationScope scope{ *this };
                 const auto* record = entities_.find(entity_id);
                 if (record == nullptr ||
                     destination_zone_id == core::id::invalid_zone_id)
@@ -214,51 +232,66 @@ namespace mmo
                 }
 
                 const auto source_zone_id = record->placement.zone_id();
+                const bool is_player = record->identity.type == core::entity::Type::player;
+                if (!zone_index_consistent(source_zone_id) ||
+                    !zone_index_consistent(destination_zone_id) ||
+                    !entities_.has_zone_membership(source_zone_id, entity_id) ||
+                    !zones_.can_remove_entity(source_zone_id, is_player)) return false;
                 if (source_zone_id == destination_zone_id)
                 {
                     return true;
                 }
 
-                const bool is_player = record->identity.type == core::entity::Type::player;
-                if (!zones_.can_remove_entity(source_zone_id, is_player) ||
-                    !zones_.can_add_entity(destination_zone_id, is_player) ||
-                    !entities_.move_to_zone(entity_id, destination_zone_id))
+                if (entities_.has_zone_membership(destination_zone_id, entity_id) ||
+                    !zones_.can_add_entity(destination_zone_id, is_player))
                 {
                     return false;
                 }
 
-                if (!zones_.remove_entity(source_zone_id, is_player, now))
-                {
-                    entities_.move_to_zone(entity_id, source_zone_id);
-                    return false;
-                }
-
+                SpatialPreparation preparation{ *this };
+                preparation.prepare(destination_zone_id, is_player);
+                mutation_checkpoint(MutationPoint::before_entity_commit);
+                if (!entities_.move_to_zone(entity_id, destination_zone_id)) return false;
+                // Destination membership was allocated before placement changed.
+                zones_.remove_entity(source_zone_id, is_player, now);
                 zones_.add_entity(destination_zone_id, is_player, now);
                 refresh_zone_activity(source_zone_id);
                 refresh_zone_activity(destination_zone_id);
+                preparation.commit();
                 return true;
             }
 
             auto wake_zone(core::id::ZoneId zone_id) -> bool
             {
-                if (zone_id == core::id::invalid_zone_id)
+                MutationScope scope{ *this };
+                if (zone_id == core::id::invalid_zone_id || !zone_index_consistent(zone_id))
                 {
                     return false;
                 }
 
+                SpatialPreparation preparation{ *this };
+                preparation.prepare(zone_id, true);
                 zones_.wake(zone_id);
                 refresh_zone_activity(zone_id);
+                preparation.commit();
                 return true;
             }
 
             auto sleep_zone(core::id::ZoneId zone_id) -> bool
             {
-                if (zone_id == core::id::invalid_zone_id || !zones_.sleep(zone_id))
+                MutationScope scope{ *this };
+                const auto* state = zones_.get(zone_id);
+                if (zone_id == core::id::invalid_zone_id || !zone_index_consistent(zone_id) ||
+                    (state && state->player_count > 0))
                 {
                     return false;
                 }
 
+                SpatialPreparation preparation{ *this };
+                preparation.prepare(zone_id, false);
+                zones_.sleep(zone_id);
                 refresh_zone_activity(zone_id);
+                preparation.commit();
                 return true;
             }
 
@@ -337,6 +370,79 @@ namespace mmo
             }
 
         private:
+            // Also protects direct mutations outside step(). A faulted World is read-only.
+            struct MutationScope
+            {
+                World& world;
+                int exceptions{ std::uncaught_exceptions() };
+                explicit MutationScope(World& owner) : world(owner)
+                {
+                    if (world.is_faulted()) throw std::logic_error("Cannot mutate a faulted World");
+                }
+                ~MutationScope() noexcept
+                {
+                    if (std::uncaught_exceptions() > exceptions) world.mark_faulted();
+                }
+            };
+
+            enum class MutationPoint { zone_prepared, activity_prepared, before_entity_commit, before_publish };
+#ifdef MMO_TEST_MUTATIONS
+            friend struct mmo::tests::support::WorldMutationAccess;
+            void (*mutation_hook_)(MutationPoint){ nullptr };
+#endif
+            auto mutation_checkpoint(MutationPoint point) -> void
+            {
+#ifdef MMO_TEST_MUTATIONS
+                if (mutation_hook_) mutation_hook_(point);
+#else
+                (void)point;
+#endif
+            }
+
+            // One destination only. Rollback removes preparation nodes; it never allocates.
+            struct SpatialPreparation
+            {
+                World& world;
+                core::id::ZoneId zone_id{ core::id::invalid_zone_id };
+                std::optional<core::zone::State> previous;
+                bool was_active{ false };
+                bool committed{ false };
+
+                explicit SpatialPreparation(World& owner) : world(owner) {}
+                SpatialPreparation(const SpatialPreparation&) = delete;
+                auto operator=(const SpatialPreparation&) -> SpatialPreparation& = delete;
+                auto prepare(core::id::ZoneId id, bool needs_active) -> void
+                {
+                    zone_id = id;
+                    const auto* state = world.zones_.get(id);
+                    if (state) previous = *state;
+                    was_active = world.should_tick_full(id);
+                    world.zones_.ensure(id);
+                    world.mutation_checkpoint(MutationPoint::zone_prepared);
+                    if (needs_active && !was_active) world.active_zone_ids_.insert(id);
+                    world.mutation_checkpoint(MutationPoint::activity_prepared);
+                }
+                auto commit() noexcept -> void { committed = true; }
+                ~SpatialPreparation() noexcept
+                {
+                    if (committed || zone_id == core::id::invalid_zone_id) return;
+                    if (!was_active) world.active_zone_ids_.erase(zone_id);
+                    const auto it = world.zones_.zones_.find(zone_id);
+                    if (previous)
+                    {
+                        if (it != world.zones_.zones_.end()) it->second = *previous;
+                    }
+                    else if (it != world.zones_.zones_.end()) world.zones_.zones_.erase(it);
+                }
+            };
+
+            [[nodiscard]] auto zone_index_consistent(core::id::ZoneId id) const -> bool
+            {
+                const auto* state = zones_.get(id);
+                return state ? state->player_count <= state->entity_count &&
+                    should_tick_full(id) == state->is_active() : !should_tick_full(id);
+            }
+
             bool faulted_{ false };
             core::entity::Table entities_;
             core::zone::Table zones_;
@@ -366,7 +472,8 @@ namespace mmo
                 const auto* state = zones_.get(zone_id);
                 if (state != nullptr && state->is_active())
                 {
-                    active_zone_ids_.insert(zone_id);
+                    // Active membership must already exist from preparation.
+                    if (!should_tick_full(zone_id)) throw std::logic_error("Missing prepared active zone");
                 }
                 else
                 {
@@ -418,6 +525,7 @@ namespace mmo
                     else
                         rejection = scheduled::Rejection::unsupported;
 
+                    mutation_checkpoint(MutationPoint::before_publish);
                     if (fact)
                         events.push_back({ tick, static_cast<std::uint64_t>(events.size()), simulation_time,
                             domain::ScheduledActionCause{ action.id }, std::move(*fact) });
@@ -595,25 +703,27 @@ namespace mmo
             const command::Batch& commands,
             TickObserver* observer = nullptr) -> TickStats
         {
-            if (world.is_faulted()) throw std::logic_error("Cannot step a faulted World");
-            struct FaultGuard
-            {
-                World& world;
-                int exceptions{ std::uncaught_exceptions() };
-                ~FaultGuard()
-                {
-                    if (std::uncaught_exceptions() > exceptions) world.mark_faulted();
-                }
-            } fault_guard{ world };
+            World::MutationScope scope{ world };
             TickStats stats{};
+            static_assert(std::is_nothrow_move_constructible_v<domain::Event>);
+            static_assert(std::is_nothrow_copy_constructible_v<command::ExecutionResult>);
+            static_assert(std::is_nothrow_copy_constructible_v<scheduled::Result>);
 
             detail::notify_phase_started(observer, TickPhase::scheduled_events);
-            const auto ready_actions = world.scheduler_.pop_ready(context.simulation_time);
-            for (const auto& action : ready_actions)
+            const auto ready_count = world.scheduler_.ready_count(context.simulation_time);
+            if (commands.size() > stats.domain_events.max_size() ||
+                ready_count > stats.domain_events.max_size() - commands.size())
+                throw std::length_error("Tick output capacity exceeded");
+            // Each input can produce at most one fact. Prepare all output storage before mutation.
+            stats.domain_events.reserve(ready_count + commands.size());
+            stats.scheduled_results.reserve(ready_count);
+            stats.command_results.reserve(commands.size());
+            while (const auto* action = world.scheduler_.peek_ready(context.simulation_time))
             {
                 const auto result = world.execute_scheduled_internal(
-                    action, context.tick_index, context.simulation_time, stats.domain_events);
+                    *action, context.tick_index, context.simulation_time, stats.domain_events);
                 stats.scheduled_results.push_back(result);
+                world.scheduler_.acknowledge_ready();
                 ++stats.events_processed;
                 if (result.accepted()) ++stats.events_applied;
                 else ++stats.events_rejected;
@@ -622,7 +732,6 @@ namespace mmo
 
             detail::notify_phase_started(observer, TickPhase::authoritative_commands);
             stats.commands_received = commands.size();
-            stats.command_results.reserve(commands.size());
             for (const auto& envelope : commands)
             {
                 const auto* before = world.find_entity(envelope.actor);
@@ -634,6 +743,7 @@ namespace mmo
                     envelope,
                     items,
                     context.simulation_time);
+                world.mutation_checkpoint(World::MutationPoint::before_publish);
                 stats.command_results.push_back(result);
                 ++stats.commands_processed;
                 if (result.accepted())

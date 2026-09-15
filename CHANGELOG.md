@@ -6,6 +6,8 @@ All notable code and architecture updates for `SISTEMAS-MMO` are recorded here.
 
 ### Added
 
+- P8 atomic spatial preparation/commit boundaries, private fault-injection tests, allocation-failure coverage, and deterministic invariant stress.
+
 - P7 typed scheduled actions, deterministic action ordering, immutable causal domain facts, and focused mixed-stream event tests.
 - Applied scheduled migration, wake/sleep, and region notices now produce domain facts; failed or unsupported actions return structured results.
 - Trusted health-adjustment and single-item grant commands, typed per-tick domain facts, and regressions for invalid input and duplicate grants.
@@ -58,6 +60,9 @@ All notable code and architecture updates for `SISTEMAS-MMO` are recorded here.
 - A full status catalog builder that combines the negative ailments and the new instant buffs.
 
 ### Changed
+
+- Scheduled actions remain owned by the scheduler until execution is staged; tick outputs are preallocated and published only after committed mutations. Unexpected direct-write exceptions now also fault World and block further writes.
+- Inventory grants prepare allocating status aggregation before committing inventory and derived load; spatial index insertion cleans up failed allocations.
 
 - Fixed MSVC C4702 in scheduled dispatch while preserving unsupported-action rejection and warnings-as-errors.
 - World now schedules typed actions through an input-only legacy adapter and returns tick-local facts/results instead of generic legacy output queues.

@@ -1,5 +1,11 @@
 # SISTEMAS-MMO Analysis
 
+## P8: atomic authoritative mutation
+
+- Spatial preparation keeps one zone's prior state and activity bit, not a World snapshot. Ordered membership allocation precedes placement changes; spawn/erase/move retain logarithmic index operations. Rejection preserves logical state, and failed preparation rolls back without allocation.
+- Tick staging reserves O(ready actions + commands) output storage; counting ready actions adds a linear pass over due work, not over the whole scheduler. Actions remain scheduler-owned until an execution outcome is staged and acknowledged.
+- Allocation failures in spatial writes and inventory grants are covered by targeted injection. A failure after an earlier operation committed does not undo that operation: the tick publishes nothing, World becomes faulted, and the host stops. Status/combat/maintenance are not claimed to have a global strong exception guarantee. Persistent recovery remains out of scope.
+
 Este arquivo guarda uma leitura viva do custo do código e das decisões de arquitetura que ainda estão em aberto.
 
 Atualize este documento quando uma mudança estrutural entrar no core.

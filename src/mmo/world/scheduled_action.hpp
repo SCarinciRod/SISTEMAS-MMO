@@ -5,7 +5,6 @@
 #include <set>
 #include <type_traits>
 #include <variant>
-#include <vector>
 #include "mmo/core/event.hpp"
 
 namespace mmo::world::scheduled
@@ -68,17 +67,24 @@ namespace mmo::world::scheduled
             }
             return { action.id };
         }
-        [[nodiscard]] auto pop_ready(core::time::TimePoint now) -> std::vector<ScheduledAction>
+        // The scheduler retains ownership until the tick acknowledges execution.
+        [[nodiscard]] auto peek_ready(core::time::TimePoint now) const -> const ScheduledAction*
         {
-            std::vector<ScheduledAction> ready;
-            while (!actions_.empty() && actions_.begin()->first.first <= now)
-            {
-                const auto it = actions_.begin();
-                ready.push_back(it->second);
-                ids_.erase(it->second.id.value);
-                actions_.erase(it);
-            }
-            return ready;
+            if (actions_.empty() || actions_.begin()->first.first > now) return nullptr;
+            return &actions_.begin()->second;
+        }
+        auto acknowledge_ready() noexcept -> void
+        {
+            const auto it = actions_.begin();
+            if (it == actions_.end()) return;
+            ids_.erase(it->second.id.value);
+            actions_.erase(it);
+        }
+        [[nodiscard]] auto ready_count(core::time::TimePoint now) const -> std::size_t
+        {
+            std::size_t count = 0;
+            for (auto it = actions_.begin(); it != actions_.end() && it->first.first <= now; ++it) ++count;
+            return count;
         }
         [[nodiscard]] auto size() const noexcept -> std::size_t { return actions_.size(); }
         [[nodiscard]] auto empty() const noexcept -> bool { return actions_.empty(); }
