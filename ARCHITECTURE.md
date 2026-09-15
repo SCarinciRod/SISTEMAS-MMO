@@ -130,7 +130,7 @@ Future skill fusion should reuse the same skill catalog and relation model inste
 - `entity::Table::find` returns `const Record*` even for a non-const table. This protects identity and all state that participates in cross-table invariants while leaving local table operations responsible for their own writes.
 - Gameplay timestamps are dependencies of the write operation. In particular, `adjust_health` requires simulation time and never derives `death_at` from wall clock.
 - `World::try_schedule_event` is the normal scheduling boundary and always uses event validation. Scheduler state is observable only through read-only queries.
-- Normal and rejected outputs follow producer/consumer ownership. `drain_events` and `drain_rejected_events` preserve order, transfer the current batch, and leave the corresponding World queue empty.
+- Tick outputs have explicit ownership: `TickStats::domain_events` contains immutable facts and `scheduled_results` contains execution outcomes. World no longer retains generic legacy output/rejection queues.
 
 ## Command Ingress Boundary
 
@@ -148,6 +148,15 @@ Future skill fusion should reuse the same skill catalog and relation model inste
 - Successful semantic changes produce typed `domain::Event` facts in `TickStats::domain_events`, ordered by command ID within the tick. Rejections never become domain facts. The existing scheduled event model remains temporarily compatible.
 - An unexpected tick exception marks `World` faulted, propagates to the host, and stops `run_loop`. Subsequent loop or direct step attempts cannot resume that World. There is no automatic rollback or recovery.
 
+## Scheduled Actions and Domain Facts
+
+- `world/scheduled_action.hpp` defines typed future work and a scheduler ordered by `(due_at, ActionId)`. Action IDs are assigned by trusted infrastructure and unique among pending actions. The legacy scheduling entry point is an input-only adapter with monotonic IDs; new producers use `try_schedule_action`.
+- Due actions execute before commands. Both append to the same per-tick domain sequence in actual execution order. Event identity is `(logical tick, zero-based sequence)`, scoped to one simulation timeline with advancing tick indices; it is not a persistent global ID.
+- Domain facts have const metadata/payload and a typed `CommandCause` or `ScheduledActionCause`. No consumer dispatches these facts recursively into World mutations.
+- Migration emits `EntityMoved` only on placement change. Wake/sleep facts represent changes to the explicit wake request. Idempotent operations emit nothing; rejected operations produce only structured results.
+- A due region notice emits `RegionNoticeEmitted`, meaning the notification was produced. Evolution execution is not implemented and returns `unsupported`, never an invented evolution fact.
+- Legacy `core::event::Event` and its standalone scheduler remain for old callers/tests only. World stores typed actions and exposes no legacy facts. `events_queued` remains a compatibility metric fixed at zero.
+
 ## Zone Activity Semantics
 
 - A zone receives a full tick when `player_count > 0` or an explicit wake request is present. `State::is_active()` is the only logical definition; the ordered active index is a validated acceleration structure for it.
@@ -161,7 +170,7 @@ Future skill fusion should reuse the same skill catalog and relation model inste
 
 ## Runtime Invariants
 
-- A due scheduled event is never treated as processed merely because it was removed from the scheduler. Infrastructure events mutate world state; domain events enter the normal output queue; invalid or failed transitions enter the rejected output queue.
+- A due action is not considered successful merely because it left the scheduler. Execution returns a typed result; only applied semantic transitions or emitted notices append domain facts to the current tick.
 - Periodic status effects use their own `tick_interval`, advance `next_tick_at` after consumption, and catch up deterministically through the expiration boundary.
 - Item identity text is owned by `item::Definition`. Content adapters must not publish `string_view` values backed by temporary or reallocating storage.
 - The Lua item loader parses and validates the complete source before publishing definitions. A failed atomic load preserves the previous catalog and existing IDs are never overwritten.

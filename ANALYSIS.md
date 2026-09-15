@@ -175,7 +175,7 @@ O caminho seguro é este:
 - After: aggregate storage is private, reads are const queries, entity/spatial writes are named World operations, health mutation receives logical time, normal scheduling is validated, and normal/rejected outputs have ordered swap-based drains.
 - No mutable live `Record*` call sites remain. Identity remains a simple data contract, but external code cannot mutate the live identity and desynchronize zone player counts or activity.
 - The active-set semantics and ordered `std::map`/`std::set` indexes are unchanged. Active traversal still materializes a temporary entity-ID vector, and `entity_ids_in_zone` still copies each zone's IDs; optimize only after measurement.
-- `event::Event` still represents both scheduled input and emitted output. Separating `ScheduledEvent`, `DomainEvent`, and authoritative commands belongs to the next model stage.
+- P5 used `event::Event` for scheduled input and emitted output. P7 replaces that live World path with typed scheduled actions and domain facts.
 - At P5, the server loop still advanced after exceptions. P6 now stops and marks the World faulted because allocation or observer failures may follow partial mutation.
 - Next stage: P6 deterministic authoritative command pipeline. Commands should be introduced only now that direct mutation routes are closed, otherwise a queue would order one write path while uncontrolled writes could still bypass it.
 
@@ -191,4 +191,10 @@ O caminho seguro é este:
 - Queue depth, capacity, full rejection count, high watermark, and expired capture count are infrastructure measurements. Received, processed, accepted, and rejected command counts are simulation measurements. Keeping them separate prevents producer pressure from being mistaken for gameplay work.
 - A future concurrent producer adapter can serialize submissions, assign authoritative sequences, and call the same inbox contract. P6 intentionally adds no mutex, lock-free queue, socket, session, rollback, prediction, or live-state parallelism.
 - Unexpected tick exceptions mark the World faulted and stop the server loop. A faulted World cannot resume ticking; automatic recovery is not implemented. Named setup operations are still available to trusted host code.
-- New command facts use `domain::Event` in the per-tick result, ordered by command ID and stamped with logical time. Rejections remain command results. Legacy scheduler/output types remain unchanged; there is no new outbox or recursive event dispatch.
+- New command facts use `domain::Event` in the per-tick result, ordered by command ID and stamped with logical time. P7 adds scheduled causes to the same stream; rejections remain separate results.
+
+## P7 domain event model
+
+- World scheduling retains ordered-tree behavior: insertion and pending-ID checks are `O(log A)`, with due actions extracted in `(due_at, ActionId)` order. No hash iteration determines dispatch.
+- Legacy scheduling converts input once. There is no mirrored legacy fact output, persistent outbox, or event cascade. Tick-local facts and results scale with work executed in that tick and are released by the caller.
+- Facts preserve input cause and logical execution time, including overdue actions. Equal initial state and metadata produce identical mixed scheduled/command streams. Persistence, journal delivery, evolution mechanics, and cross-timeline identity remain outside this increment.

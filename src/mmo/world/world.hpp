@@ -2,6 +2,7 @@
 
 #include <cstdint>
 #include <exception>
+#include <limits>
 #include <stdexcept>
 #include <map>
 #include <optional>
@@ -84,35 +85,20 @@ namespace mmo
                 return scheduler_.next_due();
             }
 
-            [[nodiscard]] auto pending_events() const noexcept
-                -> const std::vector<core::event::Event>&
+            [[nodiscard]] auto try_schedule_action(const scheduled::ScheduledAction& action) -> scheduled::Result
             {
-                return event_outbox_;
+                const auto result = scheduler_.try_schedule(action);
+                if (result.accepted() && action.id.value > last_scheduled_id_)
+                    last_scheduled_id_ = action.id.value;
+                return result;
             }
 
-            [[nodiscard]] auto pending_rejected_events() const noexcept
-                -> const std::vector<core::event::Event>&
-            {
-                return rejected_events_;
-            }
-
-            [[nodiscard]] auto drain_events() -> std::vector<core::event::Event>
-            {
-                std::vector<core::event::Event> drained;
-                drained.swap(event_outbox_);
-                return drained;
-            }
-
-            [[nodiscard]] auto drain_rejected_events() -> std::vector<core::event::Event>
-            {
-                std::vector<core::event::Event> drained;
-                drained.swap(rejected_events_);
-                return drained;
-            }
-
+            // Legacy input adapter only; outputs use domain facts and scheduled results.
             [[nodiscard]] auto try_schedule_event(const core::event::Event& event) -> bool
             {
-                return scheduler_.try_schedule(event);
+                if (last_scheduled_id_ == std::numeric_limits<std::uint64_t>::max()) return false;
+                const auto action = scheduled::from_legacy(event, { last_scheduled_id_ + 1 });
+                return action && try_schedule_action(*action).accepted();
             }
 
             auto apply_status(
@@ -352,30 +338,10 @@ namespace mmo
 
         private:
             bool faulted_{ false };
-            enum class EventDispatchOutcome : std::uint8_t
-            {
-                applied,
-                queued,
-                rejected
-            };
-
-            struct EventDispatchStats
-            {
-                std::size_t applied{ 0 };
-                std::size_t queued{ 0 };
-                std::size_t rejected{ 0 };
-
-                [[nodiscard]] auto total() const noexcept -> std::size_t
-                {
-                    return applied + queued + rejected;
-                }
-            };
-
             core::entity::Table entities_;
             core::zone::Table zones_;
-            core::event::Scheduler scheduler_;
-            std::vector<core::event::Event> event_outbox_;
-            std::vector<core::event::Event> rejected_events_;
+            scheduled::Scheduler scheduler_;
+            std::uint64_t last_scheduled_id_{ 0 };
             std::set<core::id::ZoneId> active_zone_ids_;
 
             friend auto step(
@@ -408,75 +374,55 @@ namespace mmo
                 }
             }
 
-            [[nodiscard]] auto dispatch_event_internal(
-                const core::event::Event& scheduled_event) -> EventDispatchOutcome
+            [[nodiscard]] auto execute_scheduled_internal(
+                const scheduled::ScheduledAction& action,
+                core::time::TickCount tick,
+                core::time::TimePoint simulation_time,
+                std::vector<domain::Event>& events) -> scheduled::Result
             {
-                if (!core::event::is_valid(scheduled_event))
+                const auto error = scheduled::validate(action);
+                if (error != scheduled::Rejection::none) return { action.id, error };
+                return std::visit([&](const auto& payload) -> scheduled::Result
                 {
-                    rejected_events_.push_back(scheduled_event);
-                    return EventDispatchOutcome::rejected;
-                }
-
-                switch (scheduled_event.type)
-                {
-                    case core::event::Type::migration_completed:
-                        if (move_entity_to_zone(
-                                scheduled_event.entity_id,
-                                scheduled_event.zone_id,
-                                scheduled_event.due_at))
-                        {
-                            return EventDispatchOutcome::applied;
-                        }
-                        break;
-
-                    case core::event::Type::zone_wake:
-                        if (wake_zone(scheduled_event.zone_id))
-                        {
-                            return EventDispatchOutcome::applied;
-                        }
-                        break;
-
-                    case core::event::Type::zone_sleep:
-                        if (sleep_zone(scheduled_event.zone_id))
-                        {
-                            return EventDispatchOutcome::applied;
-                        }
-                        break;
-
-                    case core::event::Type::evolution_due:
-                    case core::event::Type::region_notice:
-                    default:
-                        event_outbox_.push_back(scheduled_event);
-                        return EventDispatchOutcome::queued;
-                }
-
-                rejected_events_.push_back(scheduled_event);
-                return EventDispatchOutcome::rejected;
-            }
-
-            [[nodiscard]] auto dispatch_ready_events_internal(
-                core::time::TimePoint now) -> EventDispatchStats
-            {
-                const auto ready_events = scheduler_.pop_ready(now);
-                EventDispatchStats stats{};
-
-                for (const auto& scheduled_event : ready_events)
-                {
-                    switch (dispatch_event_internal(scheduled_event))
+                    using T = std::decay_t<decltype(payload)>;
+                    std::optional<domain::Payload> fact;
+                    auto rejection = scheduled::Rejection::none;
+                    if constexpr (std::is_same_v<T, scheduled::CompleteMigration>)
                     {
-                        case EventDispatchOutcome::applied:
-                            ++stats.applied;
-                            break;
-                        case EventDispatchOutcome::queued:
-                            ++stats.queued;
-                            break;
-                        case EventDispatchOutcome::rejected:
-                            ++stats.rejected;
-                            break;
+                        const auto* actor = find_entity(payload.entity_id);
+                        if (!actor) return { action.id, scheduled::Rejection::entity_missing };
+                        const auto source = actor->placement.zone_id();
+                        if (!move_entity_to_zone(payload.entity_id, payload.destination_zone_id, simulation_time))
+                            return { action.id, scheduled::Rejection::transition_rejected };
+                        if (source != payload.destination_zone_id)
+                            fact = domain::EntityMoved{ payload.entity_id, source, payload.destination_zone_id };
                     }
-                }
+                    else if constexpr (std::is_same_v<T, scheduled::WakeZone>)
+                    {
+                        const auto* zone = find_zone(payload.zone_id);
+                        const bool was_requested = zone && zone->wake_requested;
+                        if (!wake_zone(payload.zone_id))
+                            return { action.id, scheduled::Rejection::transition_rejected };
+                        if (!was_requested) fact = domain::ZoneWoken{ payload.zone_id };
+                    }
+                    else if constexpr (std::is_same_v<T, scheduled::SleepZone>)
+                    {
+                        const auto* zone = find_zone(payload.zone_id);
+                        const bool was_requested = zone && zone->wake_requested;
+                        if (zone && !sleep_zone(payload.zone_id))
+                            return { action.id, scheduled::Rejection::transition_rejected };
+                        if (was_requested) fact = domain::ZoneSlept{ payload.zone_id };
+                    }
+                    else if constexpr (std::is_same_v<T, scheduled::RegionNotice>)
+                        fact = domain::RegionNoticeEmitted{ payload.zone_id, payload.notice_id };
+                    else
+                        rejection = scheduled::Rejection::unsupported;
 
-                return stats;
+                    if (fact)
+                        events.push_back({ tick, static_cast<std::uint64_t>(events.size()), simulation_time,
+                            domain::ScheduledActionCause{ action.id }, std::move(*fact) });
+                    return { action.id, rejection };
+                }, action.payload);
             }
 
             [[nodiscard]] auto execute_command_internal(
@@ -573,6 +519,7 @@ namespace mmo
             std::uint64_t commands_rejected{ 0 };
             std::vector<command::ExecutionResult> command_results{};
             std::vector<domain::Event> domain_events{};
+            std::vector<scheduled::Result> scheduled_results{};
             std::uint64_t active_zones{ 0 };
             std::uint64_t entities_considered{ 0 };
             std::uint64_t entities_skipped{ 0 };
@@ -661,11 +608,16 @@ namespace mmo
             TickStats stats{};
 
             detail::notify_phase_started(observer, TickPhase::scheduled_events);
-            const auto event_stats = world.dispatch_ready_events_internal(context.simulation_time);
-            stats.events_processed = event_stats.total();
-            stats.events_applied = event_stats.applied;
-            stats.events_queued = event_stats.queued;
-            stats.events_rejected = event_stats.rejected;
+            const auto ready_actions = world.scheduler_.pop_ready(context.simulation_time);
+            for (const auto& action : ready_actions)
+            {
+                const auto result = world.execute_scheduled_internal(
+                    action, context.tick_index, context.simulation_time, stats.domain_events);
+                stats.scheduled_results.push_back(result);
+                ++stats.events_processed;
+                if (result.accepted()) ++stats.events_applied;
+                else ++stats.events_rejected;
+            }
             detail::notify_phase_finished(observer, TickPhase::scheduled_events);
 
             detail::notify_phase_started(observer, TickPhase::authoritative_commands);
@@ -689,16 +641,16 @@ namespace mmo
                     ++stats.commands_accepted;
                     const auto* after = world.find_entity(envelope.actor);
                     if (std::holds_alternative<command::MoveToZone>(envelope.payload))
-                        stats.domain_events.push_back({ context.tick_index, context.simulation_time, envelope.sequence,
+                        stats.domain_events.push_back({ context.tick_index, static_cast<std::uint64_t>(stats.domain_events.size()), context.simulation_time, domain::CommandCause{ envelope.sequence },
                             domain::EntityMoved{ envelope.actor, previous_zone, after->placement.zone_id() } });
                     else if (std::holds_alternative<command::AdjustHealth>(envelope.payload))
                     {
                         if (previous_health != after->resources.health_current)
-                            stats.domain_events.push_back({ context.tick_index, context.simulation_time, envelope.sequence,
+                            stats.domain_events.push_back({ context.tick_index, static_cast<std::uint64_t>(stats.domain_events.size()), context.simulation_time, domain::CommandCause{ envelope.sequence },
                                 domain::HealthAdjusted{ envelope.actor, previous_health, after->resources.health_current } });
                     }
                     else
-                        stats.domain_events.push_back({ context.tick_index, context.simulation_time, envelope.sequence,
+                        stats.domain_events.push_back({ context.tick_index, static_cast<std::uint64_t>(stats.domain_events.size()), context.simulation_time, domain::CommandCause{ envelope.sequence },
                             domain::InventoryItemAdded{ envelope.actor,
                                 std::get<command::AddInventoryItem>(envelope.payload).template_id, 1 } });
                 }

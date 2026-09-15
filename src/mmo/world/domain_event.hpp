@@ -2,6 +2,7 @@
 
 #include <variant>
 #include "mmo/world/command.hpp"
+#include "mmo/world/scheduled_action.hpp"
 
 namespace mmo::world::domain
 {
@@ -23,14 +24,24 @@ namespace mmo::world::domain
         core::id::ItemTemplateId template_id;
         std::uint32_t quantity;
     };
-    using Payload = std::variant<EntityMoved, HealthAdjusted, InventoryItemAdded>;
+    struct ZoneWoken { core::id::ZoneId zone_id; };
+    struct ZoneSlept { core::id::ZoneId zone_id; };
+    struct RegionNoticeEmitted { core::id::ZoneId zone_id; std::uint32_t notice_id; };
+    using Payload = std::variant<EntityMoved, HealthAdjusted, InventoryItemAdded,
+        ZoneWoken, ZoneSlept, RegionNoticeEmitted>;
+    struct CommandCause { command::CommandId id; };
+    struct ScheduledActionCause { scheduled::ActionId id; };
+    using Cause = std::variant<CommandCause, ScheduledActionCause>;
+    struct EventId { core::time::TickCount tick; std::uint64_t sequence; };
 
-    // Per-tick facts in command order, separate from scheduling and rejections.
+    // Immutable facts in mutation order, with timeline-local identity and input cause.
     struct Event
     {
-        core::time::TickCount tick;
-        core::time::TimePoint occurred_at;
-        command::CommandId command_id;
-        Payload payload;
+        const core::time::TickCount tick;
+        const std::uint64_t sequence;
+        const core::time::TimePoint occurred_at;
+        const Cause cause;
+        const Payload payload;
+        [[nodiscard]] auto id() const noexcept -> EventId { return { tick, sequence }; }
     };
 }

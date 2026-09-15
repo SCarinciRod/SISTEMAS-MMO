@@ -222,18 +222,6 @@ namespace
             "active zone indexes should match");
 
         test::require_equal(expected.pending_event_count(), actual.pending_event_count(), "pending event count");
-        test::require_equal(expected.pending_events().size(), actual.pending_events().size(), "event outbox size");
-        test::require_equal(
-            expected.pending_rejected_events().size(),
-            actual.pending_rejected_events().size(),
-            "rejected event size");
-        for (std::size_t index = 0; index < expected.pending_events().size(); ++index)
-        {
-            test::require_equal(
-                expected.pending_events()[index].counter,
-                actual.pending_events()[index].counter,
-                "event outbox counter");
-        }
     }
 
     auto test_empty_tick(std::string& details) -> void
@@ -276,10 +264,11 @@ namespace
             mmo::world::command::Batch{ 1 });
 
         test::require_equal(static_cast<std::uint64_t>(1), first.events_processed, "first event processing");
-        test::require_equal(static_cast<std::uint64_t>(1), first.events_queued, "first event queued");
+        test::require_equal(static_cast<std::uint64_t>(1), first.events_applied, "first action applied");
         test::require_equal(static_cast<std::uint64_t>(0), second.events_processed, "event not repeated");
         test::require(world.event_queue_empty(), "due scheduler should be empty");
-        test::require_equal(static_cast<std::size_t>(1), world.pending_events().size(), "outbox exactly once");
+        test::require_equal(static_cast<std::size_t>(1), first.domain_events.size(), "fact exactly once");
+        test::require(second.domain_events.empty(), "no repeated fact");
         details = "processed=1 repeated=0";
     }
 
@@ -339,13 +328,13 @@ namespace
             mmo::world::TickContext{ 0, epoch() },
             mmo::world::command::Batch{ 0 });
 
-        test::require_equal(static_cast<std::uint64_t>(2), stats.events_queued, "queued output count");
-        const auto drained = world.drain_events();
+        test::require_equal(static_cast<std::uint64_t>(2), stats.events_applied, "applied output count");
+        const auto& drained = stats.domain_events;
         test::require_equal(static_cast<std::size_t>(2), drained.size(), "first event drain size");
-        test::require_equal(static_cast<std::uint32_t>(10), drained[0].counter, "first drained event");
-        test::require_equal(static_cast<std::uint32_t>(20), drained[1].counter, "second drained event");
-        test::require(world.pending_events().empty(), "event outbox should be empty after drain");
-        test::require(world.drain_events().empty(), "second event drain should be empty");
+        test::require_equal(static_cast<std::uint32_t>(10), std::get<mmo::world::domain::RegionNoticeEmitted>(drained[0].payload).notice_id, "first fact");
+        test::require_equal(static_cast<std::uint32_t>(20), std::get<mmo::world::domain::RegionNoticeEmitted>(drained[1].payload).notice_id, "second fact");
+        const auto next = mmo::world::step(world, items, { 1, epoch() }, mmo::world::command::Batch{ 1 });
+        test::require(next.domain_events.empty(), "next tick has no old facts");
         details = "produced=2 drained=2 order=10,20 second_drain=0";
     }
 
@@ -817,12 +806,12 @@ namespace
             mmo::world::command::Batch{ 1 });
 
         test::require_equal(static_cast<std::uint64_t>(2), stats.events_rejected, "sleep rejection");
-        const auto rejected = world.drain_rejected_events();
+        const auto& rejected = stats.scheduled_results;
         test::require_equal(static_cast<std::size_t>(2), rejected.size(), "rejected drain size");
-        test::require_equal(static_cast<std::uint32_t>(1), rejected[0].counter, "first rejected event");
-        test::require_equal(static_cast<std::uint32_t>(2), rejected[1].counter, "second rejected event");
-        test::require(world.pending_rejected_events().empty(), "rejected outbox should be empty after drain");
-        test::require(world.drain_rejected_events().empty(), "second rejected drain should be empty");
+        test::require_equal(std::uint64_t{ 1 }, rejected[0].id.value, "first rejected action");
+        test::require_equal(std::uint64_t{ 2 }, rejected[1].id.value, "second rejected action");
+        test::require(!rejected[0].accepted() && !rejected[1].accepted(), "typed rejections");
+        test::require(stats.domain_events.empty(), "no false sleep facts");
         test::require_equal(static_cast<std::uint64_t>(1), stats.entities_considered, "player zone remains active");
         test::require(world.should_tick_full(zone_id), "player must keep zone active");
         details = "sleep_rejected=2 drained=2 second_drain=0 active_entities=1";
